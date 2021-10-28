@@ -209,12 +209,19 @@ void Print(const std::vector<DiffDetail>& details, const Outcomes& outcomes,
   }
 }
 
+// Print the subtree of a diff graph starting at a given node and stopping at
+// nodes that can themselves hold diffs, queuing such nodes for subsequent
+// printing. Optionally, avoid printing "uninteresting" nodes - those that have
+// no diff and no path to a diff that does not pass through a node that can hold
+// diffs.
 bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
                std::unordered_set<Comparison, HashComparison>& seen,
-               std::deque<Comparison>& todo, bool stop, NameCache& names,
-               std::ostream& os, size_t indent) {
+               std::deque<Comparison>& todo, bool full, bool stop,
+               NameCache& names, std::ostream& os, size_t indent) {
   const auto* node1 = comparison.first;
   const auto* node2 = comparison.second;
+  // Nodes that represent additions or removal are always interesting and no
+  // recursion is possible.
   if (!node2) {
     os << node1->GetKindDescription() << " '" << node1->GetDescription(names)
        << "' was removed\n";
@@ -228,37 +235,66 @@ bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
 
   const auto description1 = node1->GetResolvedDescription(names);
   const auto description2 = node2->GetResolvedDescription(names);
-  os << node1->GetKindDescription() << ' ';
+  // Generate a node description, but don't print it just yet, in case we are
+  // omitting uninteresting nodes.
+  std::ostringstream node_os;
+  node_os << node1->GetKindDescription() << ' ';
   if (description1 == description2)
-    os << description1 << " changed";
+    node_os << description1 << " changed";
   else
-    os << "changed from " << description1 << " to " << description2;
-  os << '\n';
+    node_os << "changed from " << description1 << " to " << description2;
+  node_os << '\n';
 
+  // Look up the diff (including node and edge changes).
   const auto it = outcomes.find(comparison);
   assert(it != outcomes.end());
   const auto& diff = it->second;
+
+  // Check the stopping condition.
   if (diff.holds_changes && stop) {
+    // If it's a new diff-holding node, queue it.
     if (seen.insert(comparison).second)
       todo.push_back(comparison);
-    return false;
+    // Record the (stub, uninteresting) diff node description.
+    os << node_os.str();
+    return full;
   }
+  // The stop flag can only be false on a non-recursive call which should be for
+  // a diff-holding node.
   if (!diff.holds_changes && !stop)
     abort();
 
+  // Indent before describing diff details.
   indent += INDENT_INCREMENT;
-  bool interesting = diff.has_changes;
+  bool interesting = diff.has_changes || full;
   for (const auto& detail : diff.details) {
-    os << std::string(indent, ' ') << detail.text_;
     if (!detail.edge_) {
-      os << '\n';
+      node_os << std::string(indent, ' ') << detail.text_ << '\n';
+      // Node changes are always interesting.
+      //
+      // This is actually subsumed in practice by has_changes above. Conversely,
+      // the has_changes flag is not entirely redundant as there are some diff
+      // nodes (changes of kind) with no details at all.
+      interesting = true;
     } else {
+      // Edge changes are interesting if the target diff node is.
+      std::ostringstream tree_os;
+      tree_os << std::string(indent, ' ') << detail.text_;
       if (!detail.text_.empty())
-        os << ' ';
-      interesting |= FlatPrint(
-          *detail.edge_, outcomes, seen, todo, true, names, os, indent);
+        tree_os << ' ';
+      // Set the stop flag to prevent recursion past diff-holding nodes.
+      if (FlatPrint(*detail.edge_, outcomes, seen, todo, full, true, names,
+                    tree_os, indent)) {
+        // If the sub-tree was interesting, add it.
+        node_os << tree_os.str();
+        interesting = true;
+      }
     }
   }
+
+  // If the tree was interesting, print it.
+  if (interesting)
+    os << node_os.str();
   return interesting;
 }
 

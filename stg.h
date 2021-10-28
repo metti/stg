@@ -208,8 +208,8 @@ void Print(const std::vector<DiffDetail>& details, const Outcomes& outcomes,
 
 bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
                std::unordered_set<Comparison, HashComparison>& seen,
-               std::deque<Comparison>& todo, bool stop, NameCache& names,
-               std::ostream& os, size_t indent = 0);
+               std::deque<Comparison>& todo, bool full, bool stop,
+               NameCache& names, std::ostream& os, size_t indent = 0);
 
 void VizPrint(const Comparison& comparison, const Outcomes& outcomes,
               std::unordered_set<Comparison, HashComparison>& seen,
