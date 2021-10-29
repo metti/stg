@@ -619,6 +619,12 @@ void Abigail::BuildSymbols() {
       }
     }
   }
+  for (auto& [alias, main] : alias_to_main) {
+    if (alias_to_main.count(main)) {
+      std::cerr << "found main symbol and alias with id " << main << '\n';
+      exit(1);
+    }
+  }
   // Tie aliases to their main symbol.
   for (const auto& [alias, main] : alias_to_main) {
     const auto it = id_to_symbol.find(alias);
