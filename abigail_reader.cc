@@ -17,7 +17,7 @@
 //
 // Author: Giuliano Procida
 
-#include "abigail-reader.h"
+#include "abigail_reader.h"
 
 #include <fcntl.h>
 #include <unistd.h>

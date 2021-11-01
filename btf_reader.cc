@@ -18,7 +18,7 @@
 // Author: Maria Teguiani
 // Author: Giuliano Procida
 
-#include "btf-reader.h"
+#include "btf_reader.h"
 
 #include <algorithm>
 #include <array>

@@ -35,8 +35,8 @@
 #include <utility>
 #include <vector>
 
-#include "abigail-reader.h"
-#include "btf-reader.h"
+#include "abigail_reader.h"
+#include "btf_reader.h"
 
 namespace {
 

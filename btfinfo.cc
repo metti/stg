@@ -19,7 +19,7 @@
 
 #include <iostream>
 
-#include "btf-reader.h"
+#include "btf_reader.h"
 
 int main(int argc, const char* argv[]) {
   if (argc != 2) {

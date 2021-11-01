@@ -18,36 +18,22 @@
 // Author: Matthias Maennich
 
 #include <stdexcept>
-#include <string>
 
-#include <libxml/parser.h>
-#include <libxml/tree.h>
-#include "abigail-reader.h"
-
-static void DoNothing(void*, const char*, ...) {}
+#include <libabigail/src/abg-symtab-reader.h>  // for symtab_reader
+#include "btf_reader.h"
 
 extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
-  xmlParserCtxtPtr ctxt = xmlNewParserCtxt();
-  // Suppress libxml error messages.
-  xmlSetGenericErrorFunc(ctxt, (xmlGenericErrorFunc) DoNothing);
-  xmlDocPtr doc = xmlCtxtReadMemory(ctxt, data, size, nullptr, nullptr,
-                                    XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
-  xmlFreeParserCtxt(ctxt);
+  auto env = std::make_unique<abigail::ir::environment>();
 
-  // Bail out if the doc XML is invalid.
-  if (!doc)
-    return 0;
+  // Just an empty symtab to satisfy the Structs constructor. The BTF will still
+  // be read, just BuildSymbols will exit quickly upon an empty symtab.
+  auto symmap = std::make_shared<abigail::ir::string_elf_symbols_map_type>();
+  auto symtab = abigail::symtab_reader::symtab::load(symmap, symmap);
 
-  xmlNodePtr root = xmlDocGetRootElement(doc);
-  if (root) {
-    try {
-      stg::abixml::Abigail _(root);
-    } catch (const stg::abixml::AbigailReaderException&) {
-      // Pass as this is us catching invalid XML properly.
-    }
+  try {
+    stg::btf::Structs(data, std::move(env), std::move(symtab));
+  } catch (const stg::btf::BtfReaderException&) {
+    // Pass as this is us catching invalid BTF properly.
   }
-
-  xmlFreeDoc(doc);
-
   return 0;
 }
