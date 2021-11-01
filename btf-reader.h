@@ -85,6 +85,10 @@ class Structs : public Graph {
 std::unique_ptr<Structs> ReadFile(
     const std::string& path, bool verbose = false);
 
+#ifdef FOR_FUZZING
+class BtfReaderException : std::exception {};
+#endif
+
 }  // end namespace btf
 }  // end namespace stg
 

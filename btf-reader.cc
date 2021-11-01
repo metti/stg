@@ -32,7 +32,12 @@
 #include <libabigail/src/abg-elf-helpers.h>  // for find_section
 #include <libabigail/src/abg-symtab-reader.h>  // for symtab_reader
 
+#ifdef FOR_FUZZING
+#define m_assert(expr, msg) \
+  if (!static_cast<bool>(expr)) throw BtfReaderException()
+#else
 #define m_assert(expr, msg) assert(((void)(msg), (expr)))
+#endif
 
 namespace stg {
 namespace btf {
