@@ -28,6 +28,7 @@
 #include <string_view>
 #include <typeinfo>
 
+#include "crc.h"
 #include "order.h"
 
 namespace stg {
@@ -919,7 +920,7 @@ Result ElfSymbol::Equals(const Type& other, State& state) const {
   result.MaybeAddNodeDiff(
       "visibility", s1.get_visibility(), s2.get_visibility());
 
-  result.MaybeAddNodeDiff("crc", s1.get_crc(), s2.get_crc());
+  result.MaybeAddNodeDiff("CRC", CRC{s1.get_crc()}, CRC{s2.get_crc()});
 
   if (type_id_ && o.type_id_) {
     const auto type_diff =

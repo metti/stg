@@ -32,6 +32,7 @@
 #include <type_traits>
 
 #include <libxml/parser.h>
+#include "crc.h"
 
 namespace stg {
 namespace abixml {
@@ -104,10 +105,6 @@ std::optional<bool> Parse<bool>(const std::string& value) {
     return {false};
   return {};
 }
-
-struct CRC {
-  uint64_t number;
-};
 
 template <>
 std::optional<CRC> Parse<CRC>(const std::string& value) {
