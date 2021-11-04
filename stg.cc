@@ -709,8 +709,13 @@ Result StructUnion::Equals(const Type& other, State& state) const {
   const auto& o = other.as<StructUnion>();
 
   Result result;
-  result.diff_.holds_changes = !GetName().empty() && !o.GetName().empty();
-  result.MaybeAddNodeDiff("kind", GetStructUnionKind(), o.GetStructUnionKind());
+  const auto kind1 = GetStructUnionKind();
+  const auto kind2 = o.GetStructUnionKind();
+  const auto& name1 = GetName();
+  const auto& name2 = o.GetName();
+  result.diff_.holds_changes =
+      kind1 == kind2 && !name1.empty() && name1 == name2;
+  result.MaybeAddNodeDiff("kind", kind1, kind2);
   result.MaybeAddNodeDiff("byte size", GetByteSize(), o.GetByteSize());
 
   const auto& members1 = GetMembers();
@@ -744,7 +749,9 @@ Result Enumeration::Equals(const Type& other, State& state) const {
   const auto& o = other.as<Enumeration>();
 
   Result result;
-  result.diff_.holds_changes = !GetName().empty() && !o.GetName().empty();
+  const auto& name1 = GetName();
+  const auto& name2 = o.GetName();
+  result.diff_.holds_changes = !name1.empty() && name1 == name2;
   result.MaybeAddNodeDiff("byte size", GetByteSize(), o.GetByteSize());
 
   const auto enums1 = GetEnums();
