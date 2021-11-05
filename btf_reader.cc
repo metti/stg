@@ -62,17 +62,22 @@ std::string_view FunctionLinkage(size_t ix) {
   return ix < kFunLinkage.size() ? kFunLinkage[ix] : "(unknown)";
 }
 
-Structs::Structs(const char* start,
+Structs::Structs(const char* start, size_t size,
                  std::unique_ptr<abigail::ir::environment> env,
                  const abigail::symtab_reader::symtab_sptr tab,
                  const bool verbose)
     : env_(std::move(env)), tab_(tab), verbose_(verbose) {
+  m_assert(sizeof(btf_header) <= size, "BTF section too small for header");
   header_ = reinterpret_cast<const btf_header*>(start);
   m_assert(header_->magic == 0xEB9F, "Magic field must be 0xEB9F for BTF");
 
   type_section_ = reinterpret_cast<const btf_type*>(start + header_->hdr_len +
                                                     header_->type_off);
   str_section_ = start + header_->hdr_len + header_->str_off;
+  m_assert(header_->hdr_len + header_->str_off + header_->str_len <= size,
+           "Strings extend beyond end of BTF section");
+  m_assert(header_->hdr_len + header_->type_off + header_->type_len <= size,
+           "BTF type data extend beyond end of BTF section");
 
   if (verbose_) {
     PrintHeader();
@@ -538,12 +543,13 @@ std::unique_ptr<Structs> ReadFile(const std::string& path, bool verbose) {
   Elf_Data* elf_data = elf_rawdata(btf_section, 0);
   m_assert(elf_data != nullptr, "The BTF section is invalid");
   const char* btf_start = static_cast<char*>(elf_data->d_buf);
+  const size_t btf_size = elf_data->d_size;
 
   auto env = std::make_unique<abigail::ir::environment>();
   auto tab = symtab::load(elf, env.get());
 
   return std::make_unique<Structs>(
-      btf_start, std::move(env), std::move(tab), verbose);
+      btf_start, btf_size, std::move(env), std::move(tab), verbose);
 }
 
 }  // end namespace btf

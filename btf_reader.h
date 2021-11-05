@@ -41,7 +41,8 @@ namespace btf {
 // BTF Specification: https://www.kernel.org/doc/html/latest/bpf/btf.html
 class Structs : public Graph {
  public:
-  Structs(const char* start, std::unique_ptr<abigail::ir::environment> env,
+  Structs(const char* start, size_t size,
+          std::unique_ptr<abigail::ir::environment> env,
           const abigail::symtab_reader::symtab_sptr tab,
           const bool verbose = false);
   const Type& GetSymbols() const { return *types_[symbols_index_].get(); }
