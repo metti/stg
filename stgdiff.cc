@@ -95,15 +95,18 @@ void ReportFlat(bool full, const stg::Comparison& comparison,
   std::deque<stg::Comparison> todo;
   for (const auto& detail : diff.details) {
     std::ostringstream os;
-    if (stg::FlatPrint(*detail.edge_, outcomes, seen, todo, full, true, names,
-                       os))
+    const bool interesting = stg::FlatPrint(
+        *detail.edge_, outcomes, seen, todo, full, true, names, os);
+    if (interesting || full)
       output << os.str() << '\n';
   }
   while (!todo.empty()) {
     auto comp = todo.front();
     todo.pop_front();
     std::ostringstream os;
-    if (stg::FlatPrint(comp, outcomes, seen, todo, full, false, names, os))
+    const bool interesting =
+        stg::FlatPrint(comp, outcomes, seen, todo, full, false, names, os);
+    if (interesting || full)
       output << os.str() << '\n';
   }
 }
