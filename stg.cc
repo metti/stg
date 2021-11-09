@@ -589,7 +589,11 @@ Name Function::MakeDescription(NameCache& names) const {
 }
 
 Name ElfSymbol::MakeDescription(NameCache& names) const {
-  return Name{symbol_->get_name()};
+  const auto& name = symbol_->get_name();
+  return type_id_
+      ? GetType(*type_id_).GetDescription(names).Add(
+          Side::LEFT, Precedence::ATOMIC, name)
+      : Name{name};
 }
 
 Name Symbols::MakeDescription(NameCache& names) const {
