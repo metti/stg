@@ -48,6 +48,8 @@ class Structs : public Graph {
   const Type& GetSymbols() const { return *types_[symbols_index_].get(); }
 
  private:
+  struct MemoryRange;
+
   const btf_header* header_;
   const btf_type* type_section_;
   const char* str_section_;
@@ -72,7 +74,8 @@ class Structs : public Graph {
   void PrintHeader();
   void BuildTypes();
   void PrintStringSection();
-  int BuildOneType(const btf_type* t, uint32_t btf_index);
+  void BuildOneType(const btf_type* t, uint32_t btf_index,
+                    MemoryRange& memory);
   void BuildSymbols();
   std::vector<Id> BuildMembers(
       bool kflag, const btf_member* members, size_t vlen);
