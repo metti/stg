@@ -51,7 +51,7 @@ class Structs : public Graph {
   struct MemoryRange;
 
   const btf_header* header_;
-  const btf_type* type_section_;
+  const char* type_section_;
   const char* str_section_;
   const std::unique_ptr<abigail::ir::environment> env_;
   const abigail::symtab_reader::symtab_sptr tab_;

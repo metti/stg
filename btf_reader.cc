@@ -71,8 +71,7 @@ Structs::Structs(const char* start, size_t size,
   header_ = reinterpret_cast<const btf_header*>(start);
   m_assert(header_->magic == 0xEB9F, "Magic field must be 0xEB9F for BTF");
 
-  type_section_ = reinterpret_cast<const btf_type*>(start + header_->hdr_len +
-                                                    header_->type_off);
+  type_section_ = start + header_->hdr_len + header_->type_off;
   str_section_ = start + header_->hdr_len + header_->str_off;
   m_assert(header_->hdr_len + header_->str_off + header_->str_len <= size,
            "Strings extend beyond end of BTF section");
@@ -231,9 +230,7 @@ void Structs::BuildTypes() {
   // which is intended and create Void and Variadic types on demand.
 
   // The type section is parsed sequentially and each type's index is its id.
-  const char* current = reinterpret_cast<const char*>(type_section_);
-  const char* limit = current + header_->type_len;
-  MemoryRange memory{current, limit};
+  MemoryRange memory{type_section_, type_section_ + header_->type_len};
   uint32_t btf_index = 1;
   while (!memory.Empty()) {
     const auto* t = memory.Pull<struct btf_type>();
