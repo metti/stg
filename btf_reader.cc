@@ -18,7 +18,7 @@
 // Author: Maria Teguiani
 // Author: Giuliano Procida
 
-#include "btf-reader.h"
+#include "btf_reader.h"
 
 #include <algorithm>
 #include <array>
@@ -32,7 +32,12 @@
 #include <libabigail/src/abg-elf-helpers.h>  // for find_section
 #include <libabigail/src/abg-symtab-reader.h>  // for symtab_reader
 
+#ifdef FOR_FUZZING
+#define m_assert(expr, msg) \
+  if (!static_cast<bool>(expr)) throw BtfReaderException()
+#else
 #define m_assert(expr, msg) assert(((void)(msg), (expr)))
+#endif
 
 namespace stg {
 namespace btf {
@@ -57,17 +62,21 @@ std::string_view FunctionLinkage(size_t ix) {
   return ix < kFunLinkage.size() ? kFunLinkage[ix] : "(unknown)";
 }
 
-Structs::Structs(const char* start,
+Structs::Structs(const char* start, size_t size,
                  std::unique_ptr<abigail::ir::environment> env,
                  const abigail::symtab_reader::symtab_sptr tab,
                  const bool verbose)
     : env_(std::move(env)), tab_(tab), verbose_(verbose) {
+  m_assert(sizeof(btf_header) <= size, "BTF section too small for header");
   header_ = reinterpret_cast<const btf_header*>(start);
   m_assert(header_->magic == 0xEB9F, "Magic field must be 0xEB9F for BTF");
 
-  type_section_ = reinterpret_cast<const btf_type*>(start + header_->hdr_len +
-                                                    header_->type_off);
+  type_section_ = start + header_->hdr_len + header_->type_off;
   str_section_ = start + header_->hdr_len + header_->str_off;
+  m_assert(header_->hdr_len + header_->str_off + header_->str_len <= size,
+           "Strings extend beyond end of BTF section");
+  m_assert(header_->hdr_len + header_->type_off + header_->type_len <= size,
+           "BTF type data extend beyond end of BTF section");
 
   if (verbose_) {
     PrintHeader();
@@ -193,6 +202,19 @@ std::vector<Parameter> Structs::BuildParams(const struct btf_param* params,
   return result;
 }
 
+struct Structs::MemoryRange {
+  const char* position;
+  const char* const limit;
+  bool Empty() const { return position == limit; }
+  template <typename T>
+  const T* Pull(size_t count = 1) {
+    const char* saved = position;
+    position += sizeof(T) * count;
+    m_assert(position <= limit, "type data extends past end of type section");
+    return reinterpret_cast<const T*>(saved);
+  }
+};
+
 void Structs::BuildTypes() {
   m_assert(!(header_->type_off & (sizeof(uint32_t) - 1)), "Unaligned type_off");
   if (header_->type_len == 0) {
@@ -208,14 +230,11 @@ void Structs::BuildTypes() {
   // which is intended and create Void and Variadic types on demand.
 
   // The type section is parsed sequentially and each type's index is its id.
-  const char* curr = reinterpret_cast<const char*>(type_section_);
-  const char* end = curr + header_->type_len;
+  MemoryRange memory{type_section_, type_section_ + header_->type_len};
   uint32_t btf_index = 1;
-  while (curr < end) {
-    const btf_type* t = reinterpret_cast<const btf_type*>(curr);
-    int type_size = BuildOneType(t, btf_index);
-    m_assert(type_size > 0, "Could not identify BTF type");
-    curr += type_size;
+  while (!memory.Empty()) {
+    const auto* t = memory.Pull<struct btf_type>();
+    BuildOneType(t, btf_index, memory);
     ++btf_index;
   }
 
@@ -227,13 +246,11 @@ void Structs::BuildTypes() {
   }
 }
 
-int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
+void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
+                           MemoryRange& memory) {
   const auto kind = BTF_INFO_KIND(t->info);
   const auto vlen = BTF_INFO_VLEN(t->info);
-  // Data following the btf_type struct.
-  const void* data = reinterpret_cast<const void*>(t + 1);
   m_assert(kind >= 0 && kind < NR_BTF_KINDS, "Unknown BTF kind");
-  int type_size = sizeof(struct btf_type);
 
   if (verbose_)
     std::cout << '[' << btf_index << "] ";
@@ -243,7 +260,7 @@ int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
 
   switch (kind) {
     case BTF_KIND_INT: {
-      const auto info = *reinterpret_cast<const uint32_t*>(data);
+      const auto info = *memory.Pull<uint32_t>();
       const auto name = GetName(t->name_off);
       const auto raw_encoding = BTF_INT_ENCODING(info);
       const auto offset = BTF_INT_OFFSET(info);
@@ -271,7 +288,6 @@ int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
       if (offset)
         std::cerr << "ignoring BTF INT non-zero offset " << offset << '\n';
       node() = std::make_unique<Integer>(types_, name, encoding, bits, t->size);
-      type_size += sizeof(uint32_t);
       break;
     }
     case BTF_KIND_PTR: {
@@ -307,7 +323,7 @@ int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
       break;
     }
     case BTF_KIND_ARRAY: {
-      const auto* array = reinterpret_cast<const struct btf_array*>(data);
+      const auto* array = memory.Pull<struct btf_array>();
       if (verbose_) {
         std::cout << "ARRAY '" << ANON << "'"
                   << " type_id=" << array->type
@@ -317,7 +333,6 @@ int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
       }
       node() =
           std::make_unique<Array>(types_, GetId(array->type), array->nelems);
-      type_size += sizeof(struct btf_array);
       break;
     }
     case BTF_KIND_STRUCT:
@@ -333,11 +348,10 @@ int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
                   << " size=" << t->size
                   << " vlen=" << vlen << '\n';
       }
-      const auto* btf_members = reinterpret_cast<const btf_member*>(data);
+      const auto* btf_members = memory.Pull<struct btf_member>(vlen);
       const auto members = BuildMembers(kflag, btf_members, vlen);
       node() = std::make_unique<StructUnion>(types_, name, structUnionKind,
                                              t->size, members);
-      type_size += vlen * sizeof(struct btf_member);
       break;
     }
     case BTF_KIND_ENUM: {
@@ -348,7 +362,7 @@ int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
                   << " vlen=" << vlen
                   << '\n';
       }
-      const auto* enums = reinterpret_cast<const struct btf_enum*>(data);
+      const auto* enums = memory.Pull<struct btf_enum>(vlen);
       const auto enumerators = BuildEnums(enums, vlen);
       // BTF only considers structs and unions as forward-declared types, and
       // does not include forward-declared enums. They are treated as
@@ -361,7 +375,6 @@ int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
         node() = std::make_unique<ForwardDeclaration>(
             types_, name, ForwardDeclarationKind::ENUM);
       }
-      type_size += vlen * sizeof(struct btf_enum);
       break;
     }
     case BTF_KIND_FWD: {
@@ -391,7 +404,7 @@ int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
       break;
     }
     case BTF_KIND_FUNC_PROTO: {
-      const auto* params = reinterpret_cast<const btf_param*>(data);
+      const auto* params = memory.Pull<struct btf_param>(vlen);
       if (verbose_) {
         std::cout << "FUNC_PROTO '" << ANON << "'"
                   << " ret_type_id=" << t->type
@@ -400,12 +413,11 @@ int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
       }
       const auto parameters = BuildParams(params, vlen);
       node() = std::make_unique<Function>(types_, GetId(t->type), parameters);
-      type_size += vlen * sizeof(struct btf_param);
       break;
     }
     case BTF_KIND_VAR: {
       // NOTE: not yet encountered in the wild
-      const auto* variable = reinterpret_cast<const struct btf_var*>(data);
+      const auto* variable = memory.Pull<struct btf_var>();
       const auto name = GetName(t->name_off);
       const auto linkage = VariableLinkage(variable->linkage);
       if (verbose_) {
@@ -418,8 +430,6 @@ int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
       bool inserted = btf_symbol_types_.insert({name, GetId(t->type)}).second;
       m_assert(inserted, "Insertion failed, duplicate found in symbol map");
       (void)inserted;
-
-      type_size += sizeof(struct btf_var);
       break;
     }
     case BTF_KIND_DATASEC: {
@@ -428,11 +438,14 @@ int Structs::BuildOneType(const btf_type* t, uint32_t btf_index) {
       }
       // Just skip BTF DATASEC entries. They partially duplicate ELF symbol
       // table information, if they exist at all.
-      type_size += vlen * sizeof(struct btf_var_secinfo);
+      memory.Pull<struct btf_var_secinfo>(vlen);
+      break;
+    }
+    default: {
+      m_assert(false, "Unknown BTF kind");
       break;
     }
   }
-  return type_size;
 }
 
 std::string Structs::GetName(uint32_t name_off) {
@@ -533,12 +546,13 @@ std::unique_ptr<Structs> ReadFile(const std::string& path, bool verbose) {
   Elf_Data* elf_data = elf_rawdata(btf_section, 0);
   m_assert(elf_data != nullptr, "The BTF section is invalid");
   const char* btf_start = static_cast<char*>(elf_data->d_buf);
+  const size_t btf_size = elf_data->d_size;
 
   auto env = std::make_unique<abigail::ir::environment>();
   auto tab = symtab::load(elf, env.get());
 
   return std::make_unique<Structs>(
-      btf_start, std::move(env), std::move(tab), verbose);
+      btf_start, btf_size, std::move(env), std::move(tab), verbose);
 }
 
 }  // end namespace btf

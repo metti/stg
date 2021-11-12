@@ -28,6 +28,7 @@
 #include <string_view>
 #include <typeinfo>
 
+#include "crc.h"
 #include "order.h"
 
 namespace stg {
@@ -209,12 +210,19 @@ void Print(const std::vector<DiffDetail>& details, const Outcomes& outcomes,
   }
 }
 
+// Print the subtree of a diff graph starting at a given node and stopping at
+// nodes that can themselves hold diffs, queuing such nodes for subsequent
+// printing. Optionally, avoid printing "uninteresting" nodes - those that have
+// no diff and no path to a diff that does not pass through a node that can hold
+// diffs. Return whether the diff node's tree was intrinisically interesting.
 bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
                std::unordered_set<Comparison, HashComparison>& seen,
-               std::deque<Comparison>& todo, bool stop, NameCache& names,
-               std::ostream& os, size_t indent) {
+               std::deque<Comparison>& todo, bool full, bool stop,
+               NameCache& names, std::ostream& os, size_t indent) {
   const auto* node1 = comparison.first;
   const auto* node2 = comparison.second;
+  // Nodes that represent additions or removal are always interesting and no
+  // recursion is possible.
   if (!node2) {
     os << node1->GetKindDescription() << " '" << node1->GetDescription(names)
        << "' was removed\n";
@@ -228,6 +236,7 @@ bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
 
   const auto description1 = node1->GetResolvedDescription(names);
   const auto description2 = node2->GetResolvedDescription(names);
+  // Generate a node description.
   os << node1->GetKindDescription() << ' ';
   if (description1 == description2)
     os << description1 << " changed";
@@ -235,28 +244,44 @@ bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
     os << "changed from " << description1 << " to " << description2;
   os << '\n';
 
+  // Look up the diff (including node and edge changes).
   const auto it = outcomes.find(comparison);
   assert(it != outcomes.end());
   const auto& diff = it->second;
+
+  // Check the stopping condition.
   if (diff.holds_changes && stop) {
+    // If it's a new diff-holding node, queue it.
     if (seen.insert(comparison).second)
       todo.push_back(comparison);
     return false;
   }
+  // The stop flag can only be false on a non-recursive call which should be for
+  // a diff-holding node.
   if (!diff.holds_changes && !stop)
     abort();
 
+  // Indent before describing diff details.
   indent += INDENT_INCREMENT;
   bool interesting = diff.has_changes;
   for (const auto& detail : diff.details) {
-    os << std::string(indent, ' ') << detail.text_;
     if (!detail.edge_) {
-      os << '\n';
+      os << std::string(indent, ' ') << detail.text_ << '\n';
+      // Node changes may not be interesting, if we allow non-change diff
+      // details at some point. Just trust the has_changes flag.
     } else {
+      // Edge changes are interesting if the target diff node is.
+      std::ostringstream sub_os;
+      sub_os << std::string(indent, ' ') << detail.text_;
       if (!detail.text_.empty())
-        os << ' ';
-      interesting |= FlatPrint(
-          *detail.edge_, outcomes, seen, todo, true, names, os, indent);
+        sub_os << ' ';
+      // Set the stop flag to prevent recursion past diff-holding nodes.
+      bool sub_interesting = FlatPrint(*detail.edge_, outcomes, seen, todo,
+                                       full, true, names, sub_os, indent);
+      // If the sub-tree was interesting, add it.
+      if (sub_interesting || full)
+        os << sub_os.str();
+      interesting |= sub_interesting;
     }
   }
   return interesting;
@@ -564,7 +589,11 @@ Name Function::MakeDescription(NameCache& names) const {
 }
 
 Name ElfSymbol::MakeDescription(NameCache& names) const {
-  return Name{symbol_->get_name()};
+  const auto& name = symbol_->get_name();
+  return type_id_
+      ? GetType(*type_id_).GetDescription(names).Add(
+          Side::LEFT, Precedence::ATOMIC, name)
+      : Name{name};
 }
 
 Name Symbols::MakeDescription(NameCache& names) const {
@@ -672,8 +701,13 @@ Result StructUnion::Equals(const Type& other, State& state) const {
   const auto& o = other.as<StructUnion>();
 
   Result result;
-  result.diff_.holds_changes = !GetName().empty() && !o.GetName().empty();
-  result.MaybeAddNodeDiff("kind", GetStructUnionKind(), o.GetStructUnionKind());
+  const auto kind1 = GetStructUnionKind();
+  const auto kind2 = o.GetStructUnionKind();
+  const auto& name1 = GetName();
+  const auto& name2 = o.GetName();
+  result.diff_.holds_changes =
+      kind1 == kind2 && !name1.empty() && name1 == name2;
+  result.MaybeAddNodeDiff("kind", kind1, kind2);
   result.MaybeAddNodeDiff("byte size", GetByteSize(), o.GetByteSize());
 
   const auto& members1 = GetMembers();
@@ -707,7 +741,9 @@ Result Enumeration::Equals(const Type& other, State& state) const {
   const auto& o = other.as<Enumeration>();
 
   Result result;
-  result.diff_.holds_changes = !GetName().empty() && !o.GetName().empty();
+  const auto& name1 = GetName();
+  const auto& name2 = o.GetName();
+  result.diff_.holds_changes = !name1.empty() && name1 == name2;
   result.MaybeAddNodeDiff("byte size", GetByteSize(), o.GetByteSize());
 
   const auto enums1 = GetEnums();
@@ -883,7 +919,7 @@ Result ElfSymbol::Equals(const Type& other, State& state) const {
   result.MaybeAddNodeDiff(
       "visibility", s1.get_visibility(), s2.get_visibility());
 
-  result.MaybeAddNodeDiff("crc", s1.get_crc(), s2.get_crc());
+  result.MaybeAddNodeDiff("CRC", CRC{s1.get_crc()}, CRC{s2.get_crc()});
 
   if (type_id_ && o.type_id_) {
     const auto type_diff =

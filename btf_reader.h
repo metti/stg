@@ -41,14 +41,17 @@ namespace btf {
 // BTF Specification: https://www.kernel.org/doc/html/latest/bpf/btf.html
 class Structs : public Graph {
  public:
-  Structs(const char* start, std::unique_ptr<abigail::ir::environment> env,
+  Structs(const char* start, size_t size,
+          std::unique_ptr<abigail::ir::environment> env,
           const abigail::symtab_reader::symtab_sptr tab,
           const bool verbose = false);
   const Type& GetSymbols() const { return *types_[symbols_index_].get(); }
 
  private:
+  struct MemoryRange;
+
   const btf_header* header_;
-  const btf_type* type_section_;
+  const char* type_section_;
   const char* str_section_;
   const std::unique_ptr<abigail::ir::environment> env_;
   const abigail::symtab_reader::symtab_sptr tab_;
@@ -71,7 +74,8 @@ class Structs : public Graph {
   void PrintHeader();
   void BuildTypes();
   void PrintStringSection();
-  int BuildOneType(const btf_type* t, uint32_t btf_index);
+  void BuildOneType(const btf_type* t, uint32_t btf_index,
+                    MemoryRange& memory);
   void BuildSymbols();
   std::vector<Id> BuildMembers(
       bool kflag, const btf_member* members, size_t vlen);
@@ -84,6 +88,10 @@ class Structs : public Graph {
 
 std::unique_ptr<Structs> ReadFile(
     const std::string& path, bool verbose = false);
+
+#ifdef FOR_FUZZING
+class BtfReaderException : std::exception {};
+#endif
 
 }  // end namespace btf
 }  // end namespace stg
