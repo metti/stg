@@ -62,28 +62,54 @@ std::string_view FunctionLinkage(size_t ix) {
   return ix < kFunLinkage.size() ? kFunLinkage[ix] : "(unknown)";
 }
 
+bool Structs::MemoryRange::Empty() const {
+  return start == limit;
+}
+
+template <typename T>
+const T* Structs::MemoryRange::Pull(size_t count) {
+  const char* saved = start;
+  start += sizeof(T) * count;
+  m_assert(start <= limit, "type data extends past end of type section");
+  return reinterpret_cast<const T*>(saved);
+}
+
 Structs::Structs(const char* start, size_t size,
                  std::unique_ptr<abigail::ir::environment> env,
                  const abigail::symtab_reader::symtab_sptr tab,
                  const bool verbose)
     : env_(std::move(env)), tab_(tab), verbose_(verbose) {
   m_assert(sizeof(btf_header) <= size, "BTF section too small for header");
-  header_ = reinterpret_cast<const btf_header*>(start);
-  m_assert(header_->magic == 0xEB9F, "Magic field must be 0xEB9F for BTF");
-
-  type_section_ = start + header_->hdr_len + header_->type_off;
-  str_section_ = start + header_->hdr_len + header_->str_off;
-  m_assert(header_->hdr_len + header_->str_off + header_->str_len <= size,
-           "Strings extend beyond end of BTF section");
-  m_assert(header_->hdr_len + header_->type_off + header_->type_len <= size,
-           "BTF type data extend beyond end of BTF section");
-
+  const btf_header* header = reinterpret_cast<const btf_header*>(start);
   if (verbose_) {
-    PrintHeader();
+    PrintHeader(header);
   }
-  BuildTypes();
+  m_assert(header->magic == 0xEB9F, "Magic field must be 0xEB9F for BTF");
+
+  const char* header_limit = start + header->hdr_len;
+  const char* type_start = header_limit + header->type_off;
+  const char* type_limit = type_start + header->type_len;
+
+  const char* string_start = header_limit + header->str_off;
+  const char* string_limit = string_start + header->str_len;
+
+  m_assert(start + sizeof(btf_header) <= header_limit,
+           "header length too short");
+  m_assert(header_limit <= type_start, "type section overlaps header");
+  m_assert(type_start <= type_limit, "type section ill-formed");
+  m_assert(!(header->type_off & (sizeof(uint32_t) - 1)),
+           "misaligned type section");
+  m_assert(type_limit <= string_start,
+           "string section does not follow type section");
+  m_assert(string_start <= string_limit, "string section ill-formed");
+  m_assert(string_limit <= start + size,
+           "string section extends beyond end of BTF data");
+
+  const MemoryRange type_section{type_start, type_limit};
+  string_section_ = MemoryRange{string_start, string_limit};
+  BuildTypes(type_section);
   if (verbose_) {
-    PrintStringSection();
+    PrintStrings(string_section_);
   }
 }
 
@@ -129,16 +155,16 @@ Id Structs::GetParameterId(uint32_t btf_index) {
 // The verbose output format closely follows bpftool dump format raw.
 static constexpr std::string_view ANON{"(anon)"};
 
-void Structs::PrintHeader() {
+void Structs::PrintHeader(const btf_header* header) const {
   std::cout << "BTF header:\n"
-            << "\tmagic " << header_->magic
-            << ", version " << static_cast<int>(header_->version)
-            << ", flags " << static_cast<int>(header_->flags)
-            << ", hdr_len " << header_->hdr_len << "\n"
-            << "\ttype_off " << header_->type_off
-            << ", type_len " << header_->type_len << "\n"
-            << "\tstr_off " << header_->str_off
-            << ", str_len " << header_->str_len << "\n";
+            << "\tmagic " << header->magic
+            << ", version " << static_cast<int>(header->version)
+            << ", flags " << static_cast<int>(header->flags)
+            << ", hdr_len " << header->hdr_len << "\n"
+            << "\ttype_off " << header->type_off
+            << ", type_len " << header->type_len << "\n"
+            << "\tstr_off " << header->str_off
+            << ", str_len " << header->str_len << "\n";
 }
 
 // vlen: vector length, the number of struct/union members
@@ -202,25 +228,7 @@ std::vector<Parameter> Structs::BuildParams(const struct btf_param* params,
   return result;
 }
 
-struct Structs::MemoryRange {
-  const char* position;
-  const char* const limit;
-  bool Empty() const { return position == limit; }
-  template <typename T>
-  const T* Pull(size_t count = 1) {
-    const char* saved = position;
-    position += sizeof(T) * count;
-    m_assert(position <= limit, "type data extends past end of type section");
-    return reinterpret_cast<const T*>(saved);
-  }
-};
-
-void Structs::BuildTypes() {
-  m_assert(!(header_->type_off & (sizeof(uint32_t) - 1)), "Unaligned type_off");
-  if (header_->type_len == 0) {
-    std::cerr << "No types found";
-    return;
-  }
+void Structs::BuildTypes(MemoryRange memory) {
   if (verbose_) {
     std::cout << "Type section:\n";
   }
@@ -230,7 +238,6 @@ void Structs::BuildTypes() {
   // which is intended and create Void and Variadic types on demand.
 
   // The type section is parsed sequentially and each type's index is its id.
-  MemoryRange memory{type_section_, type_section_ + header_->type_len};
   uint32_t btf_index = 1;
   while (!memory.Empty()) {
     const auto* t = memory.Pull<struct btf_type>();
@@ -449,25 +456,21 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
 }
 
 std::string Structs::GetName(uint32_t name_off) {
-  m_assert(name_off < header_->str_len,
-           "The name offset exceeds the section length");
-  const char* section_end = str_section_ + header_->str_len;
-  const char* name_begin = str_section_ + name_off;
-  const char* name_end = std::find(name_begin, section_end, '\0');
-  m_assert(name_end < section_end,
-           "The name continues past the string section limit");
+  const char* name_begin = string_section_.start + name_off;
+  const char* const limit = string_section_.limit;
+  m_assert(name_begin < limit, "name offset exceeds string section length");
+  const char* name_end = std::find(name_begin, limit, '\0');
+  m_assert(name_end < limit, "name continues past the string section limit");
   return {name_begin, static_cast<size_t>(name_end - name_begin)};
 }
 
-void Structs::PrintStringSection() {
+void Structs::PrintStrings(MemoryRange memory) {
   std::cout << "String section:\n";
-  const char* curr = str_section_;
-  const char* limit = str_section_ + header_->str_len;
-  while (curr < limit) {
-    const char* pos = std::find(curr, limit, '\0');
-    m_assert(pos < limit, "Error reading the string section");
-    std::cout << ' ' << curr;
-    curr = pos + 1;
+  while (!memory.Empty()) {
+    const char* position = std::find(memory.start, memory.limit, '\0');
+    m_assert(position < memory.limit, "Error reading the string section");
+    const size_t size = position - memory.start;
+    std::cout << ' ' << std::string_view{memory.Pull<char>(size + 1), size};
   }
   std::cout << '\n';
 }

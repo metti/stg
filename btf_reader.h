@@ -48,11 +48,14 @@ class Structs : public Graph {
   const Type& GetSymbols() const { return *types_[symbols_index_].get(); }
 
  private:
-  struct MemoryRange;
+  struct MemoryRange {
+    const char* start;
+    const char* limit;
+    bool Empty() const;
+    template <typename T> const T* Pull(size_t count = 1);
+  };
 
-  const btf_header* header_;
-  const char* type_section_;
-  const char* str_section_;
+  MemoryRange string_section_;
   const std::unique_ptr<abigail::ir::environment> env_;
   const abigail::symtab_reader::symtab_sptr tab_;
   const bool verbose_;
@@ -71,9 +74,8 @@ class Structs : public Graph {
   Id GetId(uint32_t btf_index);
   Id GetParameterId(uint32_t btf_index);
 
-  void PrintHeader();
-  void BuildTypes();
-  void PrintStringSection();
+  void PrintHeader(const btf_header* header) const;
+  void BuildTypes(MemoryRange memory);
   void BuildOneType(const btf_type* t, uint32_t btf_index,
                     MemoryRange& memory);
   void BuildSymbols();
@@ -84,6 +86,8 @@ class Structs : public Graph {
   std::vector<Parameter> BuildParams(const struct btf_param* params,
                                      size_t vlen);
   std::string GetName(uint32_t name_off);
+
+  static void PrintStrings(MemoryRange memory);
 };
 
 std::unique_ptr<Structs> ReadFile(
