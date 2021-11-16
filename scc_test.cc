@@ -30,7 +30,7 @@
 #include <vector>
 
 #include "scc.h"
-#include <libabigail/tests/lib/catch.hpp>
+#include <catch/catch.hpp>
 
 namespace Test {
 
