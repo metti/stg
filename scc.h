@@ -17,8 +17,8 @@
 //
 // Author: Giuliano Procida
 
-#ifndef SCC_H_
-#define SCC_H_
+#ifndef STG_SCC_H_
+#define STG_SCC_H_
 
 #include <cassert>
 #include <cstddef>
@@ -124,4 +124,4 @@ class SCC {
 
 }  // namespace stg
 
-#endif  // SCC_H_
+#endif  // STG_SCC_H_

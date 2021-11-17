@@ -18,8 +18,8 @@
 // Author: Maria Teguiani
 // Author: Giuliano Procida
 
-#ifndef BTF_READER_H_
-#define BTF_READER_H_
+#ifndef STG_BTF_READER_H_
+#define STG_BTF_READER_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -100,4 +100,4 @@ class BtfReaderException : std::exception {};
 }  // namespace btf
 }  // namespace stg
 
-#endif  // BTF_READER_H_
+#endif  // STG_BTF_READER_H_

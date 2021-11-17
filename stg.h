@@ -18,8 +18,8 @@
 // Author: Maria Teguiani
 // Author: Giuliano Procida
 
-#ifndef STG_H_
-#define STG_H_
+#ifndef STG_STG_H_
+#define STG_STG_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -528,4 +528,4 @@ struct Graph {
 
 }  // namespace stg
 
-#endif  // STG_H_
+#endif  // STG_STG_H_

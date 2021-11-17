@@ -17,8 +17,8 @@
 //
 // Author: Giuliano Procida
 
-#ifndef ORDER_H_
-#define ORDER_H_
+#ifndef STG_ORDER_H_
+#define STG_ORDER_H_
 
 #include <algorithm>
 #include <cassert>
@@ -197,4 +197,4 @@ void Reorder(std::vector<std::pair<std::optional<T>, std::optional<T>>>& data) {
 
 }  // namespace stg
 
-#endif  // ORDER_H_
+#endif  // STG_ORDER_H_
