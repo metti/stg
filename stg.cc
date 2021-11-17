@@ -493,9 +493,9 @@ std::pair<bool, std::optional<Comparison>> Type::Compare(
   return {result.equals_, {comparison}};
 }
 
-Name Void::MakeDescription(NameCache& names) const { return Name{"void"}; }
+Name Void::MakeDescription(NameCache&) const { return Name{"void"}; }
 
-Name Variadic::MakeDescription(NameCache& names) const { return Name{"..."}; }
+Name Variadic::MakeDescription(NameCache&) const { return Name{"..."}; }
 
 Name Ptr::MakeDescription(NameCache& names) const {
   return GetType(GetPointeeTypeId())
@@ -503,13 +503,13 @@ Name Ptr::MakeDescription(NameCache& names) const {
       .Add(Side::LEFT, Precedence::POINTER, "*");
 }
 
-Name Typedef::MakeDescription(NameCache& names) const {
+Name Typedef::MakeDescription(NameCache&) const {
   return Name{GetName()};
 }
 
-Name Qualifier::MakeDescription(NameCache& names) const { abort(); }
+Name Qualifier::MakeDescription(NameCache&) const { abort(); }
 
-Name Integer::MakeDescription(NameCache& names) const {
+Name Integer::MakeDescription(NameCache&) const {
   return Name{GetName()};
 }
 
@@ -546,7 +546,7 @@ Name StructUnion::MakeDescription(NameCache& names) const {
   return Name{os.str()};
 }
 
-Name Enumeration::MakeDescription(NameCache& names) const {
+Name Enumeration::MakeDescription(NameCache&) const {
   std::ostringstream os;
   const auto& name = GetName();
   os << "enum ";
@@ -561,7 +561,7 @@ Name Enumeration::MakeDescription(NameCache& names) const {
   return Name{os.str()};
 }
 
-Name ForwardDeclaration::MakeDescription(NameCache& names) const {
+Name ForwardDeclaration::MakeDescription(NameCache&) const {
   std::ostringstream os;
   os << GetForwardKind() << ' ' << GetName() << "<incomplete>";
   return Name{os.str()};
@@ -596,7 +596,7 @@ Name ElfSymbol::MakeDescription(NameCache& names) const {
       : Name{name};
 }
 
-Name Symbols::MakeDescription(NameCache& names) const {
+Name Symbols::MakeDescription(NameCache&) const {
   return Name{"symbols"};
 }
 
@@ -608,9 +608,9 @@ std::string ElfSymbol::GetKindDescription() const { return "symbol"; }
 
 std::string Symbols::GetKindDescription() const { return "symbols"; }
 
-Result Void::Equals(const Type& other, State& state) const { return {}; }
+Result Void::Equals(const Type&, State&) const { return {}; }
 
-Result Variadic::Equals(const Type& other, State& state) const { return {}; }
+Result Variadic::Equals(const Type&, State&) const { return {}; }
 
 Result Ptr::Equals(const Type& other, State& state) const {
   const auto& o = other.as<Ptr>();
@@ -622,17 +622,17 @@ Result Ptr::Equals(const Type& other, State& state) const {
   return result;
 }
 
-Result Typedef::Equals(const Type& other, State& state) const {
+Result Typedef::Equals(const Type&, State&) const {
   // Compare will never attempt to directly compare Typedefs.
   abort();
 }
 
-Result Qualifier::Equals(const Type& other, State& state) const {
+Result Qualifier::Equals(const Type&, State&) const {
   // Compare will never attempt to directly compare Qualifiers.
   abort();
 }
 
-Result Integer::Equals(const Type& other, State& state) const {
+Result Integer::Equals(const Type& other, State&) const {
   const auto& o = other.as<Integer>();
 
   Result result;
@@ -743,7 +743,7 @@ Result StructUnion::Equals(const Type& other, State& state) const {
   return result;
 }
 
-Result Enumeration::Equals(const Type& other, State& state) const {
+Result Enumeration::Equals(const Type& other, State&) const {
   const auto& o = other.as<Enumeration>();
 
   Result result;
@@ -795,7 +795,7 @@ Result Enumeration::Equals(const Type& other, State& state) const {
   return result;
 }
 
-Result ForwardDeclaration::Equals(const Type& other, State& state) const {
+Result ForwardDeclaration::Equals(const Type& other, State&) const {
   const auto& o = other.as<ForwardDeclaration>();
 
   Result result;
@@ -996,7 +996,7 @@ Result Symbols::Equals(const Type& other, State& state) const {
   return result;
 }
 
-const Type& Type::ResolveQualifiers(std::set<QualifierKind>& qualifiers) const {
+const Type& Type::ResolveQualifiers(std::set<QualifierKind>&) const {
   return *this;
 }
 
@@ -1020,7 +1020,7 @@ const Type& Qualifier::ResolveQualifiers(
   return GetType(GetQualifiedTypeId()).ResolveQualifiers(qualifiers);
 }
 
-const Type& Type::ResolveTypedef(std::vector<std::string>& typedefs) const {
+const Type& Type::ResolveTypedef(std::vector<std::string>&) const {
   return *this;
 }
 
