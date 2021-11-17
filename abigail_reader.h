@@ -131,7 +131,7 @@ std::unique_ptr<Abigail> Read(const std::string& path, bool verbose = false);
 class AbigailReaderException : std::exception {};
 #endif
 
-}  // end namespace abixml
-}  // end namespace stg
+}  // namespace abixml
+}  // namespace stg
 
 #endif  // ABIGAIL_READER_H_

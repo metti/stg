@@ -97,7 +97,7 @@ std::unique_ptr<Structs> ReadFile(
 class BtfReaderException : std::exception {};
 #endif
 
-}  // end namespace btf
-}  // end namespace stg
+}  // namespace btf
+}  // namespace stg
 
 #endif  // BTF_READER_H_

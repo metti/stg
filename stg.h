@@ -526,6 +526,6 @@ struct Graph {
   virtual ~Graph() = default;
 };
 
-}  // end namespace stg
+}  // namespace stg
 
 #endif  // STG_H_

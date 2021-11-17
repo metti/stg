@@ -558,5 +558,5 @@ std::unique_ptr<Structs> ReadFile(const std::string& path, bool verbose) {
       btf_start, btf_size, std::move(env), std::move(tab), verbose);
 }
 
-}  // end namespace btf
-}  // end namespace stg
+}  // namespace btf
+}  // namespace stg

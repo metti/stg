@@ -1129,4 +1129,4 @@ std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {
   return os << (ix < kIntEncoding.size() ? kIntEncoding[ix] : "(unknown)");
 }
 
-}  // end namespace stg
+}  // namespace stg
