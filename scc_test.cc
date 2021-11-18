@@ -17,6 +17,8 @@
 //
 // Author: Giuliano Procida
 
+#include "scc.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -29,7 +31,6 @@
 #include <utility>
 #include <vector>
 
-#include "scc.h"
 #include <catch/catch.hpp>
 
 namespace Test {

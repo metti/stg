@@ -21,11 +21,12 @@
 #define STG_ORDER_H_
 
 #include <algorithm>
-#include <cassert>
 #include <cstddef>
 #include <optional>
 #include <utility>
 #include <vector>
+
+#include "error.h"
 
 namespace stg {
 // Updates a given ordering of items with items from a second ordering,
@@ -97,11 +98,11 @@ void ExtendOrder(std::vector<T>& indexes1, const std::vector<T>& indexes2) {
 template <typename T>
 void Permute(std::vector<T>& data, std::vector<size_t>& permutation) {
   const size_t size = permutation.size();
-  assert(data.size() == size);
+  Check(data.size() == size) << "internal error: bad Permute vectors";
   for (size_t from = 0; from < size; ++from) {
     size_t to = from;
     while (permutation[to] != from) {
-      assert(permutation[to] < size);
+      Check(permutation[to] < size) << "internal error: bad Permute index";
       using std::swap;
       swap(data[to], data[permutation[to]]);
       swap(to, permutation[to]);
@@ -172,7 +173,8 @@ void Reorder(std::vector<std::pair<std::optional<T>, std::optional<T>>>& data) {
   positions2.reserve(size);
   for (size_t index = 0; index < size; ++index) {
     const auto& [position1, position2] = data[index];
-    assert(position1 || position2);
+    Check(position1 || position2)
+        << "internal error: Reorder constraint with no positions";
     if (position1)
       positions1.push_back({*position1, index});
     if (position2)

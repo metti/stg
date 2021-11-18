@@ -20,7 +20,6 @@
 #ifndef STG_SCC_H_
 #define STG_SCC_H_
 
-#include <cassert>
 #include <cstddef>
 #include <iterator>
 #include <memory>
@@ -28,6 +27,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include "error.h"
 
 namespace stg {
 
@@ -105,7 +106,7 @@ class SCC {
 
   std::vector<Node> Close(size_t ix) {
     std::vector<Node> scc;
-    assert(ix < open_.size());
+    Check(ix < open_.size()) << "internal error: illegal SCC node index";
     if (ix == root_index_.back()) {
       // Close SCC.
       for (size_t o = ix; o < open_.size(); ++o)

@@ -22,13 +22,13 @@
 
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <iomanip>
 #include <ostream>
 #include <string_view>
 #include <typeinfo>
 
 #include "crc.h"
+#include "error.h"
 #include "order.h"
 
 namespace stg {
@@ -85,7 +85,7 @@ Name Name::Qualify(const std::set<QualifierKind>& qualifiers) const {
       os << ' ' << qualifier;
   } else {
     // qualifiers do not apply to arrays, functions or names
-    abort();
+    Die() << "qualifiers found for inappropriate node";
   }
   // qualifiers attach without affecting precedence
   return Name{os.str(), precedence_, right_};
@@ -177,7 +177,7 @@ void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
     os << "changed from " << description1 << " to " << description2;
 
   const auto it = outcomes.find(comparison);
-  assert(it != outcomes.end());
+  Check(it != outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
   auto insertion = seen.insert({comparison, false});
   if (!insertion.second) {
@@ -246,7 +246,7 @@ bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
 
   // Look up the diff (including node and edge changes).
   const auto it = outcomes.find(comparison);
-  assert(it != outcomes.end());
+  Check(it != outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
 
   // Check the stopping condition.
@@ -259,7 +259,7 @@ bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
   // The stop flag can only be false on a non-recursive call which should be for
   // a diff-holding node.
   if (!diff.holds_changes && !stop)
-    abort();
+    Die() << "internal error: FlatPrint called on inappropriate node";
 
   // Indent before describing diff details.
   indent += INDENT_INCREMENT;
@@ -315,7 +315,7 @@ void VizPrint(const Comparison& comparison, const Outcomes& outcomes,
   }
 
   const auto it = outcomes.find(comparison);
-  assert(it != outcomes.end());
+  Check(it != outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
   const char* colour = diff.has_changes ? "color=red, " : "";
   const char* shape = diff.holds_changes ? "shape=rectangle, " : "";
@@ -477,7 +477,8 @@ std::pair<bool, std::optional<Comparison>> Type::Compare(
       // Record equality / inequality.
       state.known.insert({c, result.equals_});
       const auto it = state.provisional.find(c);
-      assert(it != state.provisional.end());
+      Check(it != state.provisional.end())
+          << "internal error: missing provisional diffs";
       if (!result.equals_)
         // Record differences.
         state.outcomes.insert(*it);
@@ -507,7 +508,11 @@ Name Typedef::MakeDescription(NameCache&) const {
   return Name{GetName()};
 }
 
-Name Qualifier::MakeDescription(NameCache&) const { abort(); }
+Name Qualifier::MakeDescription(NameCache&) const {
+  // Qualifiers are resolved before GetDescription is called.
+  Die() << "internal error: Qualifier::MakeDescription";
+  __builtin_unreachable();
+}
 
 Name Integer::MakeDescription(NameCache&) const {
   return Name{GetName()};
@@ -624,12 +629,14 @@ Result Ptr::Equals(const Type& other, State& state) const {
 
 Result Typedef::Equals(const Type&, State&) const {
   // Compare will never attempt to directly compare Typedefs.
-  abort();
+  Die() << "internal error: Typedef::Equals";
+  __builtin_unreachable();
 }
 
 Result Qualifier::Equals(const Type&, State&) const {
   // Compare will never attempt to directly compare Qualifiers.
-  abort();
+  Die() << "internal error: Qualifier::Equals";
+  __builtin_unreachable();
 }
 
 Result Integer::Equals(const Type& other, State&) const {
