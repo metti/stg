@@ -22,7 +22,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <string_view>
@@ -31,13 +30,7 @@
 #include <abg-tools-utils.h>  // for base_name
 #include <abg-elf-helpers.h>  // for find_section
 #include <abg-symtab-reader.h>  // for symtab_reader
-
-#ifdef FOR_FUZZING
-#define m_assert(expr, msg) \
-  if (!static_cast<bool>(expr)) throw BtfReaderException()
-#else
-#define m_assert(expr, msg) assert(((void)(msg), (expr)))
-#endif
+#include "error.h"
 
 namespace stg {
 namespace btf {
@@ -70,7 +63,7 @@ template <typename T>
 const T* Structs::MemoryRange::Pull(size_t count) {
   const char* saved = start;
   start += sizeof(T) * count;
-  m_assert(start <= limit, "type data extends past end of type section");
+  Check(start <= limit) << "type data extends past end of type section";
   return reinterpret_cast<const T*>(saved);
 }
 
@@ -79,12 +72,12 @@ Structs::Structs(const char* start, size_t size,
                  const abigail::symtab_reader::symtab_sptr tab,
                  const bool verbose)
     : env_(std::move(env)), tab_(tab), verbose_(verbose) {
-  m_assert(sizeof(btf_header) <= size, "BTF section too small for header");
+  Check(sizeof(btf_header) <= size) << "BTF section too small for header";
   const btf_header* header = reinterpret_cast<const btf_header*>(start);
   if (verbose_) {
     PrintHeader(header);
   }
-  m_assert(header->magic == 0xEB9F, "Magic field must be 0xEB9F for BTF");
+  Check(header->magic == 0xEB9F) << "Magic field must be 0xEB9F for BTF";
 
   const char* header_limit = start + header->hdr_len;
   const char* type_start = header_limit + header->type_off;
@@ -93,17 +86,16 @@ Structs::Structs(const char* start, size_t size,
   const char* string_start = header_limit + header->str_off;
   const char* string_limit = string_start + header->str_len;
 
-  m_assert(start + sizeof(btf_header) <= header_limit,
-           "header length too short");
-  m_assert(header_limit <= type_start, "type section overlaps header");
-  m_assert(type_start <= type_limit, "type section ill-formed");
-  m_assert(!(header->type_off & (sizeof(uint32_t) - 1)),
-           "misaligned type section");
-  m_assert(type_limit <= string_start,
-           "string section does not follow type section");
-  m_assert(string_start <= string_limit, "string section ill-formed");
-  m_assert(string_limit <= start + size,
-           "string section extends beyond end of BTF data");
+  Check(start + sizeof(btf_header) <= header_limit) << "header exceeds length";
+  Check(header_limit <= type_start) << "type section overlaps header";
+  Check(type_start <= type_limit) << "type section ill-formed";
+  Check(!(header->type_off & (sizeof(uint32_t) - 1)))
+      << "misaligned type section";
+  Check(type_limit <= string_start)
+      << "string section does not follow type section";
+  Check(string_start <= string_limit) << "string section ill-formed";
+  Check(string_limit <= start + size)
+      << "string section extends beyond end of BTF data";
 
   const MemoryRange type_section{type_start, type_limit};
   string_section_ = MemoryRange{string_start, string_limit};
@@ -247,17 +239,15 @@ void Structs::BuildTypes(MemoryRange memory) {
 
   BuildSymbols();
 
-  for (const auto& type : types_) {
-    m_assert(type, "Undefined type");
-    (void)type;
-  }
+  for (const auto& type : types_)
+    Check(type != nullptr) << "Undefined type";
 }
 
 void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                            MemoryRange& memory) {
   const auto kind = BTF_INFO_KIND(t->info);
   const auto vlen = BTF_INFO_VLEN(t->info);
-  m_assert(kind >= 0 && kind < NR_BTF_KINDS, "Unknown BTF kind");
+  Check(kind >= 0 && kind < NR_BTF_KINDS) << "Unknown BTF kind";
 
   if (verbose_)
     std::cout << '[' << btf_index << "] ";
@@ -406,8 +396,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       }
 
       bool inserted = btf_symbol_types_.insert({name, GetId(t->type)}).second;
-      m_assert(inserted, "Insertion failed, duplicate found in symbol map");
-      (void)inserted;
+      Check(inserted) << "Insertion failed, duplicate found in symbol map";
       break;
     }
     case BTF_KIND_FUNC_PROTO: {
@@ -435,8 +424,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       }
 
       bool inserted = btf_symbol_types_.insert({name, GetId(t->type)}).second;
-      m_assert(inserted, "Insertion failed, duplicate found in symbol map");
-      (void)inserted;
+      Check(inserted) << "Insertion failed, duplicate found in symbol map";
       break;
     }
     case BTF_KIND_DATASEC: {
@@ -449,7 +437,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       break;
     }
     default: {
-      m_assert(false, "Unknown BTF kind");
+      Die() << "Unknown BTF kind";
       break;
     }
   }
@@ -458,9 +446,9 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
 std::string Structs::GetName(uint32_t name_off) {
   const char* name_begin = string_section_.start + name_off;
   const char* const limit = string_section_.limit;
-  m_assert(name_begin < limit, "name offset exceeds string section length");
+  Check(name_begin < limit) << "name offset exceeds string section length";
   const char* name_end = std::find(name_begin, limit, '\0');
-  m_assert(name_end < limit, "name continues past the string section limit");
+  Check(name_end < limit) << "name continues past the string section limit";
   return {name_begin, static_cast<size_t>(name_end - name_begin)};
 }
 
@@ -468,7 +456,7 @@ void Structs::PrintStrings(MemoryRange memory) {
   std::cout << "String section:\n";
   while (!memory.Empty()) {
     const char* position = std::find(memory.start, memory.limit, '\0');
-    m_assert(position < memory.limit, "Error reading the string section");
+    Check(position < memory.limit) << "Error reading the string section";
     const size_t size = position - memory.start;
     std::cout << ' ' << std::string_view{memory.Pull<char>(size + 1), size};
   }
@@ -540,14 +528,13 @@ std::unique_ptr<Structs> ReadFile(const std::string& path, bool verbose) {
   using abigail::symtab_reader::symtab;
 
   ElfHandle elf(path);
-  m_assert(elf.get() != nullptr, "Could not get elf handle from file.");
+  Check(elf.get() != nullptr) << "Could not get ELF handle from file";
 
   Elf_Scn* btf_section =
       abigail::elf_helpers::find_section(elf, ".BTF", SHT_PROGBITS);
-  m_assert(btf_section != nullptr,
-           "The given file does not have a BTF section");
+  Check(btf_section != nullptr) << "The given file does not have a BTF section";
   Elf_Data* elf_data = elf_rawdata(btf_section, 0);
-  m_assert(elf_data != nullptr, "The BTF section is invalid");
+  Check(elf_data != nullptr) << "The BTF section is invalid";
   const char* btf_start = static_cast<char*>(elf_data->d_buf);
   const size_t btf_size = elf_data->d_size;
 
