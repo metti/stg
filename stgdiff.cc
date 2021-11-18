@@ -37,6 +37,7 @@
 
 #include "abigail_reader.h"
 #include "btf_reader.h"
+#include "error.h"
 
 namespace {
 
@@ -216,6 +217,7 @@ int main(int argc, char* argv[]) {
     const stg::Type& rhs = graphs[1]->GetSymbols();
     result = stg::Type::Compare(lhs, rhs, state);
   }
+  stg::Check(state.scc.Empty()) << "internal error: SCC state broken";
   const auto& [equals, comparison] = result;
 
   // Write reports.
