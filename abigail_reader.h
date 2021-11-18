@@ -127,10 +127,6 @@ class Abigail : public Graph {
 
 std::unique_ptr<Abigail> Read(const std::string& path, bool verbose = false);
 
-#ifdef FOR_FUZZING
-class AbigailReaderException : std::exception {};
-#endif
-
 }  // namespace abixml
 }  // namespace stg
 

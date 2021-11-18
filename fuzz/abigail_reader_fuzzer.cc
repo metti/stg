@@ -23,6 +23,7 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include "abigail_reader.h"
+#include "error.h"
 
 static void DoNothing(void*, const char*, ...) {}
 
@@ -42,7 +43,7 @@ extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
   if (root) {
     try {
       stg::abixml::Abigail _(root);
-    } catch (const stg::abixml::AbigailReaderException&) {
+    } catch (const stg::Exception&) {
       // Pass as this is us catching invalid XML properly.
     }
   }
