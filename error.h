@@ -20,39 +20,35 @@
 #ifndef STG_ERROR_H_
 #define STG_ERROR_H_
 
-#include <iostream>
+#include <exception>
 #include <optional>
 #include <sstream>
+#include <string>
 
 namespace stg {
 
-#ifdef FOR_FUZZING
-class Exception : std::exception {};
-
-class Check {
+class Exception : public std::exception {
  public:
-  Check(bool ok) {
-    if (!ok)
-      throw Exception();
+  Exception(const std::string& message) : message_(message) {}
+
+  const char* what() const noexcept(true) final {
+    return message_.c_str();
   }
-  template <typename T>
-  Check& operator<<(const T&) {
-    return *this;
-  }
+
+ private:
+  const std::string message_;
 };
-#else
+
 class Check {
  public:
   explicit Check(bool ok)
       : os_(ok ? std::optional<std::ostringstream>()
                : std::make_optional<std::ostringstream>()) {}
-  ~Check() {
-    if (os_) {
-      *os_ << '\n';
-      std::cerr << os_->str();
-      exit(1);
-    }
+  ~Check() noexcept(false) {
+    if (os_)
+      throw Exception(os_->str());
   }
+
   template <typename T>
   Check& operator<<(const T& t) {
     if (os_)
@@ -63,7 +59,6 @@ class Check {
  private:
   std::optional<std::ostringstream> os_;
 };
-#endif
 
 inline Check Die() {
   return Check(false);
