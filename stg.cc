@@ -542,9 +542,9 @@ Name StructUnion::MakeDescription(NameCache& names) const {
   os << GetStructUnionKind() << ' ';
   if (!name.empty()) {
     os << GetName();
-  } else {
+  } else if (const auto& definition = GetDefinition()) {
     os << "{ ";
-    for (const auto& member : GetMembers())
+    for (const auto& member : definition->members)
       os << GetType(member).GetDescription(names) << "; ";
     os << '}';
   }
@@ -557,18 +557,12 @@ Name Enumeration::MakeDescription(NameCache&) const {
   os << "enum ";
   if (!name.empty()) {
     os << GetName();
-  } else {
+  } else if (const auto& definition = GetDefinition()) {
     os << "{ ";
-    for (const auto& e : GetEnums())
+    for (const auto& e : definition->enumerators)
       os << e.first << " = " << e.second << ", ";
     os << '}';
   }
-  return Name{os.str()};
-}
-
-Name ForwardDeclaration::MakeDescription(NameCache&) const {
-  std::ostringstream os;
-  os << GetForwardKind() << ' ' << GetName() << "<incomplete>";
   return Name{os.str()};
 }
 
@@ -664,6 +658,18 @@ Result Array::Equals(const Type& other, State& state) const {
   return result;
 }
 
+static bool CompareDefined(bool defined1, bool defined2, Result& result) {
+  if (defined1 && defined2)
+    return true;
+  if (defined1 != defined2) {
+    std::ostringstream os;
+    os << "was " << (defined1 ? "fully defined" : "only declared")
+       << ", is now " << (defined2 ? "fully defined" : "only declared");
+    result.AddNodeDiff(os.str());
+  }
+  return false;
+}
+
 static std::vector<std::pair<std::optional<size_t>, std::optional<size_t>>>
 PairUp(const std::vector<std::pair<std::string, size_t>>& names1,
        const std::vector<std::pair<std::string, size_t>>& names2) {
@@ -721,10 +727,15 @@ Result StructUnion::Equals(const Type& other, State& state) const {
     return result;
   }
   result.diff_.holds_changes = !name1.empty();
-  result.MaybeAddNodeDiff("byte size", GetByteSize(), o.GetByteSize());
+  const auto& definition1 = GetDefinition();
+  const auto& definition2 = o.GetDefinition();
+  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result))
+    return result;
 
-  const auto& members1 = GetMembers();
-  const auto& members2 = o.GetMembers();
+  result.MaybeAddNodeDiff(
+      "byte size", definition1->bytesize, definition2->bytesize);
+  const auto& members1 = definition1->members;
+  const auto& members2 = definition2->members;
   const auto names1 = GetMemberNames();
   const auto names2 = o.GetMemberNames();
   const auto pairs = PairUp(names1, names2);
@@ -765,10 +776,15 @@ Result Enumeration::Equals(const Type& other, State&) const {
     return result;
   }
   result.diff_.holds_changes = !name1.empty();
-  result.MaybeAddNodeDiff("byte size", GetByteSize(), o.GetByteSize());
+  const auto& definition1 = GetDefinition();
+  const auto& definition2 = o.GetDefinition();
+  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result))
+    return result;
+  result.MaybeAddNodeDiff(
+      "byte size", definition1->bytesize, definition2->bytesize);
 
-  const auto enums1 = GetEnums();
-  const auto enums2 = o.GetEnums();
+  const auto enums1 = definition1->enumerators;
+  const auto enums2 = definition2->enumerators;
   const auto names1 = GetEnumNames();
   const auto names2 = o.GetEnumNames();
   const auto pairs = PairUp(names1, names2);
@@ -799,24 +815,6 @@ Result Enumeration::Equals(const Type& other, State&) const {
     }
   }
 
-  return result;
-}
-
-Result ForwardDeclaration::Equals(const Type& other, State&) const {
-  const auto& o = other.as<ForwardDeclaration>();
-
-  Result result;
-  // Assume two identically named types are the same.
-  // Everything else treated as distinct.
-  const auto kind1 = GetForwardKind();
-  const auto kind2 = o.GetForwardKind();
-  const auto& name1 = GetName();
-  const auto& name2 = o.GetName();
-  if (kind1 != kind2 || name1 != name2) {
-    result.equals_ = false;
-    result.diff_.has_changes = true;
-    return result;
-  }
   return result;
 }
 
@@ -1049,43 +1047,49 @@ std::string StructUnion::GetFirstName() const {
   const auto& name = GetName();
   if (!name.empty())
     return name;
-  const auto& members = GetMembers();
-  for (const auto& member : members) {
-    const auto recursive = GetType(member).GetFirstName();
-    if (!recursive.empty())
-      return recursive;
+  if (const auto& definition = GetDefinition()) {
+    const auto& members = definition->members;
+    for (const auto& member : members) {
+      const auto recursive = GetType(member).GetFirstName();
+      if (!recursive.empty())
+        return recursive;
+    }
   }
   return {};
 }
 
 std::vector<std::pair<std::string, size_t>> StructUnion::GetMemberNames()
     const {
-  const auto& members = GetMembers();
-  const auto size = members.size();
   std::vector<std::pair<std::string, size_t>> names;
-  names.reserve(size);
-  size_t anonymous_ix = 0;
-  for (size_t ix = 0; ix < size; ++ix) {
-    const auto& member = GetType(members[ix]);
-    auto key = member.GetFirstName();
-    if (key.empty())
-      key = "#anon#" + std::to_string(anonymous_ix++);
-    names.push_back({key, ix});
+  if (const auto& definition = GetDefinition()) {
+    const auto& members = definition->members;
+    const auto size = members.size();
+    names.reserve(size);
+    size_t anonymous_ix = 0;
+    for (size_t ix = 0; ix < size; ++ix) {
+      const auto& member = GetType(members[ix]);
+      auto key = member.GetFirstName();
+      if (key.empty())
+        key = "#anon#" + std::to_string(anonymous_ix++);
+      names.push_back({key, ix});
+    }
+    std::stable_sort(names.begin(), names.end());
   }
-  std::stable_sort(names.begin(), names.end());
   return names;
 }
 
 std::vector<std::pair<std::string, size_t>> Enumeration::GetEnumNames() const {
-  const auto& enums = GetEnums();
-  const auto size = enums.size();
   std::vector<std::pair<std::string, size_t>> names;
-  names.reserve(size);
-  for (size_t ix = 0; ix < size; ++ix) {
-    const auto& name = enums[ix].first;
-    names.push_back({name, ix});
+  if (const auto& definition = GetDefinition()) {
+    const auto& enums = definition->enumerators;
+    const auto size = enums.size();
+    names.reserve(size);
+    for (size_t ix = 0; ix < size; ++ix) {
+      const auto& name = enums[ix].first;
+      names.push_back({name, ix});
+    }
+    std::stable_sort(names.begin(), names.end());
   }
-  std::stable_sort(names.begin(), names.end());
   return names;
 }
 
@@ -1096,21 +1100,6 @@ std::ostream& operator<<(std::ostream& os, StructUnionKind kind) {
       break;
     case StructUnionKind::UNION:
       os << "union";
-      break;
-  }
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, ForwardDeclarationKind kind) {
-  switch (kind) {
-    case ForwardDeclarationKind::STRUCT:
-      os << "struct";
-      break;
-    case ForwardDeclarationKind::UNION:
-      os << "union";
-      break;
-    case ForwardDeclarationKind::ENUM:
-      os << "enum";
       break;
   }
   return os;

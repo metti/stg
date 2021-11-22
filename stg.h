@@ -58,11 +58,9 @@ struct Parameter {
 };
 
 enum class StructUnionKind { STRUCT, UNION };
-enum class ForwardDeclarationKind { STRUCT, UNION, ENUM };
 enum class QualifierKind { CONST, VOLATILE, RESTRICT };
 
 std::ostream& operator<<(std::ostream& os, StructUnionKind kind);
-std::ostream& operator<<(std::ostream& os, ForwardDeclarationKind kind);
 std::ostream& operator<<(std::ostream& os, QualifierKind kind);
 
 class Type;
@@ -406,18 +404,25 @@ class Member : public Type {
 
 class StructUnion : public Type {
  public:
+  struct Definition {
+    const uint64_t bytesize;
+    const std::vector<Id> members;
+  };
+  StructUnion(const std::vector<std::unique_ptr<Type>>& types,
+              const std::string& name, StructUnionKind structUnionKind)
+      : Type(types),
+        name_(name),
+        structUnionKind_(structUnionKind) {}
   StructUnion(const std::vector<std::unique_ptr<Type>>& types,
               const std::string& name, StructUnionKind structUnionKind,
               uint64_t bytesize, const std::vector<Id>& members)
       : Type(types),
         name_(name),
         structUnionKind_(structUnionKind),
-        bytesize_(bytesize),
-        members_(members) {}
+        definition_({bytesize, members}) {}
   const std::string& GetName() const { return name_; }
   StructUnionKind GetStructUnionKind() const { return structUnionKind_; }
-  uint64_t GetByteSize() const { return bytesize_; }
-  const std::vector<Id>& GetMembers() const { return members_; }
+  const std::optional<Definition>& GetDefinition() const { return definition_; }
   Name MakeDescription(NameCache& names) const final;
   Result Equals(const Type& other, State& state) const final;
   std::string GetFirstName() const final;
@@ -426,47 +431,35 @@ class StructUnion : public Type {
   std::vector<std::pair<std::string, size_t>> GetMemberNames() const;
   const std::string name_;
   const StructUnionKind structUnionKind_;
-  const uint64_t bytesize_;
-  const std::vector<Id> members_;
+  const std::optional<Definition> definition_;
 };
 
 class Enumeration : public Type {
  public:
   using Enumerators = std::vector<std::pair<std::string, int64_t>>;
+  struct Definition {
+    const uint32_t bytesize;
+    const Enumerators enumerators;
+  };
+  Enumeration(const std::vector<std::unique_ptr<Type>>& types,
+              const std::string& name)
+      : Type(types),
+        name_(name) {}
   Enumeration(const std::vector<std::unique_ptr<Type>>& types,
               const std::string& name, uint32_t bytesize,
               const Enumerators& enumerators)
       : Type(types),
         name_(name),
-        bytesize_(bytesize),
-        enumerators_(enumerators) {}
+        definition_({bytesize, enumerators}) {}
   const std::string& GetName() const { return name_; }
-  uint32_t GetByteSize() const { return bytesize_; }
-  const Enumerators& GetEnums() const { return enumerators_; }
+  const std::optional<Definition>& GetDefinition() const { return definition_; }
   Name MakeDescription(NameCache& names) const final;
   Result Equals(const Type& other, State& state) const final;
 
  private:
   std::vector<std::pair<std::string, size_t>> GetEnumNames() const;
   const std::string name_;
-  const uint32_t bytesize_;
-  const Enumerators enumerators_;
-};
-
-class ForwardDeclaration : public Type {
- public:
-  ForwardDeclaration(const std::vector<std::unique_ptr<Type>>& types,
-                     const std::string& name,
-                     ForwardDeclarationKind forwardKind)
-      : Type(types), name_(name), forwardKind_(forwardKind) {}
-  const std::string& GetName() const { return name_; }
-  ForwardDeclarationKind GetForwardKind() const { return forwardKind_; }
-  Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
-
- private:
-  const std::string name_;
-  const ForwardDeclarationKind forwardKind_;
+  const std::optional<Definition> definition_;
 };
 
 class Function : public Type {

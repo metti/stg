@@ -488,12 +488,13 @@ void Abigail::ProcessStructUnion(
   const auto name = ReadAttribute<bool>(struct_union, "is-anonymous", false)
                     ? std::string()
                     : GetAttributeOrDie(struct_union, "name");
+  const auto kind = is_struct ? StructUnionKind::STRUCT
+                              : StructUnionKind::UNION;
   if (forward) {
-    const auto kind = is_struct ? ForwardDeclarationKind::STRUCT
-                                : ForwardDeclarationKind::UNION;
-    types_[ix] = std::make_unique<ForwardDeclaration>(types_, name, kind);
+    types_[ix] = std::make_unique<StructUnion>(types_, name, kind);
     if (verbose_)
-      std::cerr << Id(ix) << " forward " << kind << " " << name << "\n";
+      std::cerr << Id(ix) << " " << kind << " (forward-declared) " << name
+                << "\n";
     return;
   }
   const auto bits = ReadAttribute<size_t>(struct_union, "size-in-bits", 0);
@@ -518,8 +519,6 @@ void Abigail::ProcessStructUnion(
     members.push_back(member);
   }
 
-  const auto kind = is_struct ? StructUnionKind::STRUCT
-                              : StructUnionKind::UNION;
   types_[ix] =
       std::make_unique<StructUnion>(types_, name, kind, bytes, members);
   if (verbose_)
@@ -532,10 +531,9 @@ void Abigail::ProcessEnum(size_t ix, xmlNodePtr enumeration) {
                     ? std::string()
                     : GetAttributeOrDie(enumeration, "name");
   if (forward) {
-    const auto kind = ForwardDeclarationKind::ENUM;
-    types_[ix] = std::make_unique<ForwardDeclaration>(types_, name, kind);
+    types_[ix] = std::make_unique<Enumeration>(types_, name);
     if (verbose_)
-      std::cerr << Id(ix) << " forward " << kind << " " << name << "\n";
+      std::cerr << Id(ix) << " enum (forward-declared) " << name << "\n";
     return;
   }
 

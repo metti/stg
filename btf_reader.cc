@@ -335,8 +335,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     case BTF_KIND_STRUCT:
     case BTF_KIND_UNION: {
       const auto structUnionKind = kind == BTF_KIND_STRUCT
-                             ? StructUnionKind::STRUCT
-                             : StructUnionKind::UNION;
+                                   ? StructUnionKind::STRUCT
+                                   : StructUnionKind::UNION;
       const auto name = GetName(t->name_off);
       const bool kflag = BTF_INFO_KFLAG(t->info);
       if (verbose_) {
@@ -369,20 +369,20 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
             std::make_unique<Enumeration>(types_, name, t->size, enumerators);
       } else {
         // BTF actually provides size (4), but it's meaningless.
-        node() = std::make_unique<ForwardDeclaration>(
-            types_, name, ForwardDeclarationKind::ENUM);
+        node() = std::make_unique<Enumeration>(types_, name);
       }
       break;
     }
     case BTF_KIND_FWD: {
       const auto name = GetName(t->name_off);
-      const auto forwardKind = BTF_INFO_KFLAG(t->info)
-                               ? ForwardDeclarationKind::UNION
-                               : ForwardDeclarationKind::STRUCT;
+      const auto structUnionKind = BTF_INFO_KFLAG(t->info)
+                                   ? StructUnionKind::UNION
+                                   : StructUnionKind::STRUCT;
       if (verbose_) {
-        std::cout << "FWD '" << name << "' fwd_kind=" << forwardKind << '\n';
+        std::cout << "FWD '" << name << "' fwd_kind=" << structUnionKind
+                  << '\n';
       }
-      node() = std::make_unique<ForwardDeclaration>(types_, name, forwardKind);
+      node() = std::make_unique<StructUnion>(types_, name, structUnionKind);
       break;
     }
     case BTF_KIND_FUNC: {
