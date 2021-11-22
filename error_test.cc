@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020-2021 Google LLC
+// Copyright 2021 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -15,26 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Maria Teguiani
 // Author: Giuliano Procida
 
-#include <iostream>
-
-#include "btf_reader.h"
 #include "error.h"
 
-int main(int argc, const char* argv[]) {
-  if (argc != 2) {
-    std::cerr << "Please specify the path to a BTF file.";
-    return 1;
-  }
+#include <catch/catch.hpp>
 
-  try {
-    (void)stg::btf::ReadFile(argv[1], /* verbose = */ true);
-  } catch (const stg::Exception& e) {
-    std::cerr << e.what() << '\n';
-    return 1;
-  }
+namespace Test {
 
-  return 0;
+TEST_CASE("Check") {
+  CHECK_NOTHROW(stg::Check(true) << "phew");
+  CHECK_THROWS(stg::Check(false) << "oh dear");
 }
+
+TEST_CASE("Die") {
+  CHECK_THROWS(stg::Die() << "Mr Bond");
+}
+
+}  // namespace Test
