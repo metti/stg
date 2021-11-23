@@ -747,7 +747,6 @@ Result StructUnion::Equals(const Type& other, State& state) const {
     } else if (!index1 && index2) {
       // added
       const auto& member2 = members2[*index2];
-      std::ostringstream os;
       result.AddEdgeDiff("", Added(o.GetType(member2), state));
     } else {
       // in both
