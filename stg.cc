@@ -742,16 +742,16 @@ Result StructUnion::Equals(const Type& other, State& state) const {
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
       // removed
-      const auto& member1 = members1[*index1];
+      const auto member1 = members1[*index1];
       result.AddEdgeDiff("", Removed(GetType(member1), state));
     } else if (!index1 && index2) {
       // added
-      const auto& member2 = members2[*index2];
+      const auto member2 = members2[*index2];
       result.AddEdgeDiff("", Added(o.GetType(member2), state));
     } else {
       // in both
-      const auto& member1 = members1[*index1];
-      const auto& member2 = members2[*index2];
+      const auto member1 = members1[*index1];
+      const auto member2 = members2[*index2];
       result.MaybeAddEdgeDiff(
           "", Compare(GetType(member1), o.GetType(member2), state));
     }
