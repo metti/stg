@@ -969,6 +969,11 @@ Result Symbols::Equals(const Type& other, State& state) const {
   Result result;
   result.diff_.holds_changes = true;
 
+  // Group diffs into removed, added and changed symbols for readability.
+  std::vector<Id> removed;
+  std::vector<Id> added;
+  std::vector<std::pair<Id, Id>> in_both;
+
   const auto& symbols1 = symbols_;
   const auto& symbols2 = o.symbols_;
   auto it1 = symbols1.begin();
@@ -978,24 +983,27 @@ Result Symbols::Equals(const Type& other, State& state) const {
   while (it1 != end1 || it2 != end2) {
     if (it2 == end2 || (it1 != end1 && it1->first < it2->first)) {
       // removed
-      const auto& symbol1 = it1->second;
-      result.AddEdgeDiff("", Removed(GetType(symbol1), state));
+      removed.push_back(it1->second);
       ++it1;
     } else if (it1 == end1 || (it2 != end2 && it1->first > it2->first)) {
       // added
-      const auto& symbol2 = it2->second;
-      result.AddEdgeDiff("", Added(o.GetType(symbol2), state));
+      added.push_back(it2->second);
       ++it2;
     } else {
       // in both
-      const auto& symbol1 = it1->second;
-      const auto& symbol2 = it2->second;
-      result.MaybeAddEdgeDiff(
-          "", Compare(GetType(symbol1), o.GetType(symbol2), state));
+      in_both.push_back({it1->second, it2->second});
       ++it1;
       ++it2;
     }
   }
+
+  for (const auto symbol1 : removed)
+    result.AddEdgeDiff("", Removed(GetType(symbol1), state));
+  for (const auto symbol2 : added)
+    result.AddEdgeDiff("", Added(o.GetType(symbol2), state));
+  for (const auto [symbol1, symbol2] : in_both)
+    result.MaybeAddEdgeDiff(
+        "", Compare(GetType(symbol1), o.GetType(symbol2), state));
 
   return result;
 }
