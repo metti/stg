@@ -63,24 +63,34 @@ Graph invent(size_t n, G& gen) {
   return graph;
 }
 
-// Generate a graph g' where a -> b iff a and b are strongly connected in g.
+// Generate a graph g' where i -> j iff i and j are strongly connected in g.
 Graph symmetric_subset_of_reflexive_transitive_closure(Graph g) {
   const size_t n = g.size();
-  // transitive closure using Floyd-Warshall
+  // compute reflexive, transitive closure using a modified Floyd-Warshall
   for (size_t o = 0; o < n; ++o)
+    // 1. add edge o -> o, for each node o
     g[o].insert(o);
   for (size_t k = 0; k < n; ++k) {
+    // 2. for each node k check for paths of the form: i -> ... -> k -> ... -> j
+    // where no node after k appears in the ...
     for (size_t i = 0; i < n; ++i) {
-      for (size_t j = 0; j < n; ++j) {
-        if (!g[i].count(j) && g[i].count(k) && g[k].count(j))
-          g[i].insert(j);
+      // since we scan the nodes k in order, it suffices to consider just paths:
+      // i -> k -> j
+      if (g[i].count(k)) {
+        // we have i -> k
+        for (size_t j = 0; j < n; ++j) {
+          if (g[k].count(j)) {
+            // and k -> j
+            g[i].insert(j);
+          }
+        }
       }
     }
   }
-  // now a -> b iff a has path to b in g
+  // now have edge i -> j iff there is a path from i to j
   for (size_t i = 0; i < n; ++i) {
     for (size_t j = i + 1; j < n; ++j) {
-      // discard a -> b if not b -> a and vice versa
+      // discard i -> j if not j -> i and vice versa
       auto ij = g[i].count(j);
       auto ji = g[j].count(i);
       if (ij < ji)
@@ -89,11 +99,11 @@ Graph symmetric_subset_of_reflexive_transitive_closure(Graph g) {
         g[i].erase(j);
     }
   }
-  // now have a -> b iff a has path to b and b has path to a in g
+  // now have edge i -> j iff there is a path from i to j and a path from j to i
   return g;
 }
 
-// Generate a graph where a -> b iff a and b are in the same SCC.
+// Generate a graph where i -> j iff i and j are in the same SCC.
 Graph scc_strong_connectivity(const std::vector<std::set<size_t>>& sccs) {
   size_t n = 0;
   std::map<size_t, const std::set<size_t>*> edges;
