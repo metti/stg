@@ -204,8 +204,8 @@ std::unique_ptr<Function> Abigail::MakeFunctionType(xmlNodePtr function) {
     } else if (child_name == "return") {
       return_type = {GetTypeId(child)};
     } else {
-      std::cerr << "unrecognised function-decl child element '" << child_name
-                << "'\n";
+      Die() << "unrecognised " << FromLibxml(function->name)
+            << " child element '" << child_name << "'";
     }
   }
   if (!return_type)
