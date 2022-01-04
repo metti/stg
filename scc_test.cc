@@ -176,7 +176,7 @@ void process(const Graph& g) {
 }
 
 TEST_CASE("randomly-generated graphs") {
-  std::mt19937 gen;
+  std::ranlux48 gen;
   auto seed = gen();
   // NOTES:
   //   Graphs of size 6 are plenty big enough to shake out bugs.
