@@ -444,7 +444,8 @@ void Abigail::ProcessArray(size_t ix, xmlNodePtr array) {
   if (verbose_)
     std::cerr << Id(ix) << " array";
   auto type = GetTypeId(array);
-  for (auto size : dimensions) {
+  for (auto it = dimensions.crbegin(); it != dimensions.crend(); ++it) {
+    const auto size = *it;
     type = Add(std::make_unique<Array>(types_, type, size));
     if (verbose_)
       std::cerr << ' ' << size;
