@@ -161,7 +161,7 @@ Id Abigail::Add(std::unique_ptr<Type> type) {
 }
 
 size_t Abigail::GetIndex(const std::string& type_id) {
-  const auto [it, inserted] = type_ids_.insert({type_id, types_.size()});
+  const auto [it, inserted] = type_indexes_.insert({type_id, types_.size()});
   if (inserted)
     types_.push_back(nullptr);
   return it->second;
