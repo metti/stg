@@ -144,7 +144,7 @@ int main(int argc, char* argv[]) {
               << " [-a|--abi|-b|--btf] file1\n"
               << " [-a|--abi|-b|--btf] file2\n"
               << " [-f|--format (plain|flat|small|viz)]"
-              << " [-o|--output filename] ...\n";
+              << " [-o|--output -|filename] ...\n";
     return 1;
   };
   while (true) {
@@ -152,6 +152,7 @@ int main(int argc, char* argv[]) {
     int c = getopt_long(argc, argv, "-tabf:o:", opts, &ix);
     if (c == -1)
       break;
+    const char* argument = optarg;
     switch (c) {
       case 't':
         opt_times = true;
@@ -163,22 +164,24 @@ int main(int argc, char* argv[]) {
         opt_input_format = InputFormat::BTF;
         break;
       case 1:
-        inputs.push_back({opt_input_format, optarg});
+        if (strcmp(argument, "-") == 0)
+          argument = "/dev/stdout";
+        inputs.push_back({opt_input_format, argument});
         break;
       case 'f':
-        if (strcmp(optarg, "plain") == 0)
+        if (strcmp(argument, "plain") == 0)
           opt_output_format = OutputFormat::PLAIN;
-        else if (strcmp(optarg, "flat") == 0)
+        else if (strcmp(argument, "flat") == 0)
           opt_output_format = OutputFormat::FLAT;
-        else if (strcmp(optarg, "small") == 0)
+        else if (strcmp(argument, "small") == 0)
           opt_output_format = OutputFormat::SMALL;
-        else if (strcmp(optarg, "viz") == 0)
+        else if (strcmp(argument, "viz") == 0)
           opt_output_format = OutputFormat::VIZ;
         else
           return usage();
         break;
       case 'o':
-        outputs.push_back({opt_output_format, optarg});
+        outputs.push_back({opt_output_format, argument});
         break;
       default:
         return usage();
@@ -186,8 +189,6 @@ int main(int argc, char* argv[]) {
   }
   if (inputs.size() != 2)
     return usage();
-  if (outputs.empty())
-    outputs.push_back({opt_output_format, nullptr});
 
   try {
     // Read inputs.
@@ -224,10 +225,7 @@ int main(int argc, char* argv[]) {
     // Write reports.
     for (const auto& [format, filename] : outputs) {
       stg::NameCache names;
-      std::unique_ptr<std::ostream> output_holder;
-      if (filename)
-        output_holder = std::make_unique<std::ofstream>(filename);
-      std::ostream& output = filename ? *output_holder : std::cout;
+      std::ofstream output(filename);
       if (comparison) {
         Time report("report diffs");
         const auto& outcomes = state.outcomes;
@@ -249,15 +247,8 @@ int main(int argc, char* argv[]) {
         }
         output << std::flush;
       }
-      if (!output) {
-        std::cerr << "error writing to ";
-        if (filename)
-          std::cerr << '\'' << filename << '\'';
-        else
-          std::cerr << "stdout";
-        std::cerr  << "\n";
-        return 1;
-      }
+      if (!output)
+        stg::Die() << "error writing to " << '\'' << filename << '\'';
     }
 
     if (opt_times)
