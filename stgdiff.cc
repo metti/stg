@@ -143,8 +143,11 @@ int main(int argc, char* argv[]) {
               << " [-t|--times]\n"
               << " [-a|--abi|-b|--btf] file1\n"
               << " [-a|--abi|-b|--btf] file2\n"
-              << " [-f|--format (plain|flat|small|viz)]"
-              << " [-o|--output -|filename] ...\n";
+              << " [{-f|--format} {plain|flat|small|viz}]\n"
+              << " [{-o|--output} {filename|-}] ...\n"
+              << "   implicit defaults: --abi --format plain\n"
+              << "   format and output can appear multiple times\n"
+              << "\n";
     return 1;
   };
   while (true) {
