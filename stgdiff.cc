@@ -233,8 +233,6 @@ int main(int argc, char* argv[]) {
         opt_input_format = InputFormat::BTF;
         break;
       case 1:
-        if (strcmp(argument, "-") == 0)
-          argument = "/dev/stdout";
         inputs.push_back({opt_input_format, argument});
         break;
       case 'f':
@@ -250,6 +248,8 @@ int main(int argc, char* argv[]) {
           return usage();
         break;
       case 'o':
+        if (strcmp(argument, "-") == 0)
+          argument = "/dev/stdout";
         outputs.push_back({opt_output_format, argument});
         break;
       default:
