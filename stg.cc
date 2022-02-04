@@ -151,21 +151,19 @@ std::string Typedef::GetResolvedDescription(NameCache& names) const {
   return os.str();
 }
 
-static constexpr size_t INDENT_INCREMENT = 2;
-
-void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
-           NameCache& names, std::ostream& os, size_t indent) {
+bool PrintComparison(const Comparison& comparison, NameCache& names,
+                     std::ostream& os) {
   const auto* node1 = comparison.first;
   const auto* node2 = comparison.second;
   if (!node2) {
     os << node1->GetKindDescription() << " '" << node1->GetDescription(names)
        << "' was removed\n";
-    return;
+    return true;
   }
   if (!node1) {
     os << node2->GetKindDescription() << " '" << node2->GetDescription(names)
        << "' was added\n";
-    return;
+    return true;
   }
 
   const auto description1 = node1->GetResolvedDescription(names);
@@ -175,10 +173,20 @@ void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
     os << description1 << " changed";
   else
     os << "changed from " << description1 << " to " << description2;
+  return false;
+}
+
+static constexpr size_t INDENT_INCREMENT = 2;
+
+void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
+           NameCache& names, std::ostream& os, size_t indent) {
+  if (PrintComparison(comparison, names, os))
+    return;
 
   const auto it = outcomes.find(comparison);
   Check(it != outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
+
   auto insertion = seen.insert({comparison, false});
   if (!insertion.second) {
     if (!insertion.first->second)
@@ -186,7 +194,9 @@ void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
     else if (!diff.details.empty())
       os << " (already reported)";
   }
+
   os << '\n';
+
   if (insertion.second) {
     Print(diff.details, outcomes, seen, names, os, indent + INDENT_INCREMENT);
     insertion.first->second = true;
@@ -219,35 +229,17 @@ bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
                std::unordered_set<Comparison, HashComparison>& seen,
                std::deque<Comparison>& todo, bool full, bool stop,
                NameCache& names, std::ostream& os, size_t indent) {
-  const auto* node1 = comparison.first;
-  const auto* node2 = comparison.second;
   // Nodes that represent additions or removal are always interesting and no
   // recursion is possible.
-  if (!node2) {
-    os << node1->GetKindDescription() << " '" << node1->GetDescription(names)
-       << "' was removed\n";
+  if (PrintComparison(comparison, names, os))
     return true;
-  }
-  if (!node1) {
-    os << node2->GetKindDescription() << " '" << node2->GetDescription(names)
-       << "' was added\n";
-    return true;
-  }
-
-  const auto description1 = node1->GetResolvedDescription(names);
-  const auto description2 = node2->GetResolvedDescription(names);
-  // Generate a node description.
-  os << node1->GetKindDescription() << ' ';
-  if (description1 == description2)
-    os << description1 << " changed";
-  else
-    os << "changed from " << description1 << " to " << description2;
-  os << '\n';
 
   // Look up the diff (including node and edge changes).
   const auto it = outcomes.find(comparison);
   Check(it != outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
+
+  os << '\n';
 
   // Check the stopping condition.
   if (diff.holds_changes && stop) {
