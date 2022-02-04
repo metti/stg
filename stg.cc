@@ -452,8 +452,8 @@ std::pair<bool, std::optional<Comparison>> Type::Compare(
     if (&unqualified1 != &resolved1 || &unqualified2 != &resolved2) {
       // 3.2 Typedef difference.
       const auto comp = Compare(resolved1, resolved2, state);
-      result.diff_.holds_changes = true;
-      // TODO: Should we make this "have changes" (perhaps if names change)?
+      result.diff_.holds_changes = !typedefs1.empty() && !typedefs2.empty()
+                                   && typedefs1[0] == typedefs2[0];
       result.MaybeAddEdgeDiff("resolved", comp);
     } else if (typeid(unqualified1) != typeid(unqualified2)) {
       // 4. Incomparable.
