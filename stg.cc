@@ -187,20 +187,25 @@ void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
   Check(it != outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
 
-  auto insertion = seen.insert({comparison, false});
-  if (!insertion.second) {
+  const bool holds_changes = diff.holds_changes;
+  std::pair<Seen::iterator, bool> insertion;
+
+  if (holds_changes)
+    insertion = seen.insert({comparison, false});
+
+  if (holds_changes && !insertion.second) {
     if (!insertion.first->second)
-      os << " (being reported)";
+      os << " (being reported)\n";
     else if (!diff.details.empty())
-      os << " (already reported)";
+      os << " (already reported)\n";
+    return;
   }
 
   os << '\n';
+  Print(diff.details, outcomes, seen, names, os, indent + INDENT_INCREMENT);
 
-  if (insertion.second) {
-    Print(diff.details, outcomes, seen, names, os, indent + INDENT_INCREMENT);
+  if (holds_changes)
     insertion.first->second = true;
-  }
 }
 
 void Print(const std::vector<DiffDetail>& details, const Outcomes& outcomes,
