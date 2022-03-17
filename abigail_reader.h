@@ -76,7 +76,7 @@ namespace abixml {
 class Abigail : public Graph {
  public:
   explicit Abigail(xmlNodePtr root, bool verbose = false);
-  const Type& GetSymbols() const final { return *types_[symbols_index_].get(); }
+  const Type& GetRoot() const final { return *types_[root_].get(); }
 
  private:
   const bool verbose_;
@@ -95,8 +95,7 @@ class Abigail : public Graph {
   // libabigail decorates certain declarations with symbol ids; this is the
   // mapping from symbol id to the corresponding type.
   std::unordered_map<std::string, Id> symbol_id_to_type_;
-  // The node containing the symbols.
-  size_t symbols_index_;
+  size_t root_;
 
   Id Add(std::unique_ptr<Type> type);
   size_t GetIndex(const std::string& type_id);

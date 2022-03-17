@@ -149,8 +149,8 @@ bool Report(const Inputs& inputs, const Outputs& outputs) {
   std::pair<bool, std::optional<stg::Comparison>> result;
   {
     Time compute("compute diffs");
-    const stg::Type& lhs = graphs[0]->GetSymbols();
-    const stg::Type& rhs = graphs[1]->GetSymbols();
+    const stg::Type& lhs = graphs[0]->GetRoot();
+    const stg::Type& rhs = graphs[1]->GetRoot();
     result = stg::Type::Compare(lhs, rhs, state);
   }
   stg::Check(state.scc.Empty()) << "internal error: SCC state broken";

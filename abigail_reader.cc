@@ -604,7 +604,7 @@ void Abigail::BuildSymbols() {
     types_.push_back(std::make_unique<ElfSymbol>(types_, symbol, type_id));
     symbols.insert({id, Id(ix)});
   }
-  symbols_index_ = types_.size();
+  root_ = types_.size();
   types_.push_back(std::make_unique<Symbols>(types_, symbols));
 }
 

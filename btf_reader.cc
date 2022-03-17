@@ -488,7 +488,7 @@ void Structs::BuildSymbols() {
     auto key = symbol_name + '@' + symbol->get_version().str();
     elf_symbols.emplace(std::move(key), elf_symbol_id);
   }
-  symbols_index_ = types_.size();
+  root_ = types_.size();
   types_.push_back(std::make_unique<Symbols>(types_, elf_symbols));
 }
 

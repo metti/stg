@@ -512,7 +512,7 @@ std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding);
 // formats via an abstract base class.
 
 struct Graph {
-  virtual const Type& GetSymbols() const = 0;
+  virtual const Type& GetRoot() const = 0;
   virtual ~Graph() = default;
 };
 
