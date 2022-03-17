@@ -151,8 +151,7 @@ std::optional<uint64_t> ParseLength(const std::string& value) {
 
 Abigail::Abigail(xmlNodePtr root, bool verbose)
     : verbose_(verbose), env_(std::make_unique<abigail::ir::environment>()) {
-  ProcessRoot(root);
-  BuildSymbols();
+  root_ = ProcessRoot(root);
 }
 
 Id Abigail::Add(std::unique_ptr<Type> type) {
@@ -225,7 +224,7 @@ std::unique_ptr<Function> Abigail::MakeFunctionType(xmlNodePtr function) {
   return std::make_unique<Function>(types_, *return_type, parameters);
 }
 
-void Abigail::ProcessRoot(xmlNodePtr root) {
+Id Abigail::ProcessRoot(xmlNodePtr root) {
   const auto name = GetElementName(root);
   if (name == "abi-corpus-group") {
     ProcessCorpusGroup(root);
@@ -234,6 +233,7 @@ void Abigail::ProcessRoot(xmlNodePtr root) {
   } else {
     Die() << "unrecognised root element '" << name << "'";
   }
+  return BuildSymbols();
 }
 
 void Abigail::ProcessCorpusGroup(xmlNodePtr group) {
@@ -570,7 +570,7 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
     std::cerr << id << " enum " << name << "\n";
 }
 
-void Abigail::BuildSymbols() {
+Id Abigail::BuildSymbols() {
   // Libabigail's model is (approximately):
   //
   //   (alias)* -> main symbol <- some decl -> type
@@ -613,8 +613,9 @@ void Abigail::BuildSymbols() {
     types_.push_back(std::make_unique<ElfSymbol>(types_, symbol, type_id));
     symbols.insert({id, Id(ix)});
   }
-  root_ = Id(types_.size());
+  const Id symbols_id = Id(types_.size());
   types_.push_back(std::make_unique<Symbols>(types_, symbols));
+  return symbols_id;
 }
 
 std::unique_ptr<Abigail> Read(const std::string& path, bool verbose) {

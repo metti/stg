@@ -103,7 +103,7 @@ class Abigail : public Graph {
   Id GetVariadic();
   std::unique_ptr<Function> MakeFunctionType(xmlNodePtr function);
 
-  void ProcessRoot(xmlNodePtr root);
+  Id ProcessRoot(xmlNodePtr root);
   void ProcessCorpusGroup(xmlNodePtr group);
   void ProcessCorpus(xmlNodePtr corpus);
   void ProcessSymbols(xmlNodePtr symbols);
@@ -121,7 +121,7 @@ class Abigail : public Graph {
   void ProcessStructUnion(Id id, bool is_struct, xmlNodePtr struct_union);
   void ProcessEnum(Id id, xmlNodePtr enumeration);
 
-  void BuildSymbols();
+  Id BuildSymbols();
 };
 
 std::unique_ptr<Abigail> Read(const std::string& path, bool verbose = false);
