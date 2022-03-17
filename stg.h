@@ -256,7 +256,7 @@ class Type {
   virtual Result Equals(State& state, const Type& other) const = 0;
 
  protected:
-  const Type& GetType(Id id) const;
+  const Type& Get(Id id) const;
 
   virtual Name MakeDescription(NameCache& names) const = 0;
 

@@ -335,7 +335,7 @@ void VizPrint(const Comparison& comparison, const Outcomes& outcomes,
   }
 }
 
-const Type& Type::GetType(Id id) const { return *(types_[id.ix_].get()); }
+const Type& Type::Get(Id id) const { return *(types_[id.ix_].get()); }
 
 std::string QualifiersMessage(
     QualifierKind qualifier, const std::string& action) {
@@ -489,7 +489,7 @@ Name Void::MakeDescription(NameCache&) const { return Name{"void"}; }
 Name Variadic::MakeDescription(NameCache&) const { return Name{"..."}; }
 
 Name Ptr::MakeDescription(NameCache& names) const {
-  return GetType(GetPointeeTypeId())
+  return Get(GetPointeeTypeId())
       .GetDescription(names)
       .Add(Side::LEFT, Precedence::POINTER, "*");
 }
@@ -511,13 +511,13 @@ Name Integer::MakeDescription(NameCache&) const {
 Name Array::MakeDescription(NameCache& names) const {
   std::ostringstream os;
   os << '[' << GetNumberOfElements() << ']';
-  return GetType(GetElementTypeId())
+  return Get(GetElementTypeId())
       .GetDescription(names)
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
 Name Member::MakeDescription(NameCache& names) const {
-  auto description = GetType(GetMemberType()).GetDescription(names);
+  auto description = Get(GetMemberType()).GetDescription(names);
   if (!name_.empty())
     description = description.Add(Side::LEFT, Precedence::ATOMIC, name_);
   if (bitsize_)
@@ -535,7 +535,7 @@ Name StructUnion::MakeDescription(NameCache& names) const {
   } else if (const auto& definition = GetDefinition()) {
     os << "{ ";
     for (const auto& member : definition->members)
-      os << GetType(member).GetDescription(names) << "; ";
+      os << Get(member).GetDescription(names) << "; ";
     os << '}';
   }
   return Name{os.str()};
@@ -565,14 +565,14 @@ Name Function::MakeDescription(NameCache& names) const {
       os << ", ";
     else
       sep = true;
-    const auto& arg_descr = GetType(p.typeId_).GetDescription(names);
+    const auto& arg_descr = Get(p.typeId_).GetDescription(names);
     if (p.name_.empty())
       os << arg_descr;
     else
       os << arg_descr.Add(Side::LEFT, Precedence::ATOMIC, p.name_);
   }
   os << ')';
-  return GetType(GetReturnTypeId())
+  return Get(GetReturnTypeId())
       .GetDescription(names)
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
@@ -580,7 +580,7 @@ Name Function::MakeDescription(NameCache& names) const {
 Name ElfSymbol::MakeDescription(NameCache& names) const {
   const auto& name = symbol_->get_name();
   return type_id_
-      ? GetType(*type_id_).GetDescription(names).Add(
+      ? Get(*type_id_).GetDescription(names).Add(
           Side::LEFT, Precedence::ATOMIC, name)
       : Name{name};
 }
@@ -605,8 +605,8 @@ Result Ptr::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Ptr>();
 
   Result result;
-  const auto ref_diff = Compare(state, GetType(GetPointeeTypeId()),
-                                o.GetType(o.GetPointeeTypeId()));
+  const auto ref_diff = Compare(state, Get(GetPointeeTypeId()),
+                                o.Get(o.GetPointeeTypeId()));
   result.MaybeAddEdgeDiff("pointed-to", ref_diff);
   return result;
 }
@@ -642,8 +642,8 @@ Result Array::Equals(State& state, const Type& other) const {
   result.MaybeAddNodeDiff("number of elements",
                           GetNumberOfElements(), o.GetNumberOfElements());
   const auto element_type_diff =
-      Compare(state, GetType(GetElementTypeId()),
-              o.GetType(o.GetElementTypeId()));
+      Compare(state, Get(GetElementTypeId()),
+              o.Get(o.GetElementTypeId()));
   result.MaybeAddEdgeDiff("element", element_type_diff);
   return result;
 }
@@ -695,7 +695,7 @@ Result Member::Equals(State& state, const Type& other) const {
   Result result;
   result.MaybeAddNodeDiff("offset", offset_, o.offset_);
   result.MaybeAddNodeDiff("size", bitsize_, o.bitsize_);
-  const auto sub_diff = Compare(state, GetType(typeId_), o.GetType(o.typeId_));
+  const auto sub_diff = Compare(state, Get(typeId_), o.Get(o.typeId_));
   result.MaybeAddEdgeDiff("", sub_diff);
   return result;
 }
@@ -733,17 +733,17 @@ Result StructUnion::Equals(State& state, const Type& other) const {
     if (index1 && !index2) {
       // removed
       const auto member1 = members1[*index1];
-      result.AddEdgeDiff("", Removed(state, GetType(member1)));
+      result.AddEdgeDiff("", Removed(state, Get(member1)));
     } else if (!index1 && index2) {
       // added
       const auto member2 = members2[*index2];
-      result.AddEdgeDiff("", Added(state, o.GetType(member2)));
+      result.AddEdgeDiff("", Added(state, o.Get(member2)));
     } else {
       // in both
       const auto member1 = members1[*index1];
       const auto member2 = members2[*index2];
       result.MaybeAddEdgeDiff(
-          "", Compare(state, GetType(member1), o.GetType(member2)));
+          "", Compare(state, Get(member1), o.Get(member2)));
     }
   }
 
@@ -811,8 +811,8 @@ Result Function::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Function>();
 
   Result result;
-  const auto return_type_diff = Compare(state, GetType(GetReturnTypeId()),
-                                        o.GetType(o.GetReturnTypeId()));
+  const auto return_type_diff = Compare(state, Get(GetReturnTypeId()),
+                                        o.Get(o.GetReturnTypeId()));
   result.MaybeAddEdgeDiff("return", return_type_diff);
 
   const auto& parameters1 = GetParameters();
@@ -822,7 +822,7 @@ Result Function::Equals(State& state, const Type& other) const {
     const auto& p1 = parameters1.at(i);
     const auto& p2 = parameters2.at(i);
     const auto sub_diff =
-        Compare(state, GetType(p1.typeId_), o.GetType(p2.typeId_));
+        Compare(state, Get(p1.typeId_), o.Get(p2.typeId_));
     result.MaybeAddEdgeDiff(
         [&](std::ostream& os) {
           os << "parameter " << i + 1;
@@ -854,7 +854,7 @@ Result Function::Equals(State& state, const Type& other) const {
     if (!parameter.name_.empty())
       os << " (" << std::quoted(parameter.name_, '\'') << ")";
     os << " of";
-    const auto& parameter_type = which.GetType(parameter.typeId_);
+    const auto& parameter_type = which.Get(parameter.typeId_);
     auto diff =
         added ? Added(state, parameter_type) : Removed(state, parameter_type);
     result.AddEdgeDiff(os.str(), diff);
@@ -939,13 +939,12 @@ Result ElfSymbol::Equals(State& state, const Type& other) const {
   result.MaybeAddNodeDiff("CRC", CRC{s1.get_crc()}, CRC{s2.get_crc()});
 
   if (type_id_ && o.type_id_) {
-    const auto type_diff =
-        Compare(state, GetType(*type_id_), o.GetType(*o.type_id_));
+    const auto type_diff = Compare(state, Get(*type_id_), o.Get(*o.type_id_));
     result.MaybeAddEdgeDiff("", type_diff);
   } else if (type_id_) {
-    result.AddEdgeDiff("", Removed(state, GetType(*type_id_)));
+    result.AddEdgeDiff("", Removed(state, Get(*type_id_)));
   } else if (o.type_id_) {
-    result.AddEdgeDiff("", Added(state, o.GetType(*o.type_id_)));
+    result.AddEdgeDiff("", Added(state, o.Get(*o.type_id_)));
   } else {
     // both types missing, we have nothing to say
   }
@@ -988,12 +987,11 @@ Result Symbols::Equals(State& state, const Type& other) const {
   }
 
   for (const auto symbol1 : removed)
-    result.AddEdgeDiff("", Removed(state, GetType(symbol1)));
+    result.AddEdgeDiff("", Removed(state, Get(symbol1)));
   for (const auto symbol2 : added)
-    result.AddEdgeDiff("", Added(state, o.GetType(symbol2)));
+    result.AddEdgeDiff("", Added(state, o.Get(symbol2)));
   for (const auto [symbol1, symbol2] : in_both)
-    result.MaybeAddEdgeDiff(
-        "", Compare(state, GetType(symbol1), o.GetType(symbol2)));
+    result.MaybeAddEdgeDiff("", Compare(state, Get(symbol1), o.Get(symbol2)));
 
   return result;
 }
@@ -1019,7 +1017,7 @@ const Type& Function::ResolveQualifiers(
 const Type& Qualifier::ResolveQualifiers(
     std::set<QualifierKind>& qualifiers) const {
   qualifiers.insert(GetQualifierKind());
-  return GetType(GetQualifiedTypeId()).ResolveQualifiers(qualifiers);
+  return Get(GetQualifiedTypeId()).ResolveQualifiers(qualifiers);
 }
 
 const Type& Type::ResolveTypedef(std::vector<std::string>&) const {
@@ -1028,7 +1026,7 @@ const Type& Type::ResolveTypedef(std::vector<std::string>&) const {
 
 const Type& Typedef::ResolveTypedef(std::vector<std::string>& typedefs) const {
   typedefs.push_back(GetName());
-  return GetType(GetReferredTypeId()).ResolveTypedef(typedefs);
+  return Get(GetReferredTypeId()).ResolveTypedef(typedefs);
 }
 
 std::string Type::GetFirstName() const { return {}; }
@@ -1036,7 +1034,7 @@ std::string Type::GetFirstName() const { return {}; }
 std::string Member::GetFirstName() const {
   if (!name_.empty())
     return name_;
-  const auto& type = GetType(typeId_);
+  const auto& type = Get(typeId_);
   return type.GetFirstName();
 }
 
@@ -1047,7 +1045,7 @@ std::string StructUnion::GetFirstName() const {
   if (const auto& definition = GetDefinition()) {
     const auto& members = definition->members;
     for (const auto& member : members) {
-      const auto recursive = GetType(member).GetFirstName();
+      const auto recursive = Get(member).GetFirstName();
       if (!recursive.empty())
         return recursive;
     }
@@ -1064,7 +1062,7 @@ std::vector<std::pair<std::string, size_t>> StructUnion::GetMemberNames()
     names.reserve(size);
     size_t anonymous_ix = 0;
     for (size_t ix = 0; ix < size; ++ix) {
-      const auto& member = GetType(members[ix]);
+      const auto& member = Get(members[ix]);
       auto key = member.GetFirstName();
       if (key.empty())
         key = "#anon#" + std::to_string(anonymous_ix++);
