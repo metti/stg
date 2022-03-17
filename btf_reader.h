@@ -46,7 +46,7 @@ class Structs : public Graph {
           std::unique_ptr<abigail::ir::environment> env,
           const abigail::symtab_reader::symtab_sptr tab,
           const bool verbose = false);
-  const Type& GetRoot() const { return *types_[root_].get(); }
+  const Type& GetRoot() const { return *types_[root_.ix_].get(); }
 
  private:
   struct MemoryRange {
@@ -62,15 +62,15 @@ class Structs : public Graph {
   const bool verbose_;
 
   std::vector<std::unique_ptr<Type>> types_;
-  std::optional<size_t> void_type_id_;
-  std::optional<size_t> variadic_type_id_;
-  std::unordered_map<uint32_t, size_t> type_ids_;
-  size_t root_;
+  std::optional<Id> void_;
+  std::optional<Id> variadic_;
+  std::unordered_map<uint32_t, Id> btf_type_ids_;
+  Id root_ = Id(-1);
   std::map<std::string, Id> btf_symbol_types_;
 
-  size_t GetVoidIndex();
-  size_t GetVariadicIndex();
-  size_t GetIndex(uint32_t btf_index);
+  Id GetVoid();
+  Id GetVariadic();
+  Id GetIdRaw(uint32_t btf_index);
   Id GetId(uint32_t btf_index);
   Id GetParameterId(uint32_t btf_index);
 

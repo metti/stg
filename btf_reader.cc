@@ -106,29 +106,29 @@ Structs::Structs(const char* start, size_t size,
 }
 
 // Get the index of the void type, creating one if needed.
-size_t Structs::GetVoidIndex() {
-  if (!void_type_id_) {
-    void_type_id_ = {types_.size()};
+Id Structs::GetVoid() {
+  if (!void_) {
+    void_ = {Id(types_.size())};
     types_.push_back(std::make_unique<Void>(types_));
   }
-  return *void_type_id_;
+  return *void_;
 }
 
 // Get the index of the variadic parameter type, creating one if needed.
-size_t Structs::GetVariadicIndex() {
-  if (!variadic_type_id_) {
-    variadic_type_id_ = {types_.size()};
+Id Structs::GetVariadic() {
+  if (!variadic_) {
+    variadic_ = {Id(types_.size())};
     types_.push_back(std::make_unique<Variadic>(types_));
   }
-  return *variadic_type_id_;
+  return *variadic_;
 }
 
 // Map BTF type index to own index.
 //
 // If there is no existing mapping for a BTF type, create one pointing to a new
 // slot at the end of the array.
-size_t Structs::GetIndex(uint32_t btf_index) {
-  auto [it, inserted] = type_ids_.insert({btf_index, types_.size()});
+Id Structs::GetIdRaw(uint32_t btf_index) {
+  auto [it, inserted] = btf_type_ids_.insert({btf_index, Id(types_.size())});
   if (inserted)
     types_.push_back(nullptr);
   return it->second;
@@ -136,12 +136,12 @@ size_t Structs::GetIndex(uint32_t btf_index) {
 
 // Translate BTF type id to own type id, for non-parameters.
 Id Structs::GetId(uint32_t btf_index) {
-  return Id(btf_index ? GetIndex(btf_index) : GetVoidIndex());
+  return btf_index ? GetIdRaw(btf_index) : GetVoid();
 }
 
 // Translate BTF type id to own type id, for parameters.
 Id Structs::GetParameterId(uint32_t btf_index) {
-  return Id(btf_index ? GetIndex(btf_index) : GetVariadicIndex());
+  return btf_index ? GetIdRaw(btf_index) : GetVariadic();
 }
 
 // The verbose output format closely follows bpftool dump format raw.
@@ -249,7 +249,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
   if (verbose_)
     std::cout << '[' << btf_index << "] ";
   auto node = [&]() -> std::unique_ptr<Type>& {
-    return types_[GetIndex(btf_index)];
+    return types_[GetIdRaw(btf_index).ix_];
   };
 
   switch (kind) {
@@ -488,7 +488,7 @@ void Structs::BuildSymbols() {
     auto key = symbol_name + '@' + symbol->get_version().str();
     elf_symbols.emplace(std::move(key), elf_symbol_id);
   }
-  root_ = types_.size();
+  root_ = Id(types_.size());
   types_.push_back(std::make_unique<Symbols>(types_, elf_symbols));
 }
 
