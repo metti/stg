@@ -238,9 +238,6 @@ void Structs::BuildTypes(MemoryRange memory) {
   }
 
   BuildSymbols();
-
-  for (const auto& type : types_)
-    Check(type != nullptr) << "Undefined type";
 }
 
 void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
