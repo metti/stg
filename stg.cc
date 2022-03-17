@@ -144,23 +144,23 @@ std::string Typedef::GetResolvedDescription(NameCache& names) const {
   return os.str();
 }
 
-bool PrintComparison(const Comparison& comparison, NameCache& names,
+bool PrintComparison(Reporting& reporting, const Comparison& comparison,
                      std::ostream& os) {
   const auto* node1 = comparison.first;
   const auto* node2 = comparison.second;
   if (!node2) {
-    os << node1->GetKindDescription() << " '" << node1->GetDescription(names)
-       << "' was removed\n";
+    os << node1->GetKindDescription() << " '"
+       << node1->GetDescription(reporting.names) << "' was removed\n";
     return true;
   }
   if (!node1) {
-    os << node2->GetKindDescription() << " '" << node2->GetDescription(names)
-       << "' was added\n";
+    os << node2->GetKindDescription() << " '"
+       << node2->GetDescription(reporting.names) << "' was added\n";
     return true;
   }
 
-  const auto description1 = node1->GetResolvedDescription(names);
-  const auto description2 = node2->GetResolvedDescription(names);
+  const auto description1 = node1->GetResolvedDescription(reporting.names);
+  const auto description2 = node2->GetResolvedDescription(reporting.names);
   os << node1->GetKindDescription() << ' ';
   if (description1 == description2)
     os << description1 << " changed";
@@ -171,13 +171,13 @@ bool PrintComparison(const Comparison& comparison, NameCache& names,
 
 static constexpr size_t INDENT_INCREMENT = 2;
 
-void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
-           NameCache& names, std::ostream& os, size_t indent) {
-  if (PrintComparison(comparison, names, os))
+void Print(Reporting& reporting, const Comparison& comparison, Seen& seen,
+           std::ostream& os, size_t indent) {
+  if (PrintComparison(reporting, comparison, os))
     return;
 
-  const auto it = outcomes.find(comparison);
-  Check(it != outcomes.end()) << "internal error: missing comparison";
+  const auto it = reporting.outcomes.find(comparison);
+  Check(it != reporting.outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
 
   const bool holds_changes = diff.holds_changes;
@@ -195,14 +195,14 @@ void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
   }
 
   os << '\n';
-  Print(diff.details, outcomes, seen, names, os, indent + INDENT_INCREMENT);
+  Print(reporting, diff.details, seen, os, indent + INDENT_INCREMENT);
 
   if (holds_changes)
     insertion.first->second = true;
 }
 
-void Print(const std::vector<DiffDetail>& details, const Outcomes& outcomes,
-           Seen& seen, NameCache& names, std::ostream& os, size_t indent) {
+void Print(Reporting& reporting, const std::vector<DiffDetail>& details,
+           Seen& seen, std::ostream& os, size_t indent) {
   for (const auto& detail : details) {
     os << std::string(indent, ' ') << detail.text_;
     if (!detail.edge_) {
@@ -210,7 +210,7 @@ void Print(const std::vector<DiffDetail>& details, const Outcomes& outcomes,
     } else {
       if (!detail.text_.empty())
         os << ' ';
-      Print(*detail.edge_, outcomes, seen, names, os, indent);
+      Print(reporting, *detail.edge_, seen, os, indent);
     }
     // paragraph spacing
     if (!indent)
@@ -223,18 +223,18 @@ void Print(const std::vector<DiffDetail>& details, const Outcomes& outcomes,
 // printing. Optionally, avoid printing "uninteresting" nodes - those that have
 // no diff and no path to a diff that does not pass through a node that can hold
 // diffs. Return whether the diff node's tree was intrinisically interesting.
-bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
+bool FlatPrint(Reporting& reporting, const Comparison& comparison,
                std::unordered_set<Comparison, HashComparison>& seen,
                std::deque<Comparison>& todo, bool full, bool stop,
-               NameCache& names, std::ostream& os, size_t indent) {
+               std::ostream& os, size_t indent) {
   // Nodes that represent additions or removal are always interesting and no
   // recursion is possible.
-  if (PrintComparison(comparison, names, os))
+  if (PrintComparison(reporting, comparison, os))
     return true;
 
   // Look up the diff (including node and edge changes).
-  const auto it = outcomes.find(comparison);
-  Check(it != outcomes.end()) << "internal error: missing comparison";
+  const auto it = reporting.outcomes.find(comparison);
+  Check(it != reporting.outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
 
   os << '\n';
@@ -266,8 +266,8 @@ bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
       if (!detail.text_.empty())
         sub_os << ' ';
       // Set the stop flag to prevent recursion past diff-holding nodes.
-      bool sub_interesting = FlatPrint(*detail.edge_, outcomes, seen, todo,
-                                       full, true, names, sub_os, indent);
+      bool sub_interesting = FlatPrint(reporting, *detail.edge_, seen, todo,
+                                       full, true, sub_os, indent);
       // If the sub-tree was interesting, add it.
       if (sub_interesting || full)
         os << sub_os.str();
@@ -282,10 +282,10 @@ size_t VizId(std::unordered_map<Comparison, size_t, HashComparison>& ids,
   return ids.insert({comparison, ids.size()}).first->second;
 }
 
-void VizPrint(const Comparison& comparison, const Outcomes& outcomes,
+void VizPrint(Reporting& reporting, const Comparison& comparison,
               std::unordered_set<Comparison, HashComparison>& seen,
               std::unordered_map<Comparison, size_t, HashComparison>& ids,
-              NameCache& names, std::ostream& os) {
+              std::ostream& os) {
   if (!seen.insert(comparison).second)
     return;
 
@@ -294,23 +294,23 @@ void VizPrint(const Comparison& comparison, const Outcomes& outcomes,
   const auto* node1 = comparison.first;
   const auto* node2 = comparison.second;
   if (!node2) {
-    os << "  \"" << node << "\" [color=red, label=\""
-       << "removed(" << node1->GetDescription(names) << ")\"]\n";
+    os << "  \"" << node << "\" [color=red, label=\"" << "removed("
+       << node1->GetDescription(reporting.names) << ")\"]\n";
     return;
   }
   if (!node1) {
-    os << "  \"" << node << "\" [color=red, label=\""
-       << "added(" << node2->GetDescription(names) << ")\"]\n";
+    os << "  \"" << node << "\" [color=red, label=\"" << "added("
+       << node2->GetDescription(reporting.names) << ")\"]\n";
     return;
   }
 
-  const auto it = outcomes.find(comparison);
-  Check(it != outcomes.end()) << "internal error: missing comparison";
+  const auto it = reporting.outcomes.find(comparison);
+  Check(it != reporting.outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
   const char* colour = diff.has_changes ? "color=red, " : "";
   const char* shape = diff.holds_changes ? "shape=rectangle, " : "";
-  const auto description1 = node1->GetResolvedDescription(names);
-  const auto description2 = node2->GetResolvedDescription(names);
+  const auto description1 = node1->GetResolvedDescription(reporting.names);
+  const auto description2 = node2->GetResolvedDescription(reporting.names);
   if (description1 == description2)
     os << "  \"" << node << "\" [" << colour << shape << "label=\""
        << description1 << "\"]\n";
@@ -328,7 +328,7 @@ void VizPrint(const Comparison& comparison, const Outcomes& outcomes,
       ++index;
     } else {
       const auto& to = *detail.edge_;
-      VizPrint(to, outcomes, seen, ids, names, os);
+      VizPrint(reporting, to, seen, ids, os);
       os << "  \"" << node << "\" -> \"" << VizId(ids, to) << "\" [label=\""
          << detail.text_ << "\"]\n";
     }

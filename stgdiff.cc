@@ -80,27 +80,25 @@ enum class OutputFormat { PLAIN, FLAT, SMALL, VIZ };
 using Inputs = std::vector<std::pair<InputFormat, const char*>>;
 using Outputs = std::vector<std::pair<OutputFormat, const char*>>;
 
-void ReportPlain(const stg::Comparison& comparison,
-                 const stg::Outcomes& outcomes,
-                 stg::NameCache& names, std::ostream& output) {
+void ReportPlain(stg::Reporting& reporting, const stg::Comparison& comparison,
+                 std::ostream& output) {
   // unpack then print - want symbol diff forest rather than symbols diff tree
-  const auto& diff = outcomes.at(comparison);
+  const auto& diff = reporting.outcomes.at(comparison);
   stg::Seen seen;
-  stg::Print(diff.details, outcomes, seen, names, output);
+  stg::Print(reporting, diff.details, seen, output);
 }
 
-void ReportFlat(bool full, const stg::Comparison& comparison,
-                const stg::Outcomes& outcomes, stg::NameCache& names,
-                std::ostream& output) {
+void ReportFlat(stg::Reporting& reporting, bool full,
+                const stg::Comparison& comparison, std::ostream& output) {
   // We want a symbol diff forest rather than a symbol table diff tree, so
   // unpack the symbol table and then print the symbols specially.
-  const auto& diff = outcomes.at(comparison);
+  const auto& diff = reporting.outcomes.at(comparison);
   std::unordered_set<stg::Comparison, stg::HashComparison> seen;
   std::deque<stg::Comparison> todo;
   for (const auto& detail : diff.details) {
     std::ostringstream os;
-    const bool interesting = stg::FlatPrint(
-        *detail.edge_, outcomes, seen, todo, full, true, names, os);
+    const bool interesting =
+        stg::FlatPrint(reporting, *detail.edge_, seen, todo, full, true, os);
     if (interesting || full)
       output << os.str() << '\n';
   }
@@ -109,18 +107,18 @@ void ReportFlat(bool full, const stg::Comparison& comparison,
     todo.pop_front();
     std::ostringstream os;
     const bool interesting =
-        stg::FlatPrint(comp, outcomes, seen, todo, full, false, names, os);
+        stg::FlatPrint(reporting, comp, seen, todo, full, false, os);
     if (interesting || full)
       output << os.str() << '\n';
   }
 }
 
-void ReportViz(const stg::Comparison& comparison, const stg::Outcomes& outcomes,
-               stg::NameCache& names, std::ostream& output) {
+void ReportViz(stg::Reporting& reporting, const stg::Comparison& comparison,
+               std::ostream& output) {
   output << "digraph \"ABI diff\" {\n";
   std::unordered_set<stg::Comparison, stg::HashComparison> seen;
   std::unordered_map<stg::Comparison, size_t, stg::HashComparison> ids;
-  stg::VizPrint(comparison, outcomes, seen, ids, names, output);
+  stg::VizPrint(reporting, comparison, seen, ids, output);
   output << "}\n";
 }
 
@@ -158,24 +156,24 @@ bool Run(const Inputs& inputs, const Outputs& outputs) {
 
   // Write reports.
   stg::NameCache names;
-  const auto& outcomes = state.outcomes;
+  stg::Reporting reporting{state.outcomes, names};
   for (const auto& [format, filename] : outputs) {
     std::ofstream output(filename);
     if (comparison) {
       Time report("report diffs");
       switch (format) {
         case OutputFormat::PLAIN: {
-          ReportPlain(*comparison, outcomes, names, output);
+          ReportPlain(reporting, *comparison, output);
           break;
         }
         case OutputFormat::FLAT:
         case OutputFormat::SMALL: {
           bool full = format == OutputFormat::FLAT;
-          ReportFlat(full, *comparison, outcomes, names, output);
+          ReportFlat(reporting, full, *comparison, output);
           break;
         }
         case OutputFormat::VIZ: {
-          ReportViz(*comparison, outcomes, names, output);
+          ReportViz(reporting, *comparison, output);
           break;
         }
       }

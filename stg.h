@@ -207,24 +207,29 @@ struct State {
   SCC<Comparison, HashComparison> scc;
 };
 
+struct Reporting {
+  const Outcomes& outcomes;
+  NameCache& names;
+};
+
 // unvisited (absent) -> started (false) -> finished (true)
 using Seen = std::unordered_map<Comparison, bool, HashComparison>;
 
-void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
-           NameCache& names, std::ostream& os, size_t indent = 0);
+void Print(Reporting& reporting, const Comparison& comparison, Seen& seen,
+           std::ostream& os, size_t indent = 0);
 
-void Print(const std::vector<DiffDetail>& details, const Outcomes& outcomes,
-           Seen& seen, NameCache& names, std::ostream& os, size_t indent = 0);
+void Print(Reporting& reporting, const std::vector<DiffDetail>& details,
+           Seen& seen, std::ostream& os, size_t indent = 0);
 
-bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
+bool FlatPrint(Reporting& reporting, const Comparison& comparison,
                std::unordered_set<Comparison, HashComparison>& seen,
                std::deque<Comparison>& todo, bool full, bool stop,
-               NameCache& names, std::ostream& os, size_t indent = 0);
+               std::ostream& os, size_t indent = 0);
 
-void VizPrint(const Comparison& comparison, const Outcomes& outcomes,
+void VizPrint(Reporting& reporting, const Comparison& comparison,
               std::unordered_set<Comparison, HashComparison>& seen,
               std::unordered_map<Comparison, size_t, HashComparison>& ids,
-              NameCache& names, std::ostream& os);
+              std::ostream& os);
 
 class Type {
  public:
