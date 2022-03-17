@@ -21,6 +21,7 @@
 #define STG_ID_H_
 
 #include <cstddef>
+#include <functional>
 #include <ostream>
 
 namespace stg {
@@ -29,6 +30,8 @@ namespace stg {
 struct Id {
   explicit Id(size_t ix) : ix_(ix) {}
   size_t ix_;
+  bool operator==(const Id& other) const { return ix_ == other.ix_; }
+  bool operator!=(const Id& other) const { return !operator==(other); }
 };
 
 inline std::ostream& operator<<(std::ostream& os, Id id) {
@@ -36,5 +39,14 @@ inline std::ostream& operator<<(std::ostream& os, Id id) {
 }
 
 }  // namespace stg
+
+namespace std {
+
+template<>
+struct hash<stg::Id> {
+  size_t operator()(const stg::Id& id) const noexcept { return id.ix_; }
+};
+
+}  // namespace std
 
 #endif  // STG_ID_H_
