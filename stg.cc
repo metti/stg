@@ -33,6 +33,29 @@
 
 namespace stg {
 
+bool Graph::Is(Id id) const {
+  return types_[id.ix_] != nullptr;
+}
+
+Id Graph::Allocate() {
+  const auto ix = types_.size();
+  types_.push_back(nullptr);
+  return Id(ix);
+}
+
+void Graph::Set(Id id, std::unique_ptr<Type> node) {
+  Check(node != nullptr) << "node value not set";
+  auto& reference = types_[id.ix_];
+  Check(reference == nullptr) << "node value already set";
+  reference = std::move(node);
+}
+
+Id Graph::Add(std::unique_ptr<Type> node) {
+  auto id = Allocate();
+  Set(id, std::move(node));
+  return id;
+}
+
 static constexpr std::array<std::string_view, 6> kIntEncoding = {
     "boolean",
     "signed integer",

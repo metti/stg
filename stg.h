@@ -43,6 +43,27 @@
 
 namespace stg {
 
+class Type;
+
+// It would be better to work with concrete graphs and properly separate graph
+// creation from other things. This is an intermediate point where the common
+// functionality for building graphs has moved into the base class.
+
+struct Graph {
+  virtual ~Graph() = default;
+
+  virtual Id Root() const = 0;
+
+  const Type& GetRoot() const { return *types_[Root().ix_].get(); }
+
+  bool Is(Id) const;
+  Id Allocate();
+  void Set(Id id, std::unique_ptr<Type> node);
+  Id Add(std::unique_ptr<Type> node);
+
+  std::vector<std::unique_ptr<Type>> types_;
+};
+
 // A Parameter refers to a variable declared in the function declaration, used
 // in the context of Function.
 struct Parameter {
@@ -55,8 +76,6 @@ enum class QualifierKind { CONST, VOLATILE, RESTRICT };
 
 std::ostream& operator<<(std::ostream& os, StructUnionKind kind);
 std::ostream& operator<<(std::ostream& os, QualifierKind kind);
-
-class Type;
 
 using Comparison = std::pair<const Type*, const Type*>;
 
@@ -499,15 +518,6 @@ class Symbols : public Type {
 };
 
 std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding);
-
-// It would be better to work with concrete graphs and properly separate graph
-// creation from other things. However, until then, support the different
-// formats via an abstract base class.
-
-struct Graph {
-  virtual const Type& GetRoot() const = 0;
-  virtual ~Graph() = default;
-};
 
 }  // namespace stg
 

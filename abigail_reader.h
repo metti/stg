@@ -76,17 +76,16 @@ namespace abixml {
 class Abigail : public Graph {
  public:
   explicit Abigail(xmlNodePtr root, bool verbose = false);
-  const Type& GetRoot() const final { return *types_[root_.ix_].get(); }
+  Id Root() const final { return root_; }
 
  private:
   const bool verbose_;
 
-  std::vector<std::unique_ptr<Type>> types_;
-  // The STG IR uses a distinct node type for variadic parameters; if allocated,
-  // this is its node id.
+  // The STG IR uses a distinct node type for the variadic parameter type; if
+  // allocated, this is its STG node id.
   std::optional<Id> variadic_;
-  // libabigail type ids often appear before definition; except for the type of
-  // variadic parameters, this records their corresponding node ids.
+  // Map from libabigail type ids to STG node ids; except for the type of
+  // variadic parameters.
   std::unordered_map<std::string, Id> type_ids_;
 
   std::unique_ptr<abigail::ir::environment> env_;
@@ -97,7 +96,6 @@ class Abigail : public Graph {
   std::unordered_map<std::string, Id> symbol_ids_;
   Id root_ = Id(-1);
 
-  Id Add(std::unique_ptr<Type> type);
   Id GetNode(const std::string& type_id);
   Id GetEdge(xmlNodePtr element);
   Id GetVariadic();
