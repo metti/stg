@@ -252,7 +252,7 @@ class Type {
   const Name& GetDescription(NameCache& names) const;
   virtual std::string GetResolvedDescription(NameCache& names) const;
   virtual std::string GetKindDescription() const;
-  virtual std::string GetFirstName() const;
+  virtual std::string FirstName() const;
   virtual Result Equals(State& state, const Type& other) const = 0;
 
  protected:
@@ -401,7 +401,7 @@ class Member : public Type {
   std::string GetKindDescription() const final;
   Name MakeDescription(NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  std::string GetFirstName() const final;
+  std::string FirstName() const final;
 
  private:
   const std::string name_;
@@ -433,7 +433,7 @@ class StructUnion : public Type {
   const std::optional<Definition>& GetDefinition() const { return definition_; }
   Name MakeDescription(NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  std::string GetFirstName() const final;
+  std::string FirstName() const final;
 
  private:
   std::vector<std::pair<std::string, size_t>> GetMemberNames() const;

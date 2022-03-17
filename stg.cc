@@ -1029,23 +1029,22 @@ const Type& Typedef::ResolveTypedef(std::vector<std::string>& typedefs) const {
   return Get(GetReferredTypeId()).ResolveTypedef(typedefs);
 }
 
-std::string Type::GetFirstName() const { return {}; }
+std::string Type::FirstName() const { return {}; }
 
-std::string Member::GetFirstName() const {
+std::string Member::FirstName() const {
   if (!name_.empty())
     return name_;
-  const auto& type = Get(typeId_);
-  return type.GetFirstName();
+  return Get(typeId_).FirstName();
 }
 
-std::string StructUnion::GetFirstName() const {
+std::string StructUnion::FirstName() const {
   const auto& name = GetName();
   if (!name.empty())
     return name;
   if (const auto& definition = GetDefinition()) {
     const auto& members = definition->members;
     for (const auto& member : members) {
-      const auto recursive = Get(member).GetFirstName();
+      const auto recursive = Get(member).FirstName();
       if (!recursive.empty())
         return recursive;
     }
@@ -1062,8 +1061,7 @@ std::vector<std::pair<std::string, size_t>> StructUnion::GetMemberNames()
     names.reserve(size);
     size_t anonymous_ix = 0;
     for (size_t ix = 0; ix < size; ++ix) {
-      const auto& member = Get(members[ix]);
-      auto key = member.GetFirstName();
+      auto key = Get(members[ix]).FirstName();
       if (key.empty())
         key = "#anon#" + std::to_string(anonymous_ix++);
       names.push_back({key, ix});
