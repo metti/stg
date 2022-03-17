@@ -344,13 +344,13 @@ std::string QualifiersMessage(
   return os.str();
 }
 
-Comparison Type::Removed(const Type& node, State& state) {
+Comparison Type::Removed(State& state, const Type& node) {
   Comparison comparison{&node, nullptr};
   state.outcomes.insert({comparison, {}});
   return comparison;
 }
 
-Comparison Type::Added(const Type& node, State& state) {
+Comparison Type::Added(State& state, const Type& node) {
   Comparison comparison{nullptr, &node};
   state.outcomes.insert({comparison, {}});
   return comparison;
@@ -382,7 +382,7 @@ Comparison Type::Added(const Type& node, State& state) {
  * an edge diff.
  */
 std::pair<bool, std::optional<Comparison>> Type::Compare(
-    const Type& node1, const Type& node2, State& state) {
+    State& state, const Type& node1, const Type& node2) {
   const Comparison comparison{&node1, &node2};
 
   // 1. Check if the comparison has an already known result.
@@ -432,7 +432,7 @@ std::pair<bool, std::optional<Comparison>> Type::Compare(
         ++it2;
       }
     }
-    const auto comp = Compare(unqualified1, unqualified2, state);
+    const auto comp = Compare(state, unqualified1, unqualified2);
     result.MaybeAddEdgeDiff("underlying", comp);
   } else {
     std::vector<std::string> typedefs1;
@@ -441,7 +441,7 @@ std::pair<bool, std::optional<Comparison>> Type::Compare(
     const Type& resolved2 = unqualified2.ResolveTypedef(typedefs2);
     if (&unqualified1 != &resolved1 || &unqualified2 != &resolved2) {
       // 3.2 Typedef difference.
-      const auto comp = Compare(resolved1, resolved2, state);
+      const auto comp = Compare(state, resolved1, resolved2);
       result.diff_.holds_changes = !typedefs1.empty() && !typedefs2.empty()
                                    && typedefs1[0] == typedefs2[0];
       result.MaybeAddEdgeDiff("resolved", comp);
@@ -451,7 +451,7 @@ std::pair<bool, std::optional<Comparison>> Type::Compare(
       result.diff_.has_changes = true;
     } else {
       // 5. Actually compare with dynamic type dispatch.
-      result = unqualified1.Equals(unqualified2, state);
+      result = unqualified1.Equals(state, unqualified2);
     }
   }
 
@@ -597,33 +597,33 @@ std::string ElfSymbol::GetKindDescription() const { return "symbol"; }
 
 std::string Symbols::GetKindDescription() const { return "symbols"; }
 
-Result Void::Equals(const Type&, State&) const { return {}; }
+Result Void::Equals(State&, const Type&) const { return {}; }
 
-Result Variadic::Equals(const Type&, State&) const { return {}; }
+Result Variadic::Equals(State&, const Type&) const { return {}; }
 
-Result Ptr::Equals(const Type& other, State& state) const {
+Result Ptr::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Ptr>();
 
   Result result;
-  const auto ref_diff = Compare(GetType(GetPointeeTypeId()),
-                                o.GetType(o.GetPointeeTypeId()), state);
+  const auto ref_diff = Compare(state, GetType(GetPointeeTypeId()),
+                                o.GetType(o.GetPointeeTypeId()));
   result.MaybeAddEdgeDiff("pointed-to", ref_diff);
   return result;
 }
 
-Result Typedef::Equals(const Type&, State&) const {
+Result Typedef::Equals(State&, const Type&) const {
   // Compare will never attempt to directly compare Typedefs.
   Die() << "internal error: Typedef::Equals";
   __builtin_unreachable();
 }
 
-Result Qualifier::Equals(const Type&, State&) const {
+Result Qualifier::Equals(State&, const Type&) const {
   // Compare will never attempt to directly compare Qualifiers.
   Die() << "internal error: Qualifier::Equals";
   __builtin_unreachable();
 }
 
-Result Integer::Equals(const Type& other, State&) const {
+Result Integer::Equals(State&, const Type& other) const {
   const auto& o = other.as<Integer>();
 
   Result result;
@@ -635,15 +635,15 @@ Result Integer::Equals(const Type& other, State&) const {
   return result;
 }
 
-Result Array::Equals(const Type& other, State& state) const {
+Result Array::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Array>();
 
   Result result;
   result.MaybeAddNodeDiff("number of elements",
                           GetNumberOfElements(), o.GetNumberOfElements());
   const auto element_type_diff =
-      Compare(GetType(GetElementTypeId()),
-              o.GetType(o.GetElementTypeId()), state);
+      Compare(state, GetType(GetElementTypeId()),
+              o.GetType(o.GetElementTypeId()));
   result.MaybeAddEdgeDiff("element", element_type_diff);
   return result;
 }
@@ -689,18 +689,18 @@ PairUp(const std::vector<std::pair<std::string, size_t>>& names1,
   return pairs;
 }
 
-Result Member::Equals(const Type& other, State& state) const {
+Result Member::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Member>();
 
   Result result;
   result.MaybeAddNodeDiff("offset", offset_, o.offset_);
   result.MaybeAddNodeDiff("size", bitsize_, o.bitsize_);
-  const auto sub_diff = Compare(GetType(typeId_), o.GetType(o.typeId_), state);
+  const auto sub_diff = Compare(state, GetType(typeId_), o.GetType(o.typeId_));
   result.MaybeAddEdgeDiff("", sub_diff);
   return result;
 }
 
-Result StructUnion::Equals(const Type& other, State& state) const {
+Result StructUnion::Equals(State& state, const Type& other) const {
   const auto& o = other.as<StructUnion>();
 
   Result result;
@@ -733,24 +733,24 @@ Result StructUnion::Equals(const Type& other, State& state) const {
     if (index1 && !index2) {
       // removed
       const auto member1 = members1[*index1];
-      result.AddEdgeDiff("", Removed(GetType(member1), state));
+      result.AddEdgeDiff("", Removed(state, GetType(member1)));
     } else if (!index1 && index2) {
       // added
       const auto member2 = members2[*index2];
-      result.AddEdgeDiff("", Added(o.GetType(member2), state));
+      result.AddEdgeDiff("", Added(state, o.GetType(member2)));
     } else {
       // in both
       const auto member1 = members1[*index1];
       const auto member2 = members2[*index2];
       result.MaybeAddEdgeDiff(
-          "", Compare(GetType(member1), o.GetType(member2), state));
+          "", Compare(state, GetType(member1), o.GetType(member2)));
     }
   }
 
   return result;
 }
 
-Result Enumeration::Equals(const Type& other, State&) const {
+Result Enumeration::Equals(State&, const Type& other) const {
   const auto& o = other.as<Enumeration>();
 
   Result result;
@@ -807,12 +807,12 @@ Result Enumeration::Equals(const Type& other, State&) const {
   return result;
 }
 
-Result Function::Equals(const Type& other, State& state) const {
+Result Function::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Function>();
 
   Result result;
-  const auto return_type_diff = Compare(GetType(GetReturnTypeId()),
-                                        o.GetType(o.GetReturnTypeId()), state);
+  const auto return_type_diff = Compare(state, GetType(GetReturnTypeId()),
+                                        o.GetType(o.GetReturnTypeId()));
   result.MaybeAddEdgeDiff("return", return_type_diff);
 
   const auto& parameters1 = GetParameters();
@@ -822,7 +822,7 @@ Result Function::Equals(const Type& other, State& state) const {
     const auto& p1 = parameters1.at(i);
     const auto& p2 = parameters2.at(i);
     const auto sub_diff =
-        Compare(GetType(p1.typeId_), o.GetType(p2.typeId_), state);
+        Compare(state, GetType(p1.typeId_), o.GetType(p2.typeId_));
     result.MaybeAddEdgeDiff(
         [&](std::ostream& os) {
           os << "parameter " << i + 1;
@@ -856,14 +856,14 @@ Result Function::Equals(const Type& other, State& state) const {
     os << " of";
     const auto& parameter_type = which.GetType(parameter.typeId_);
     auto diff =
-        added ? Added(parameter_type, state) : Removed(parameter_type, state);
+        added ? Added(state, parameter_type) : Removed(state, parameter_type);
     result.AddEdgeDiff(os.str(), diff);
   }
 
   return result;
 }
 
-Result ElfSymbol::Equals(const Type& other, State& state) const {
+Result ElfSymbol::Equals(State& state, const Type& other) const {
   const auto& o = other.as<ElfSymbol>();
 
   // ELF symbols have a lot of different attributes that can impact ABI
@@ -940,12 +940,12 @@ Result ElfSymbol::Equals(const Type& other, State& state) const {
 
   if (type_id_ && o.type_id_) {
     const auto type_diff =
-        Compare(GetType(*type_id_), o.GetType(*o.type_id_), state);
+        Compare(state, GetType(*type_id_), o.GetType(*o.type_id_));
     result.MaybeAddEdgeDiff("", type_diff);
   } else if (type_id_) {
-    result.AddEdgeDiff("", Removed(GetType(*type_id_), state));
+    result.AddEdgeDiff("", Removed(state, GetType(*type_id_)));
   } else if (o.type_id_) {
-    result.AddEdgeDiff("", Added(o.GetType(*o.type_id_), state));
+    result.AddEdgeDiff("", Added(state, o.GetType(*o.type_id_)));
   } else {
     // both types missing, we have nothing to say
   }
@@ -953,7 +953,7 @@ Result ElfSymbol::Equals(const Type& other, State& state) const {
   return result;
 }
 
-Result Symbols::Equals(const Type& other, State& state) const {
+Result Symbols::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Symbols>();
 
   Result result;
@@ -988,12 +988,12 @@ Result Symbols::Equals(const Type& other, State& state) const {
   }
 
   for (const auto symbol1 : removed)
-    result.AddEdgeDiff("", Removed(GetType(symbol1), state));
+    result.AddEdgeDiff("", Removed(state, GetType(symbol1)));
   for (const auto symbol2 : added)
-    result.AddEdgeDiff("", Added(o.GetType(symbol2), state));
+    result.AddEdgeDiff("", Added(state, o.GetType(symbol2)));
   for (const auto [symbol1, symbol2] : in_both)
     result.MaybeAddEdgeDiff(
-        "", Compare(GetType(symbol1), o.GetType(symbol2), state));
+        "", Compare(state, GetType(symbol1), o.GetType(symbol2)));
 
   return result;
 }

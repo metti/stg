@@ -256,15 +256,15 @@ class Type {
   virtual std::string GetFirstName() const;
 
   static std::pair<bool, std::optional<Comparison>> Compare(
-      const Type& node1, const Type& node2, State& state);
+      State& state, const Type& node1, const Type& node2);
 
  protected:
   const Type& GetType(Id id) const;
 
   virtual Name MakeDescription(NameCache& names) const = 0;
-  virtual Result Equals(const Type& other, State& state) const = 0;
-  static Comparison Removed(const Type& node, State& state);
-  static Comparison Added(const Type& node, State& state);
+  virtual Result Equals(State& state, const Type& other) const = 0;
+  static Comparison Removed(State& state, const Type& node);
+  static Comparison Added(State& state, const Type& node);
 
  private:
   const std::vector<std::unique_ptr<Type>>& types_;
@@ -274,14 +274,14 @@ class Void : public Type {
  public:
   Void(const std::vector<std::unique_ptr<Type>>& types) : Type(types) {}
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
 };
 
 class Variadic : public Type {
  public:
   Variadic(const std::vector<std::unique_ptr<Type>>& types) : Type(types) {}
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
 };
 
 class Ptr : public Type {
@@ -290,7 +290,7 @@ class Ptr : public Type {
       : Type(types), pointeeTypeId_(pointeeTypeId) {}
   Id GetPointeeTypeId() const { return pointeeTypeId_; }
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
 
  private:
   const Id pointeeTypeId_;
@@ -305,7 +305,7 @@ class Typedef : public Type {
   Id GetReferredTypeId() const { return referredTypeId_; }
   std::string GetResolvedDescription(NameCache& names) const final;
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
   const Type& ResolveTypedef(std::vector<std::string>& typedefs) const final;
 
  private:
@@ -323,7 +323,7 @@ class Qualifier : public Type {
   QualifierKind GetQualifierKind() const { return qualifierKind_; }
   Id GetQualifiedTypeId() const { return qualifiedTypeId_; }
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
   const Type& ResolveQualifiers(
       std::set<QualifierKind>& qualifiers) const final;
 
@@ -358,7 +358,7 @@ class Integer : public Type {
   uint32_t GetBitSize() const { return bitsize_; }
   uint32_t GetByteSize() const { return bytesize_; }
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
 
  private:
   const std::string name_;
@@ -377,7 +377,7 @@ class Array : public Type {
   Id GetElementTypeId() const { return elementTypeId_; }
   uint64_t GetNumberOfElements() const { return numOfElements_; }
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
   const Type& ResolveQualifiers(
       std::set<QualifierKind>& qualifiers) const final;
 
@@ -401,7 +401,7 @@ class Member : public Type {
   uint64_t GetBitSize() const { return bitsize_; }
   std::string GetKindDescription() const final;
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
   std::string GetFirstName() const final;
 
  private:
@@ -433,7 +433,7 @@ class StructUnion : public Type {
   StructUnionKind GetStructUnionKind() const { return structUnionKind_; }
   const std::optional<Definition>& GetDefinition() const { return definition_; }
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
   std::string GetFirstName() const final;
 
  private:
@@ -463,7 +463,7 @@ class Enumeration : public Type {
   const std::string& GetName() const { return name_; }
   const std::optional<Definition>& GetDefinition() const { return definition_; }
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
 
  private:
   std::vector<std::pair<std::string, size_t>> GetEnumNames() const;
@@ -479,7 +479,7 @@ class Function : public Type {
   Id GetReturnTypeId() const { return returnTypeId_; }
   const std::vector<Parameter>& GetParameters() const { return parameters_; }
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
   const Type& ResolveQualifiers(
       std::set<QualifierKind>& qualifiers) const final;
 
@@ -497,7 +497,7 @@ class ElfSymbol : public Type {
   std::optional<Id> GetTypeId() const { return type_id_; }
   std::string GetKindDescription() const final;
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
 
  private:
   abigail::elf_symbol_sptr symbol_;
@@ -511,7 +511,7 @@ class Symbols : public Type {
       : Type(types), symbols_(symbols) {}
   std::string GetKindDescription() const final;
   Name MakeDescription(NameCache& names) const final;
-  Result Equals(const Type& other, State& state) const final;
+  Result Equals(State& state, const Type& other) const final;
 
  private:
   std::map<std::string, Id> symbols_;
