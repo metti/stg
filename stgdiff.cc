@@ -124,7 +124,7 @@ void ReportViz(const stg::Comparison& comparison, const stg::Outcomes& outcomes,
   output << "}\n";
 }
 
-bool Report(const Inputs& inputs, const Outputs& outputs) {
+bool Run(const Inputs& inputs, const Outputs& outputs) {
   // Read inputs.
   std::vector<std::unique_ptr<stg::Graph>> graphs;
   for (const auto& [format, filename] : inputs) {
@@ -260,7 +260,7 @@ int main(int argc, char* argv[]) {
     return usage();
 
   try {
-    const bool equals = Report(inputs, outputs);
+    const bool equals = Run(inputs, outputs);
     if (opt_times)
       Time::report();
     return equals ? 0 : kAbiChange;
