@@ -38,17 +38,10 @@
 #include <vector>
 
 #include <abg-ir.h>  // for ELF symbol bits
+#include "id.h"
 #include "scc.h"
 
 namespace stg {
-
-// A wrapped (for type safety) array index.
-struct Id {
-  explicit Id(size_t ix) : ix_(ix) {}
-  size_t ix_;
-};
-
-std::ostream& operator<<(std::ostream& os, Id id);
 
 // A Parameter refers to a variable declared in the function declaration, used
 // in the context of Function.

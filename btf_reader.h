@@ -32,6 +32,7 @@
 
 #include <abg-fwd.h>  // for symtab_sptr
 #include <abg-ir.h>  // for environment
+#include "id.h"
 #include "stg.h"
 #include <linux/btf.h>
 

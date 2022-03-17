@@ -33,10 +33,6 @@
 
 namespace stg {
 
-std::ostream& operator<<(std::ostream& os, Id id) {
-  return os << '<' << id.ix_ << '>';
-}
-
 static constexpr std::array<std::string_view, 6> kIntEncoding = {
     "boolean",
     "signed integer",
