@@ -157,12 +157,12 @@ bool Report(const Inputs& inputs, const Outputs& outputs) {
   const auto& [equals, comparison] = result;
 
   // Write reports.
+  stg::NameCache names;
+  const auto& outcomes = state.outcomes;
   for (const auto& [format, filename] : outputs) {
-    stg::NameCache names;
     std::ofstream output(filename);
     if (comparison) {
       Time report("report diffs");
-      const auto& outcomes = state.outcomes;
       switch (format) {
         case OutputFormat::PLAIN: {
           ReportPlain(*comparison, outcomes, names, output);
