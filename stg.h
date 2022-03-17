@@ -231,7 +231,6 @@ class Type {
   explicit Type(const std::vector<std::unique_ptr<Type>>& types)
       : types_(types) {}
   virtual ~Type() = default;
-  const std::vector<std::unique_ptr<Type>>& GetTypes() const { return types_; }
 
   // as<Type>() provides a method to defer downcasting to the base class,
   // instead of needing to use dynamic_cast in a local context. If the type is
