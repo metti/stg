@@ -74,11 +74,12 @@ class Structs : public Graph {
   Id GetId(uint32_t btf_index);
   Id GetParameterId(uint32_t btf_index);
 
+  Id Process(const char* start, size_t size);
   void PrintHeader(const btf_header* header) const;
-  void BuildTypes(MemoryRange memory);
+  Id BuildTypes(MemoryRange memory);
   void BuildOneType(const btf_type* t, uint32_t btf_index,
                     MemoryRange& memory);
-  void BuildSymbols();
+  Id BuildSymbols();
   std::vector<Id> BuildMembers(
       bool kflag, const btf_member* members, size_t vlen);
   Enumeration::Enumerators BuildEnums(

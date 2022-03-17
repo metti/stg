@@ -72,37 +72,7 @@ Structs::Structs(const char* start, size_t size,
                  const abigail::symtab_reader::symtab_sptr tab,
                  const bool verbose)
     : env_(std::move(env)), tab_(tab), verbose_(verbose) {
-  Check(sizeof(btf_header) <= size) << "BTF section too small for header";
-  const btf_header* header = reinterpret_cast<const btf_header*>(start);
-  if (verbose_) {
-    PrintHeader(header);
-  }
-  Check(header->magic == 0xEB9F) << "Magic field must be 0xEB9F for BTF";
-
-  const char* header_limit = start + header->hdr_len;
-  const char* type_start = header_limit + header->type_off;
-  const char* type_limit = type_start + header->type_len;
-
-  const char* string_start = header_limit + header->str_off;
-  const char* string_limit = string_start + header->str_len;
-
-  Check(start + sizeof(btf_header) <= header_limit) << "header exceeds length";
-  Check(header_limit <= type_start) << "type section overlaps header";
-  Check(type_start <= type_limit) << "type section ill-formed";
-  Check(!(header->type_off & (sizeof(uint32_t) - 1)))
-      << "misaligned type section";
-  Check(type_limit <= string_start)
-      << "string section does not follow type section";
-  Check(string_start <= string_limit) << "string section ill-formed";
-  Check(string_limit <= start + size)
-      << "string section extends beyond end of BTF data";
-
-  const MemoryRange type_section{type_start, type_limit};
-  string_section_ = MemoryRange{string_start, string_limit};
-  BuildTypes(type_section);
-  if (verbose_) {
-    PrintStrings(string_section_);
-  }
+  root_ = Process(start, size);
 }
 
 // Get the index of the void type, creating one if needed.
@@ -146,6 +116,38 @@ Id Structs::GetParameterId(uint32_t btf_index) {
 
 // The verbose output format closely follows bpftool dump format raw.
 static constexpr std::string_view ANON{"(anon)"};
+
+Id Structs::Process(const char* start, size_t size) {
+  Check(sizeof(btf_header) <= size) << "BTF section too small for header";
+  const btf_header* header = reinterpret_cast<const btf_header*>(start);
+  if (verbose_)
+    PrintHeader(header);
+  Check(header->magic == 0xEB9F) << "Magic field must be 0xEB9F for BTF";
+
+  const char* header_limit = start + header->hdr_len;
+  const char* type_start = header_limit + header->type_off;
+  const char* type_limit = type_start + header->type_len;
+  const char* string_start = header_limit + header->str_off;
+  const char* string_limit = string_start + header->str_len;
+
+  Check(start + sizeof(btf_header) <= header_limit) << "header exceeds length";
+  Check(header_limit <= type_start) << "type section overlaps header";
+  Check(type_start <= type_limit) << "type section ill-formed";
+  Check(!(header->type_off & (sizeof(uint32_t) - 1)))
+      << "misaligned type section";
+  Check(type_limit <= string_start)
+      << "string section does not follow type section";
+  Check(string_start <= string_limit) << "string section ill-formed";
+  Check(string_limit <= start + size)
+      << "string section extends beyond end of BTF data";
+
+  const MemoryRange type_section{type_start, type_limit};
+  string_section_ = MemoryRange{string_start, string_limit};
+  const Id root = BuildTypes(type_section);
+  if (verbose_)
+    PrintStrings(string_section_);
+  return root;
+}
 
 void Structs::PrintHeader(const btf_header* header) const {
   std::cout << "BTF header:\n"
@@ -220,7 +222,7 @@ std::vector<Parameter> Structs::BuildParams(const struct btf_param* params,
   return result;
 }
 
-void Structs::BuildTypes(MemoryRange memory) {
+Id Structs::BuildTypes(MemoryRange memory) {
   if (verbose_) {
     std::cout << "Type section:\n";
   }
@@ -237,7 +239,7 @@ void Structs::BuildTypes(MemoryRange memory) {
     ++btf_index;
   }
 
-  BuildSymbols();
+  return BuildSymbols();
 }
 
 void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
@@ -460,7 +462,7 @@ void Structs::PrintStrings(MemoryRange memory) {
   std::cout << '\n';
 }
 
-void Structs::BuildSymbols() {
+Id Structs::BuildSymbols() {
   const auto filter = [&]() {
     auto filter = tab_->make_filter();
     filter.set_public_symbols();
@@ -488,8 +490,9 @@ void Structs::BuildSymbols() {
     auto key = symbol_name + '@' + symbol->get_version().str();
     elf_symbols.emplace(std::move(key), elf_symbol_id);
   }
-  root_ = Id(types_.size());
+  const Id symbols(types_.size());
   types_.push_back(std::make_unique<Symbols>(types_, elf_symbols));
+  return symbols;
 }
 
 class ElfHandle {
