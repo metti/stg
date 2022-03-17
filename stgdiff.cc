@@ -85,7 +85,7 @@ void ReportPlain(stg::Reporting& reporting, const stg::Comparison& comparison,
   // unpack then print - want symbol diff forest rather than symbols diff tree
   const auto& diff = reporting.outcomes.at(comparison);
   stg::Seen seen;
-  stg::Print(reporting, diff.details, seen, output);
+  stg::Print(reporting, diff.details, seen, output, 0);
 }
 
 void ReportFlat(stg::Reporting& reporting, bool full,
@@ -98,7 +98,7 @@ void ReportFlat(stg::Reporting& reporting, bool full,
   for (const auto& detail : diff.details) {
     std::ostringstream os;
     const bool interesting =
-        stg::FlatPrint(reporting, *detail.edge_, seen, todo, full, true, os);
+        stg::FlatPrint(reporting, *detail.edge_, seen, todo, full, true, os, 0);
     if (interesting || full)
       output << os.str() << '\n';
   }
@@ -107,7 +107,7 @@ void ReportFlat(stg::Reporting& reporting, bool full,
     todo.pop_front();
     std::ostringstream os;
     const bool interesting =
-        stg::FlatPrint(reporting, comp, seen, todo, full, false, os);
+        stg::FlatPrint(reporting, comp, seen, todo, full, false, os, 0);
     if (interesting || full)
       output << os.str() << '\n';
   }
