@@ -99,39 +99,13 @@ std::ostream& operator<<(std::ostream& os, const Name& name) {
   return name.Print(os);
 }
 
-// There are several reasons for treating CV-qualifiers specially.
-// 1. They upset the precedence scheme we've got going here.
-// 2. Qualifiers need to be placed according to what they qualify.
-// 3. The BTF model doesn't preclude ordering and duplication issues.
-// 4. A better model would have qualifiers as part of the types.
 const Name& Type::GetDescription(NameCache& names) const {
   // infinite recursion prevention - insert at most once
   static const Name black_hole{"#"};
-
   auto insertion = names.insert({this, black_hole});
   Name& cached = insertion.first->second;
-
-  if (insertion.second) {
-    // newly inserted, need to determine name of type
-    std::set<QualifierKind> qualifiers;
-    const Type& under = ResolveQualifiers(qualifiers);
-    if (this == &under) {
-      // unqualified, simple case
-      cached = MakeDescription(names);
-    } else {
-      // qualified, but we may end up adding no qualifiers
-      auto insertion_under = names.insert({&under, black_hole});
-      Name& cached_under = insertion_under.first->second;
-
-      // newly inserted underlying type name
-      if (insertion_under.second)
-        cached_under = under.MakeDescription(names);
-
-      // add the qualifiers (to the appropriate side)
-      cached = cached_under.Qualify(qualifiers);
-    }
-  }
-
+  if (insertion.second)
+    cached = MakeDescription(names);
   return cached;
 }
 
@@ -505,10 +479,10 @@ Name Typedef::MakeDescription(NameCache&) const {
   return Name{GetName()};
 }
 
-Name Qualifier::MakeDescription(NameCache&) const {
-  // Qualifiers are resolved before GetDescription is called.
-  Die() << "internal error: Qualifier::MakeDescription";
-  __builtin_unreachable();
+Name Qualifier::MakeDescription(NameCache& names) const {
+  std::set<QualifierKind> qualifiers;
+  const Type& under = ResolveQualifiers(qualifiers);
+  return under.GetDescription(names).Qualify(qualifiers);
 }
 
 Name Integer::MakeDescription(NameCache&) const {
