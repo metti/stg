@@ -406,20 +406,24 @@ void Abigail::ProcessQualified(size_t ix, xmlNodePtr qualified) {
   if (ReadAttribute<bool>(qualified, "const", false))
     qualifiers.push_back(QualifierKind::CONST);
   Check(!qualifiers.empty()) << "qualified-type-def has no qualifiers";
-  // Handle multiple qualifiers by unconditionally adding the qualifiers as new
-  // nodes and the swapping the last one into place.
+  // Handle multiple qualifiers by unconditionally adding as new nodes all but
+  // the last qualifier which is set into place.
   if (verbose_)
     std::cerr << Id(ix) << " qualified";
   auto type = GetTypeId(qualified);
+  auto count = qualifiers.size();
   for (auto qualifier : qualifiers) {
-    type = Add(std::make_unique<Qualifier>(types_, qualifier, type));
+    --count;
+    auto node = std::make_unique<Qualifier>(types_, qualifier, type);
+    if (count)
+      type = Add(std::move(node));
+    else
+      types_[ix] = std::move(node);
     if (verbose_)
       std::cerr << ' ' << qualifier;
   }
-  std::swap(types_[ix], types_.back());
-  types_.pop_back();
   if (verbose_)
-    std::cerr << " of " << type << "\n";
+    std::cerr << " of " << Id(ix) << "\n";
 }
 
 void Abigail::ProcessArray(size_t ix, xmlNodePtr array) {
@@ -444,16 +448,20 @@ void Abigail::ProcessArray(size_t ix, xmlNodePtr array) {
   if (verbose_)
     std::cerr << Id(ix) << " array";
   auto type = GetTypeId(array);
+  auto count = dimensions.size();
   for (auto it = dimensions.crbegin(); it != dimensions.crend(); ++it) {
+    --count;
     const auto size = *it;
-    type = Add(std::make_unique<Array>(types_, type, size));
+    auto node = std::make_unique<Array>(types_, type, size);
+    if (count)
+      type = Add(std::move(node));
+    else
+      types_[ix] = std::move(node);
     if (verbose_)
       std::cerr << ' ' << size;
   }
-  std::swap(types_[ix], types_.back());
-  types_.pop_back();
   if (verbose_)
-    std::cerr << " of " << type << "\n";
+    std::cerr << " of " << Id(ix) << "\n";
 }
 
 void Abigail::ProcessTypeDecl(size_t ix, xmlNodePtr type_decl) {
