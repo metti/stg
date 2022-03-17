@@ -344,13 +344,13 @@ std::string QualifiersMessage(
   return os.str();
 }
 
-Comparison Type::Removed(State& state, const Type& node) {
+Comparison Removed(State& state, const Type& node) {
   Comparison comparison{&node, nullptr};
   state.outcomes.insert({comparison, {}});
   return comparison;
 }
 
-Comparison Type::Added(State& state, const Type& node) {
+Comparison Added(State& state, const Type& node) {
   Comparison comparison{nullptr, &node};
   state.outcomes.insert({comparison, {}});
   return comparison;
@@ -381,7 +381,7 @@ Comparison Type::Added(State& state, const Type& node) {
  * return true and an edge diff. The node is closed, return the stored value and
  * an edge diff.
  */
-std::pair<bool, std::optional<Comparison>> Type::Compare(
+std::pair<bool, std::optional<Comparison>> Compare(
     State& state, const Type& node1, const Type& node2) {
   const Comparison comparison{&node1, &node2};
 

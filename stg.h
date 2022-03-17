@@ -254,21 +254,21 @@ class Type {
   virtual std::string GetResolvedDescription(NameCache& names) const;
   virtual std::string GetKindDescription() const;
   virtual std::string GetFirstName() const;
-
-  static std::pair<bool, std::optional<Comparison>> Compare(
-      State& state, const Type& node1, const Type& node2);
+  virtual Result Equals(State& state, const Type& other) const = 0;
 
  protected:
   const Type& GetType(Id id) const;
 
   virtual Name MakeDescription(NameCache& names) const = 0;
-  virtual Result Equals(State& state, const Type& other) const = 0;
-  static Comparison Removed(State& state, const Type& node);
-  static Comparison Added(State& state, const Type& node);
 
  private:
   const std::vector<std::unique_ptr<Type>>& types_;
 };
+
+Comparison Removed(State& state, const Type& node);
+Comparison Added(State& state, const Type& node);
+std::pair<bool, std::optional<Comparison>> Compare(
+    State& state, const Type& node1, const Type& node2);
 
 class Void : public Type {
  public:
