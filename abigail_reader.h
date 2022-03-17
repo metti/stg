@@ -20,7 +20,6 @@
 #ifndef STG_ABIGAIL_READER_H_
 #define STG_ABIGAIL_READER_H_
 
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -77,7 +76,7 @@ namespace abixml {
 class Abigail : public Graph {
  public:
   explicit Abigail(xmlNodePtr root, bool verbose = false);
-  const Type& GetRoot() const final { return *types_[root_].get(); }
+  const Type& GetRoot() const final { return *types_[root_.ix_].get(); }
 
  private:
   const bool verbose_;
@@ -85,23 +84,23 @@ class Abigail : public Graph {
   std::vector<std::unique_ptr<Type>> types_;
   // The STG IR uses a distinct node type for variadic parameters; if allocated,
   // this is its node id.
-  std::optional<Id> variadic_type_id_;
+  std::optional<Id> variadic_;
   // libabigail type ids often appear before definition; except for the type of
-  // variadic parameters, this records their node index.
-  std::unordered_map<std::string, size_t> type_indexes_;
+  // variadic parameters, this records their corresponding node ids.
+  std::unordered_map<std::string, Id> type_ids_;
 
   std::unique_ptr<abigail::ir::environment> env_;
   std::vector<std::pair<abigail::elf_symbol_sptr, std::vector<std::string>>>
       elf_symbol_aliases_;
   // libabigail decorates certain declarations with symbol ids; this is the
   // mapping from symbol id to the corresponding type.
-  std::unordered_map<std::string, Id> symbol_id_to_type_;
-  size_t root_;
+  std::unordered_map<std::string, Id> symbol_ids_;
+  Id root_ = Id(-1);
 
   Id Add(std::unique_ptr<Type> type);
-  size_t GetIndex(const std::string& type_id);
-  Id GetTypeId(xmlNodePtr element);
-  Id GetVariadicId();
+  Id GetNode(const std::string& type_id);
+  Id GetEdge(xmlNodePtr element);
+  Id GetVariadic();
   std::unique_ptr<Function> MakeFunctionType(xmlNodePtr function);
 
   void ProcessRoot(xmlNodePtr root);
@@ -113,14 +112,14 @@ class Abigail : public Graph {
 
   void ProcessDecl(bool is_variable, xmlNodePtr decl);
 
-  void ProcessFunctionType(size_t ix, xmlNodePtr function);
-  void ProcessTypedef(size_t ix, xmlNodePtr type_definition);
-  void ProcessPointer(size_t ix, xmlNodePtr pointer);
-  void ProcessQualified(size_t ix, xmlNodePtr qualified);
-  void ProcessArray(size_t ix, xmlNodePtr array);
-  void ProcessTypeDecl(size_t ix, xmlNodePtr type_decl);
-  void ProcessStructUnion(size_t ix, bool is_struct, xmlNodePtr struct_union);
-  void ProcessEnum(size_t ix, xmlNodePtr enumeration);
+  void ProcessFunctionType(Id id, xmlNodePtr function);
+  void ProcessTypedef(Id id, xmlNodePtr type_definition);
+  void ProcessPointer(Id id, xmlNodePtr pointer);
+  void ProcessQualified(Id id, xmlNodePtr qualified);
+  void ProcessArray(Id id, xmlNodePtr array);
+  void ProcessTypeDecl(Id id, xmlNodePtr type_decl);
+  void ProcessStructUnion(Id id, bool is_struct, xmlNodePtr struct_union);
+  void ProcessEnum(Id id, xmlNodePtr enumeration);
 
   void BuildSymbols();
 };
