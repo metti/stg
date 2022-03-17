@@ -23,7 +23,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <functional>
 #include <map>
 #include <memory>
@@ -33,7 +32,6 @@
 #include <string>
 #include <type_traits>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -206,30 +204,6 @@ struct State {
   Outcomes provisional;
   SCC<Comparison, HashComparison> scc;
 };
-
-struct Reporting {
-  const Outcomes& outcomes;
-  NameCache& names;
-};
-
-// unvisited (absent) -> started (false) -> finished (true)
-using Seen = std::unordered_map<Comparison, bool, HashComparison>;
-
-void Print(Reporting& reporting, const Comparison& comparison, Seen& seen,
-           std::ostream& os, size_t indent);
-
-void Print(Reporting& reporting, const std::vector<DiffDetail>& details,
-           Seen& seen, std::ostream& os, size_t indent);
-
-bool FlatPrint(Reporting& reporting, const Comparison& comparison,
-               std::unordered_set<Comparison, HashComparison>& seen,
-               std::deque<Comparison>& todo, bool full, bool stop,
-               std::ostream& os, size_t indent);
-
-void VizPrint(Reporting& reporting, const Comparison& comparison,
-              std::unordered_set<Comparison, HashComparison>& seen,
-              std::unordered_map<Comparison, size_t, HashComparison>& ids,
-              std::ostream& os);
 
 class Type {
  public:

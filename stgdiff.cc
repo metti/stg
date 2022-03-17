@@ -38,6 +38,7 @@
 #include "abigail_reader.h"
 #include "btf_reader.h"
 #include "error.h"
+#include "reporting.h"
 
 namespace {
 
@@ -75,52 +76,9 @@ class Time {
 std::vector<std::pair<const char*, uint64_t>> Time::times_;
 
 enum class InputFormat { ABI, BTF };
-enum class OutputFormat { PLAIN, FLAT, SMALL, VIZ };
 
 using Inputs = std::vector<std::pair<InputFormat, const char*>>;
-using Outputs = std::vector<std::pair<OutputFormat, const char*>>;
-
-void ReportPlain(stg::Reporting& reporting, const stg::Comparison& comparison,
-                 std::ostream& output) {
-  // unpack then print - want symbol diff forest rather than symbols diff tree
-  const auto& diff = reporting.outcomes.at(comparison);
-  stg::Seen seen;
-  stg::Print(reporting, diff.details, seen, output, 0);
-}
-
-void ReportFlat(stg::Reporting& reporting, bool full,
-                const stg::Comparison& comparison, std::ostream& output) {
-  // We want a symbol diff forest rather than a symbol table diff tree, so
-  // unpack the symbol table and then print the symbols specially.
-  const auto& diff = reporting.outcomes.at(comparison);
-  std::unordered_set<stg::Comparison, stg::HashComparison> seen;
-  std::deque<stg::Comparison> todo;
-  for (const auto& detail : diff.details) {
-    std::ostringstream os;
-    const bool interesting =
-        stg::FlatPrint(reporting, *detail.edge_, seen, todo, full, true, os, 0);
-    if (interesting || full)
-      output << os.str() << '\n';
-  }
-  while (!todo.empty()) {
-    auto comp = todo.front();
-    todo.pop_front();
-    std::ostringstream os;
-    const bool interesting =
-        stg::FlatPrint(reporting, comp, seen, todo, full, false, os, 0);
-    if (interesting || full)
-      output << os.str() << '\n';
-  }
-}
-
-void ReportViz(stg::Reporting& reporting, const stg::Comparison& comparison,
-               std::ostream& output) {
-  output << "digraph \"ABI diff\" {\n";
-  std::unordered_set<stg::Comparison, stg::HashComparison> seen;
-  std::unordered_map<stg::Comparison, size_t, stg::HashComparison> ids;
-  stg::VizPrint(reporting, comparison, seen, ids, output);
-  output << "}\n";
-}
+using Outputs = std::vector<std::pair<stg::OutputFormat, const char*>>;
 
 bool Run(const Inputs& inputs, const Outputs& outputs) {
   // Read inputs.
@@ -161,22 +119,7 @@ bool Run(const Inputs& inputs, const Outputs& outputs) {
     std::ofstream output(filename);
     if (comparison) {
       Time report("report diffs");
-      switch (format) {
-        case OutputFormat::PLAIN: {
-          ReportPlain(reporting, *comparison, output);
-          break;
-        }
-        case OutputFormat::FLAT:
-        case OutputFormat::SMALL: {
-          bool full = format == OutputFormat::FLAT;
-          ReportFlat(reporting, full, *comparison, output);
-          break;
-        }
-        case OutputFormat::VIZ: {
-          ReportViz(reporting, *comparison, output);
-          break;
-        }
-      }
+      Report(reporting, *comparison, format, output);
       output << std::flush;
     }
     if (!output)
@@ -191,7 +134,7 @@ int main(int argc, char* argv[]) {
   // Process arguments.
   bool opt_times = false;
   InputFormat opt_input_format = InputFormat::ABI;
-  OutputFormat opt_output_format = OutputFormat::PLAIN;
+  stg::OutputFormat opt_output_format = stg::OutputFormat::PLAIN;
   Inputs inputs;
   Outputs outputs;
   static option opts[] = {
@@ -235,13 +178,13 @@ int main(int argc, char* argv[]) {
         break;
       case 'f':
         if (strcmp(argument, "plain") == 0)
-          opt_output_format = OutputFormat::PLAIN;
+          opt_output_format = stg::OutputFormat::PLAIN;
         else if (strcmp(argument, "flat") == 0)
-          opt_output_format = OutputFormat::FLAT;
+          opt_output_format = stg::OutputFormat::FLAT;
         else if (strcmp(argument, "small") == 0)
-          opt_output_format = OutputFormat::SMALL;
+          opt_output_format = stg::OutputFormat::SMALL;
         else if (strcmp(argument, "viz") == 0)
-          opt_output_format = OutputFormat::VIZ;
+          opt_output_format = stg::OutputFormat::VIZ;
         else
           return usage();
         break;
