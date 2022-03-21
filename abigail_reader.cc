@@ -263,31 +263,31 @@ void Abigail::ProcessSymbols(xmlNodePtr symbols) {
 }
 
 void Abigail::ProcessSymbol(xmlNodePtr symbol) {
-  const auto name = ReadAttribute<std::string>(symbol, "name", std::string());
+  const auto name = GetAttributeOrDie(symbol, "name");
   const auto size = ReadAttribute<size_t>(symbol, "size", 0);
-  const bool is_defined = ReadAttribute<bool>(symbol, "is-defined", true);
+  const bool is_defined = ReadAttributeOrDie<bool>(symbol, "is-defined");
   const bool is_common = ReadAttribute<bool>(symbol, "is-common", false);
   const auto version =
       ReadAttribute<std::string>(symbol, "version", std::string());
   const bool is_default_version =
       ReadAttribute<bool>(symbol, "is-default-version", false);
   const auto crc = ReadAttribute<CRC>(symbol, "crc", CRC{0});
-  const auto type = GetAttribute(symbol, "type");
-  const auto binding = GetAttribute(symbol, "binding");
-  const auto visibility = GetAttribute(symbol, "visibility");
+  const auto type = GetAttributeOrDie(symbol, "type");
+  const auto binding = GetAttributeOrDie(symbol, "binding");
+  const auto visibility = GetAttributeOrDie(symbol, "visibility");
   const auto alias = GetAttribute(symbol, "alias");
 
-  auto sym_type = abigail::elf_symbol::NOTYPE_TYPE;
-  if (type)
-    string_to_elf_symbol_type(*type, sym_type);
+  abigail::elf_symbol::type sym_type;
+  Check(string_to_elf_symbol_type(type, sym_type))
+      << "unrecognised elf-symbol type '" << type << "'";
 
-  auto sym_binding = abigail::elf_symbol::GLOBAL_BINDING;
-  if (binding)
-    string_to_elf_symbol_binding(*binding, sym_binding);
+  abigail::elf_symbol::binding sym_binding;
+  Check(string_to_elf_symbol_binding(binding, sym_binding))
+      << "unrecognised elf-symbol binding '" << binding << "'";
 
-  auto sym_visibility = abigail::elf_symbol::DEFAULT_VISIBILITY;
-  if (visibility)
-    string_to_elf_symbol_visibility(*visibility, sym_visibility);
+  abigail::elf_symbol::visibility sym_visibility;
+  Check(string_to_elf_symbol_visibility(visibility, sym_visibility))
+      << "unrecognised elf-symbol visibility '" << visibility << "'";
 
   const auto sym_version =
       abigail::elf_symbol::version(version, is_default_version);
