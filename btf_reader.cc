@@ -71,21 +71,21 @@ Structs::Structs(const char* start, size_t size,
                  std::unique_ptr<abigail::ir::environment> env,
                  const abigail::symtab_reader::symtab_sptr tab,
                  const bool verbose)
-    : env_(std::move(env)), tab_(tab), verbose_(verbose) {
+    : graph_(*this), env_(std::move(env)), tab_(tab), verbose_(verbose) {
   root_ = Process(start, size);
 }
 
 // Get the index of the void type, creating one if needed.
 Id Structs::GetVoid() {
   if (!void_)
-    void_ = {Add(Make<Void>())};
+    void_ = {graph_.Add(Make<Void>())};
   return *void_;
 }
 
 // Get the index of the variadic parameter type, creating one if needed.
 Id Structs::GetVariadic() {
   if (!variadic_)
-    variadic_ = {Add(Make<Variadic>())};
+    variadic_ = {graph_.Add(Make<Variadic>())};
   return *variadic_;
 }
 
@@ -96,7 +96,7 @@ Id Structs::GetVariadic() {
 Id Structs::GetIdRaw(uint32_t btf_index) {
   auto [it, inserted] = btf_type_ids_.insert({btf_index, Id(0)});
   if (inserted)
-    it->second = Allocate();
+    it->second = graph_.Allocate();
   return it->second;
 }
 
@@ -177,7 +177,7 @@ std::vector<Id> Structs::BuildMembers(
     }
     auto member = Make<Member>(name, GetId(raw_member.type),
                                static_cast<uint64_t>(offset), bitfield_size);
-    result.push_back(Add(std::move(member)));
+    result.push_back(graph_.Add(std::move(member)));
   }
   return result;
 }
@@ -245,7 +245,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     std::cout << '[' << btf_index << "] ";
   // delay allocation of type id as some BTF nodes are skipped
   auto define = [&](std::unique_ptr<Type> type) {
-    Set(GetIdRaw(btf_index), std::move(type));
+    graph_.Set(GetIdRaw(btf_index), std::move(type));
   };
 
   switch (kind) {
@@ -477,11 +477,10 @@ Id Structs::BuildSymbols() {
       type_id = {it->second};
     }
 
-    auto key = symbol_name + '@' + symbol->get_version().str();
-    auto elf_symbol = Add(Make<ElfSymbol>(symbol, type_id));
-    elf_symbols.emplace(std::move(key), std::move(elf_symbol));
+    elf_symbols.emplace(symbol_name + '@' + symbol->get_version().str(),
+                        graph_.Add(Make<ElfSymbol>(symbol, type_id)));
   }
-  return Add(Make<Symbols>(elf_symbols));
+  return graph_.Add(Make<Symbols>(elf_symbols));
 }
 
 class ElfHandle {

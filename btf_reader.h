@@ -56,6 +56,8 @@ class Structs : public Graph {
     template <typename T> const T* Pull(size_t count = 1);
   };
 
+  Graph& graph_;
+
   MemoryRange string_section_;
   const std::unique_ptr<abigail::ir::environment> env_;
   const abigail::symtab_reader::symtab_sptr tab_;
