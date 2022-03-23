@@ -78,14 +78,14 @@ Structs::Structs(const char* start, size_t size,
 // Get the index of the void type, creating one if needed.
 Id Structs::GetVoid() {
   if (!void_)
-    void_ = {Add(std::make_unique<Void>(types_))};
+    void_ = {Add(Make<Void>())};
   return *void_;
 }
 
 // Get the index of the variadic parameter type, creating one if needed.
 Id Structs::GetVariadic() {
   if (!variadic_)
-    variadic_ = {Add(std::make_unique<Variadic>(types_))};
+    variadic_ = {Add(Make<Variadic>())};
   return *variadic_;
 }
 
@@ -175,9 +175,8 @@ std::vector<Id> Structs::BuildMembers(
         std::cout << " bitfield_size=" << bitfield_size;
       std::cout << '\n';
     }
-    auto member =
-        std::make_unique<Member>(types_, name, GetId(raw_member.type),
-                                 static_cast<uint64_t>(offset), bitfield_size);
+    auto member = Make<Member>(name, GetId(raw_member.type),
+                               static_cast<uint64_t>(offset), bitfield_size);
     result.push_back(Add(std::move(member)));
   }
   return result;
@@ -278,14 +277,14 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                                         : Integer::Encoding::UNSIGNED_INTEGER;
       if (offset)
         std::cerr << "ignoring BTF INT non-zero offset " << offset << '\n';
-      define(std::make_unique<Integer>(types_, name, encoding, bits, t->size));
+      define(Make<Integer>(name, encoding, bits, t->size));
       break;
     }
     case BTF_KIND_PTR: {
       if (verbose_) {
         std::cout << "PTR '" << ANON << "' type_id=" << t->type << '\n';
       }
-      define(std::make_unique<Ptr>(types_, GetId(t->type)));
+      define(Make<Ptr>(GetId(t->type)));
       break;
     }
     case BTF_KIND_TYPEDEF: {
@@ -293,7 +292,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       if (verbose_) {
         std::cout << "TYPEDEF '" << name << "' type_id=" << t->type << '\n';
       }
-      define(std::make_unique<Typedef>(types_, name, GetId(t->type)));
+      define(Make<Typedef>(name, GetId(t->type)));
       break;
     }
     case BTF_KIND_VOLATILE:
@@ -310,7 +309,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                       : "RESTRICT")
                   << " '" << ANON << "' type_id=" << t->type << '\n';
       }
-      define(std::make_unique<Qualifier>(types_, qualifier, GetId(t->type)));
+      define(Make<Qualifier>(qualifier, GetId(t->type)));
       break;
     }
     case BTF_KIND_ARRAY: {
@@ -322,8 +321,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << " nr_elems=" << array->nelems
                   << '\n';
       }
-      define(
-          std::make_unique<Array>(types_, GetId(array->type), array->nelems));
+      define(Make<Array>(GetId(array->type), array->nelems));
       break;
     }
     case BTF_KIND_STRUCT:
@@ -341,8 +339,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       }
       const auto* btf_members = memory.Pull<struct btf_member>(vlen);
       const auto members = BuildMembers(kflag, btf_members, vlen);
-      define(std::make_unique<StructUnion>(
-          types_, name, structUnionKind, t->size, members));
+      define(Make<StructUnion>(name, structUnionKind, t->size, members));
       break;
     }
     case BTF_KIND_ENUM: {
@@ -359,11 +356,10 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       // does not include forward-declared enums. They are treated as
       // BTF_KIND_ENUMs with vlen set to zero.
       if (vlen) {
-        define(
-            std::make_unique<Enumeration>(types_, name, t->size, enumerators));
+        define(Make<Enumeration>(name, t->size, enumerators));
       } else {
         // BTF actually provides size (4), but it's meaningless.
-        define(std::make_unique<Enumeration>(types_, name));
+        define(Make<Enumeration>(name));
       }
       break;
     }
@@ -376,7 +372,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
         std::cout << "FWD '" << name << "' fwd_kind=" << structUnionKind
                   << '\n';
       }
-      define(std::make_unique<StructUnion>(types_, name, structUnionKind));
+      define(Make<StructUnion>(name, structUnionKind));
       break;
     }
     case BTF_KIND_FUNC: {
@@ -402,7 +398,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << '\n';
       }
       const auto parameters = BuildParams(params, vlen);
-      define(std::make_unique<Function>(types_, GetId(t->type), parameters));
+      define(Make<Function>(GetId(t->type), parameters));
       break;
     }
     case BTF_KIND_VAR: {
@@ -482,10 +478,10 @@ Id Structs::BuildSymbols() {
     }
 
     auto key = symbol_name + '@' + symbol->get_version().str();
-    auto elf_symbol = Add(std::make_unique<ElfSymbol>(types_, symbol, type_id));
+    auto elf_symbol = Add(Make<ElfSymbol>(symbol, type_id));
     elf_symbols.emplace(std::move(key), std::move(elf_symbol));
   }
-  return Add(std::make_unique<Symbols>(types_, elf_symbols));
+  return Add(Make<Symbols>(elf_symbols));
 }
 
 class ElfHandle {

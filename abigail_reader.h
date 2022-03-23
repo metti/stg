@@ -99,7 +99,7 @@ class Abigail : public Graph {
   Id GetNode(const std::string& type_id);
   Id GetEdge(xmlNodePtr element);
   Id GetVariadic();
-  std::unique_ptr<Function> MakeFunctionType(xmlNodePtr function);
+  std::unique_ptr<Type> MakeFunctionType(xmlNodePtr function);
 
   Id ProcessRoot(xmlNodePtr root);
   void ProcessCorpusGroup(xmlNodePtr group);

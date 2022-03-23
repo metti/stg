@@ -167,14 +167,14 @@ Id Abigail::GetEdge(xmlNodePtr element) {
 
 Id Abigail::GetVariadic() {
   if (!variadic_) {
-    variadic_ = {Add(std::make_unique<Variadic>(types_))};
+    variadic_ = {Add(Make<Variadic>())};
     if (verbose_)
       std::cerr << *variadic_ << " variadic parameter\n";
   }
   return *variadic_;
 }
 
-std::unique_ptr<Function> Abigail::MakeFunctionType(xmlNodePtr function) {
+std::unique_ptr<Type> Abigail::MakeFunctionType(xmlNodePtr function) {
   std::vector<Parameter> parameters;
   std::optional<Id> return_type;
   for (auto child = xmlFirstElementChild(function); child;
@@ -215,7 +215,7 @@ std::unique_ptr<Function> Abigail::MakeFunctionType(xmlNodePtr function) {
     }
     std::cerr << ") -> " << *return_type << "\n";
   }
-  return std::make_unique<Function>(types_, *return_type, parameters);
+  return Make<Function>(*return_type, parameters);
 }
 
 Id Abigail::ProcessRoot(xmlNodePtr root) {
@@ -379,14 +379,14 @@ void Abigail::ProcessFunctionType(Id id, xmlNodePtr function) {
 void Abigail::ProcessTypedef(Id id, xmlNodePtr type_definition) {
   const auto name = GetAttributeOrDie(type_definition, "name");
   const auto type = GetEdge(type_definition);
-  Set(id, std::make_unique<Typedef>(types_, name, type));
+  Set(id, Make<Typedef>(name, type));
   if (verbose_)
     std::cerr << id << " typedef " << name << " of " << type << "\n";
 }
 
 void Abigail::ProcessPointer(Id id, xmlNodePtr pointer) {
   const auto type = GetEdge(pointer);
-  Set(id, std::make_unique<Ptr>(types_, type));
+  Set(id, Make<Ptr>(type));
   if (verbose_)
     std::cerr << id << " pointer to " << type << "\n";
 }
@@ -409,7 +409,7 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
   auto count = qualifiers.size();
   for (auto qualifier : qualifiers) {
     --count;
-    auto node = std::make_unique<Qualifier>(types_, qualifier, type);
+    auto node = Make<Qualifier>(qualifier, type);
     if (count)
       type = Add(std::move(node));
     else
@@ -447,7 +447,7 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
   for (auto it = dimensions.crbegin(); it != dimensions.crend(); ++it) {
     --count;
     const auto size = *it;
-    auto node = std::make_unique<Array>(types_, type, size);
+    auto node = Make<Array>(type, size);
     if (count)
       type = Add(std::move(node));
     else
@@ -465,11 +465,10 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
   const auto bytes = (bits + 7) / 8;
 
   if (name == "void") {
-    Set(id, std::make_unique<Void>(types_));
+    Set(id, Make<Void>());
   } else if (name == "bool") {
     // TODO: improve terrible INT representation
-    Set(id, std::make_unique<Integer>(
-        types_, name, Integer::Encoding::BOOLEAN, bits, bytes));
+    Set(id, Make<Integer>(name, Integer::Encoding::BOOLEAN, bits, bytes));
   } else {
     // TODO: What about plain char's signedness?
     bool is_signed = name.find("unsigned") == name.npos;
@@ -479,7 +478,7 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
                             : Integer::Encoding::UNSIGNED_CHARACTER
                 : is_signed ? Integer::Encoding::SIGNED_INTEGER
                             : Integer::Encoding::UNSIGNED_INTEGER;
-    Set(id, std::make_unique<Integer>(types_, name, encoding, bits, bytes));
+    Set(id, Make<Integer>(name, encoding, bits, bytes));
   }
   if (verbose_)
     std::cerr << id << " " << name << "\n";
@@ -495,7 +494,7 @@ void Abigail::ProcessStructUnion(
   const auto kind = is_struct ? StructUnionKind::STRUCT
                               : StructUnionKind::UNION;
   if (forward) {
-    Set(id, std::make_unique<StructUnion>(types_, name, kind));
+    Set(id, Make<StructUnion>(name, kind));
     if (verbose_)
       std::cerr << id << " " << kind << " (forward-declared) " << name << "\n";
     return;
@@ -517,12 +516,10 @@ void Abigail::ProcessStructUnion(
     const auto member_name = GetAttributeOrDie(decl, "name");
     const auto type = GetEdge(decl);
     // Note: libabigail does not model member size, yet
-    auto member =
-        Add(std::make_unique<Member>(types_, member_name, type, offset, 0));
-    members.push_back(member);
+    members.push_back(Add(Make<Member>(member_name, type, offset, 0)));
   }
 
-  Set(id, std::make_unique<StructUnion>(types_, name, kind, bytes, members));
+  Set(id, Make<StructUnion>(name, kind, bytes, members));
   if (verbose_)
     std::cerr << id << " " << kind << " " << name << "\n";
 }
@@ -533,7 +530,7 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
                     ? std::string()
                     : GetAttributeOrDie(enumeration, "name");
   if (forward) {
-    Set(id, std::make_unique<Enumeration>(types_, name));
+    Set(id, Make<Enumeration>(name));
     if (verbose_)
       std::cerr << id << " enum (forward-declared) " << name << "\n";
     return;
@@ -557,7 +554,7 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
     enumerators.emplace_back(enumerator_name, enumerator_value);
   }
 
-  Set(id, std::make_unique<Enumeration>(types_, name, 0, enumerators));
+  Set(id, Make<Enumeration>(name, 0, enumerators));
   if (verbose_)
     std::cerr << id << " enum " << name << "\n";
 }
@@ -601,10 +598,9 @@ Id Abigail::BuildSymbols() {
     std::optional<Id> type_id;
     if (it != symbol_ids_.end())
       type_id = {it->second};
-    symbols.insert(
-        {id, Add(std::make_unique<ElfSymbol>(types_, symbol, type_id))});
+    symbols.insert({id, Add(Make<ElfSymbol>(symbol, type_id))});
   }
-  return Add(std::make_unique<Symbols>(types_, symbols));
+  return Add(Make<Symbols>(symbols));
 }
 
 std::unique_ptr<Abigail> Read(const std::string& path, bool verbose) {

@@ -47,7 +47,8 @@ class Type;
 // creation from other things. This is an intermediate point where the common
 // functionality for building graphs has moved into the base class.
 
-struct Graph {
+class Graph {
+ public:
   virtual ~Graph() = default;
 
   virtual Id Root() const = 0;
@@ -59,6 +60,12 @@ struct Graph {
   void Set(Id id, std::unique_ptr<Type> node);
   Id Add(std::unique_ptr<Type> node);
 
+  template <typename Kind, typename... Args>
+  std::unique_ptr<Type> Make(Args&&... args) {
+    return std::make_unique<Kind>(types_, std::forward<Args>(args)...);
+  }
+
+ private:
   std::vector<std::unique_ptr<Type>> types_;
 };
 
