@@ -79,6 +79,8 @@ class Abigail : public Graph {
   Id Root() const final { return root_; }
 
  private:
+  Graph& graph_;
+
   const bool verbose_;
 
   // The STG IR uses a distinct node type for the variadic parameter type; if

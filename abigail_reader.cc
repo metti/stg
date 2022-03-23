@@ -150,14 +150,15 @@ std::optional<uint64_t> ParseLength(const std::string& value) {
 }  // namespace
 
 Abigail::Abigail(xmlNodePtr root, bool verbose)
-    : verbose_(verbose), env_(std::make_unique<abigail::ir::environment>()) {
+    : graph_(*this), verbose_(verbose),
+      env_(std::make_unique<abigail::ir::environment>()) {
   root_ = ProcessRoot(root);
 }
 
 Id Abigail::GetNode(const std::string& type_id) {
   const auto [it, inserted] = type_ids_.insert({type_id, Id(0)});
   if (inserted)
-    it->second = Allocate();
+    it->second = graph_.Allocate();
   return it->second;
 }
 
@@ -167,7 +168,7 @@ Id Abigail::GetEdge(xmlNodePtr element) {
 
 Id Abigail::GetVariadic() {
   if (!variadic_) {
-    variadic_ = {Add(Make<Variadic>())};
+    variadic_ = {graph_.Add(Make<Variadic>())};
     if (verbose_)
       std::cerr << *variadic_ << " variadic parameter\n";
   }
@@ -318,7 +319,7 @@ void Abigail::ProcessInstr(xmlNodePtr instr) {
     // all type elements have "id", all non-types do not
     if (type_id) {
       const auto id = GetNode(*type_id);
-      if (Is(id)) {
+      if (graph_.Is(id)) {
         std::cerr << "duplicate definition of type '" << *type_id << "'\n";
         continue;
       }
@@ -359,7 +360,8 @@ void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
   const auto name = GetAttributeOrDie(decl, "name");
   const auto mangled_name = GetAttribute(decl, "mangled-name");
   const auto symbol_id = GetAttribute(decl, "elf-symbol-id");
-  const auto type = is_variable ? GetEdge(decl) : Add(MakeFunctionType(decl));
+  const auto type = is_variable ? GetEdge(decl)
+                                : graph_.Add(MakeFunctionType(decl));
   if (verbose_ && !is_variable)
     std::cerr << Id(type) << " function type for function " << name << "\n";
   if (symbol_id) {
@@ -373,20 +375,20 @@ void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
 }
 
 void Abigail::ProcessFunctionType(Id id, xmlNodePtr function) {
-  Set(id, MakeFunctionType(function));
+  graph_.Set(id, MakeFunctionType(function));
 }
 
 void Abigail::ProcessTypedef(Id id, xmlNodePtr type_definition) {
   const auto name = GetAttributeOrDie(type_definition, "name");
   const auto type = GetEdge(type_definition);
-  Set(id, Make<Typedef>(name, type));
+  graph_.Set(id, Make<Typedef>(name, type));
   if (verbose_)
     std::cerr << id << " typedef " << name << " of " << type << "\n";
 }
 
 void Abigail::ProcessPointer(Id id, xmlNodePtr pointer) {
   const auto type = GetEdge(pointer);
-  Set(id, Make<Ptr>(type));
+  graph_.Set(id, Make<Ptr>(type));
   if (verbose_)
     std::cerr << id << " pointer to " << type << "\n";
 }
@@ -411,9 +413,9 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
     --count;
     auto node = Make<Qualifier>(qualifier, type);
     if (count)
-      type = Add(std::move(node));
+      type = graph_.Add(std::move(node));
     else
-      Set(id, std::move(node));
+      graph_.Set(id, std::move(node));
     if (verbose_)
       std::cerr << ' ' << qualifier;
   }
@@ -449,9 +451,9 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
     const auto size = *it;
     auto node = Make<Array>(type, size);
     if (count)
-      type = Add(std::move(node));
+      type = graph_.Add(std::move(node));
     else
-      Set(id, std::move(node));
+      graph_.Set(id, std::move(node));
     if (verbose_)
       std::cerr << ' ' << size;
   }
@@ -465,10 +467,11 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
   const auto bytes = (bits + 7) / 8;
 
   if (name == "void") {
-    Set(id, Make<Void>());
+    graph_.Set(id, Make<Void>());
   } else if (name == "bool") {
     // TODO: improve terrible INT representation
-    Set(id, Make<Integer>(name, Integer::Encoding::BOOLEAN, bits, bytes));
+    graph_.Set(
+        id, Make<Integer>(name, Integer::Encoding::BOOLEAN, bits, bytes));
   } else {
     // TODO: What about plain char's signedness?
     bool is_signed = name.find("unsigned") == name.npos;
@@ -478,7 +481,7 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
                             : Integer::Encoding::UNSIGNED_CHARACTER
                 : is_signed ? Integer::Encoding::SIGNED_INTEGER
                             : Integer::Encoding::UNSIGNED_INTEGER;
-    Set(id, Make<Integer>(name, encoding, bits, bytes));
+    graph_.Set(id, Make<Integer>(name, encoding, bits, bytes));
   }
   if (verbose_)
     std::cerr << id << " " << name << "\n";
@@ -494,7 +497,7 @@ void Abigail::ProcessStructUnion(
   const auto kind = is_struct ? StructUnionKind::STRUCT
                               : StructUnionKind::UNION;
   if (forward) {
-    Set(id, Make<StructUnion>(name, kind));
+    graph_.Set(id, Make<StructUnion>(name, kind));
     if (verbose_)
       std::cerr << id << " " << kind << " (forward-declared) " << name << "\n";
     return;
@@ -516,10 +519,10 @@ void Abigail::ProcessStructUnion(
     const auto member_name = GetAttributeOrDie(decl, "name");
     const auto type = GetEdge(decl);
     // Note: libabigail does not model member size, yet
-    members.push_back(Add(Make<Member>(member_name, type, offset, 0)));
+    members.push_back(graph_.Add(Make<Member>(member_name, type, offset, 0)));
   }
 
-  Set(id, Make<StructUnion>(name, kind, bytes, members));
+  graph_.Set(id, Make<StructUnion>(name, kind, bytes, members));
   if (verbose_)
     std::cerr << id << " " << kind << " " << name << "\n";
 }
@@ -530,7 +533,7 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
                     ? std::string()
                     : GetAttributeOrDie(enumeration, "name");
   if (forward) {
-    Set(id, Make<Enumeration>(name));
+    graph_.Set(id, Make<Enumeration>(name));
     if (verbose_)
       std::cerr << id << " enum (forward-declared) " << name << "\n";
     return;
@@ -554,7 +557,7 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
     enumerators.emplace_back(enumerator_name, enumerator_value);
   }
 
-  Set(id, Make<Enumeration>(name, 0, enumerators));
+  graph_.Set(id, Make<Enumeration>(name, 0, enumerators));
   if (verbose_)
     std::cerr << id << " enum " << name << "\n";
 }
@@ -598,9 +601,9 @@ Id Abigail::BuildSymbols() {
     std::optional<Id> type_id;
     if (it != symbol_ids_.end())
       type_id = {it->second};
-    symbols.insert({id, Add(Make<ElfSymbol>(symbol, type_id))});
+    symbols.insert({id, graph_.Add(Make<ElfSymbol>(symbol, type_id))});
   }
-  return Add(Make<Symbols>(symbols));
+  return graph_.Add(Make<Symbols>(symbols));
 }
 
 std::unique_ptr<Abigail> Read(const std::string& path, bool verbose) {
