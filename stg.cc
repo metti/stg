@@ -130,12 +130,6 @@ const Name& Type::GetDescription(NameCache& names) const {
 
 std::string Type::GetResolvedDescription(NameCache& names) const {
   std::ostringstream os;
-  os << '\'' << GetDescription(names) << '\'';
-  return os.str();
-}
-
-std::string Typedef::GetResolvedDescription(NameCache& names) const {
-  std::ostringstream os;
   std::vector<std::string> typedefs;
   const Type& type = ResolveTypedef(typedefs);
   for (auto td : typedefs)

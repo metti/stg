@@ -236,7 +236,7 @@ class Type {
   virtual const Type& ResolveTypedef(std::vector<std::string>& typedefs) const;
 
   const Name& GetDescription(NameCache& names) const;
-  virtual std::string GetResolvedDescription(NameCache& names) const;
+  std::string GetResolvedDescription(NameCache& names) const;
   virtual std::string GetKindDescription() const;
   virtual std::string FirstName() const;
   virtual Result Equals(State& state, const Type& other) const = 0;
@@ -288,7 +288,6 @@ class Typedef : public Type {
       : Type(types), name_(name), referredTypeId_(referredTypeId) {}
   const std::string& GetName() const { return name_; }
   Id GetReferredTypeId() const { return referredTypeId_; }
-  std::string GetResolvedDescription(NameCache& names) const final;
   Name MakeDescription(NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
   const Type& ResolveTypedef(std::vector<std::string>& typedefs) const final;
