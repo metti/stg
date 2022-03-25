@@ -107,6 +107,11 @@ std::ostream& operator<<(std::ostream& os, const Name& name);
 
 using NameCache = std::unordered_map<const Type*, Name>;
 
+const Type& ResolveQualifiers(
+    const Type& type, std::set<QualifierKind>& qualifiers);
+const Type& ResolveTypedefs(
+    const Type& type, std::vector<std::string>& typedefs);
+
 struct DiffDetail {
   DiffDetail(const std::string& text, const std::optional<Comparison>& edge)
       : text_(text), edge_(edge) {}
@@ -231,9 +236,9 @@ class Type {
   //
   // The caller must always be prepared to receive a different type as
   // qualifiers are sometimes discarded.
-  virtual const Type& ResolveQualifiers(
+  virtual const Type* ResolveQualifier(
       std::set<QualifierKind>& qualifiers) const;
-  virtual const Type& ResolveTypedef(std::vector<std::string>& typedefs) const;
+  virtual const Type* ResolveTypedef(std::vector<std::string>& typedefs) const;
 
   const Name& GetDescription(NameCache& names) const;
   std::string GetResolvedDescription(NameCache& names) const;
@@ -290,7 +295,7 @@ class Typedef : public Type {
   Id GetReferredTypeId() const { return referredTypeId_; }
   Name MakeDescription(NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  const Type& ResolveTypedef(std::vector<std::string>& typedefs) const final;
+  const Type* ResolveTypedef(std::vector<std::string>& typedefs) const final;
 
  private:
   const std::string name_;
@@ -308,8 +313,7 @@ class Qualifier : public Type {
   Id GetQualifiedTypeId() const { return qualifiedTypeId_; }
   Name MakeDescription(NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  const Type& ResolveQualifiers(
-      std::set<QualifierKind>& qualifiers) const final;
+  const Type* ResolveQualifier(std::set<QualifierKind>& qualifiers) const final;
 
  private:
   QualifierKind qualifierKind_;
@@ -362,8 +366,7 @@ class Array : public Type {
   uint64_t GetNumberOfElements() const { return numOfElements_; }
   Name MakeDescription(NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  const Type& ResolveQualifiers(
-      std::set<QualifierKind>& qualifiers) const final;
+  const Type* ResolveQualifier(std::set<QualifierKind>& qualifiers) const final;
 
  private:
   const Id elementTypeId_;
@@ -464,8 +467,7 @@ class Function : public Type {
   const std::vector<Parameter>& GetParameters() const { return parameters_; }
   Name MakeDescription(NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  const Type& ResolveQualifiers(
-      std::set<QualifierKind>& qualifiers) const final;
+  const Type* ResolveQualifier(std::set<QualifierKind>& qualifiers) const final;
 
  private:
   const Id returnTypeId_;

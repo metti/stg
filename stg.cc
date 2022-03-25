@@ -56,6 +56,22 @@ Id Graph::Add(std::unique_ptr<Type> node) {
   return id;
 }
 
+const Type& ResolveQualifiers(
+    const Type& type, std::set<QualifierKind>& qualifiers) {
+  const Type* pointer = &type;
+  while (const auto* maybe = pointer->ResolveQualifier(qualifiers))
+    pointer = maybe;
+  return *pointer;
+}
+
+const Type& ResolveTypedefs(
+    const Type& type, std::vector<std::string>& typedefs) {
+  const Type* pointer = &type;
+  while (const auto* maybe = pointer->ResolveTypedef(typedefs))
+    pointer = maybe;
+  return *pointer;
+}
+
 static constexpr std::array<std::string_view, 6> kIntEncoding = {
     "boolean",
     "signed integer",
@@ -131,7 +147,7 @@ const Name& Type::GetDescription(NameCache& names) const {
 std::string Type::GetResolvedDescription(NameCache& names) const {
   std::ostringstream os;
   std::vector<std::string> typedefs;
-  const Type& type = ResolveTypedef(typedefs);
+  const Type& type = ResolveTypedefs(*this, typedefs);
   for (auto td : typedefs)
     os << std::quoted(td, '\'') << " = ";
   os << '\'' << type.GetDescription(names) << '\'';
@@ -215,8 +231,8 @@ std::pair<bool, std::optional<Comparison>> Compare(
 
   std::set<QualifierKind> qualifiers1;
   std::set<QualifierKind> qualifiers2;
-  const Type& unqualified1 = node1.ResolveQualifiers(qualifiers1);
-  const Type& unqualified2 = node2.ResolveQualifiers(qualifiers2);
+  const Type& unqualified1 = ResolveQualifiers(node1, qualifiers1);
+  const Type& unqualified2 = ResolveQualifiers(node2, qualifiers2);
   if (!qualifiers1.empty() || !qualifiers2.empty()) {
     // 3.1 Qualified type difference.
     auto it1 = qualifiers1.begin();
@@ -240,8 +256,8 @@ std::pair<bool, std::optional<Comparison>> Compare(
   } else {
     std::vector<std::string> typedefs1;
     std::vector<std::string> typedefs2;
-    const Type& resolved1 = unqualified1.ResolveTypedef(typedefs1);
-    const Type& resolved2 = unqualified2.ResolveTypedef(typedefs2);
+    const Type& resolved1 = ResolveTypedefs(unqualified1, typedefs1);
+    const Type& resolved2 = ResolveTypedefs(unqualified2, typedefs2);
     if (&unqualified1 != &resolved1 || &unqualified2 != &resolved2) {
       // 3.2 Typedef difference.
       const auto comp = Compare(state, resolved1, resolved2);
@@ -303,7 +319,7 @@ Name Typedef::MakeDescription(NameCache&) const {
 
 Name Qualifier::MakeDescription(NameCache& names) const {
   std::set<QualifierKind> qualifiers;
-  const Type& under = ResolveQualifiers(qualifiers);
+  const Type& under = ResolveQualifiers(*this, qualifiers);
   return under.GetDescription(names).Qualify(qualifiers);
 }
 
@@ -799,37 +815,37 @@ Result Symbols::Equals(State& state, const Type& other) const {
   return result;
 }
 
-const Type& Type::ResolveQualifiers(std::set<QualifierKind>&) const {
-  return *this;
+const Type* Type::ResolveQualifier(std::set<QualifierKind>&) const {
+  return nullptr;
 }
 
-const Type& Array::ResolveQualifiers(
+const Type* Array::ResolveQualifier(
     std::set<QualifierKind>& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
-  return *this;
+  return nullptr;
 }
 
-const Type& Function::ResolveQualifiers(
+const Type* Function::ResolveQualifier(
     std::set<QualifierKind>& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
-  return *this;
+  return nullptr;
 }
 
-const Type& Qualifier::ResolveQualifiers(
+const Type* Qualifier::ResolveQualifier(
     std::set<QualifierKind>& qualifiers) const {
   qualifiers.insert(GetQualifierKind());
-  return Get(GetQualifiedTypeId()).ResolveQualifiers(qualifiers);
+  return &Get(GetQualifiedTypeId());
 }
 
-const Type& Type::ResolveTypedef(std::vector<std::string>&) const {
-  return *this;
+const Type* Type::ResolveTypedef(std::vector<std::string>&) const {
+  return nullptr;
 }
 
-const Type& Typedef::ResolveTypedef(std::vector<std::string>& typedefs) const {
+const Type* Typedef::ResolveTypedef(std::vector<std::string>& typedefs) const {
   typedefs.push_back(GetName());
-  return Get(GetReferredTypeId()).ResolveTypedef(typedefs);
+  return &Get(GetReferredTypeId());
 }
 
 std::string Type::FirstName() const { return {}; }
