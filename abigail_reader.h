@@ -73,10 +73,10 @@ namespace abixml {
 // post-processing phase.
 //
 // 4. XML anonymous types also have unhelpful names, these are ignored.
-class Abigail : public Graph {
+class Abigail {
  public:
-  explicit Abigail(xmlNodePtr root, bool verbose = false);
-  Id Root() const final { return root_; }
+  explicit Abigail(Graph& graph, bool verbose = false);
+  Id ProcessRoot(xmlNodePtr root);
 
  private:
   Graph& graph_;
@@ -96,14 +96,12 @@ class Abigail : public Graph {
   // libabigail decorates certain declarations with symbol ids; this is the
   // mapping from symbol id to the corresponding type.
   std::unordered_map<std::string, Id> symbol_ids_;
-  Id root_ = Id(-1);
 
   Id GetNode(const std::string& type_id);
   Id GetEdge(xmlNodePtr element);
   Id GetVariadic();
   std::unique_ptr<Type> MakeFunctionType(xmlNodePtr function);
 
-  Id ProcessRoot(xmlNodePtr root);
   void ProcessCorpusGroup(xmlNodePtr group);
   void ProcessCorpus(xmlNodePtr corpus);
   void ProcessSymbols(xmlNodePtr symbols);
@@ -124,7 +122,7 @@ class Abigail : public Graph {
   Id BuildSymbols();
 };
 
-std::unique_ptr<Abigail> Read(const std::string& path, bool verbose = false);
+Id Read(Graph& graph, const std::string& path, bool verbose = false);
 
 }  // namespace abixml
 }  // namespace stg

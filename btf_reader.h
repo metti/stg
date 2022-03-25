@@ -40,13 +40,13 @@ namespace stg {
 namespace btf {
 
 // BTF Specification: https://www.kernel.org/doc/html/latest/bpf/btf.html
-class Structs : public Graph {
+class Structs {
  public:
-  Structs(const char* start, size_t size,
+  Structs(Graph& graph,
           std::unique_ptr<abigail::ir::environment> env,
           const abigail::symtab_reader::symtab_sptr tab,
           const bool verbose = false);
-  Id Root() const final { return root_; }
+  Id Process(const char* start, size_t size);
 
  private:
   struct MemoryRange {
@@ -66,7 +66,6 @@ class Structs : public Graph {
   std::optional<Id> void_;
   std::optional<Id> variadic_;
   std::unordered_map<uint32_t, Id> btf_type_ids_;
-  Id root_ = Id(-1);
   std::map<std::string, Id> btf_symbol_types_;
 
   Id GetVoid();
@@ -75,7 +74,6 @@ class Structs : public Graph {
   Id GetId(uint32_t btf_index);
   Id GetParameterId(uint32_t btf_index);
 
-  Id Process(const char* start, size_t size);
   void PrintHeader(const btf_header* header) const;
   Id BuildTypes(MemoryRange memory);
   void BuildOneType(const btf_type* t, uint32_t btf_index,
@@ -92,8 +90,7 @@ class Structs : public Graph {
   static void PrintStrings(MemoryRange memory);
 };
 
-std::unique_ptr<Structs> ReadFile(
-    const std::string& path, bool verbose = false);
+Id ReadFile(Graph& graph, const std::string& path, bool verbose = false);
 
 }  // namespace btf
 }  // namespace stg

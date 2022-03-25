@@ -31,21 +31,27 @@ namespace stg {
 
 bool PrintComparison(Reporting& reporting, const Comparison& comparison,
                      std::ostream& os) {
-  const auto* node1 = comparison.first;
-  const auto* node2 = comparison.second;
-  if (!node2) {
+  const auto id1 = comparison.first;
+  const auto id2 = comparison.second;
+  const auto* node1 = id1 ? &reporting.graph.Get(*id1) : nullptr;
+  const auto* node2 = id2 ? &reporting.graph.Get(*id2) : nullptr;
+  if (!id2) {
     os << node1->GetKindDescription() << " '"
-       << node1->GetDescription(reporting.names) << "' was removed\n";
+       << GetDescription(reporting.graph, reporting.names, *id1)
+       << "' was removed\n";
     return true;
   }
-  if (!node1) {
+  if (!id1) {
     os << node2->GetKindDescription() << " '"
-       << node2->GetDescription(reporting.names) << "' was added\n";
+       << GetDescription(reporting.graph, reporting.names, *id2)
+       << "' was added\n";
     return true;
   }
 
-  const auto description1 = node1->GetResolvedDescription(reporting.names);
-  const auto description2 = node2->GetResolvedDescription(reporting.names);
+  const auto description1 =
+      GetResolvedDescription(reporting.graph, reporting.names, *id1);
+  const auto description2 =
+      GetResolvedDescription(reporting.graph, reporting.names, *id2);
   os << node1->GetKindDescription() << ' ';
   if (description1 == description2)
     os << description1 << " changed";
@@ -215,16 +221,16 @@ void VizPrint(Reporting& reporting, const Comparison& comparison,
 
   const auto node = VizId(ids, comparison);
 
-  const auto* node1 = comparison.first;
-  const auto* node2 = comparison.second;
-  if (!node2) {
+  const auto id1 = comparison.first;
+  const auto id2 = comparison.second;
+  if (!id2) {
     os << "  \"" << node << "\" [color=red, label=\"" << "removed("
-       << node1->GetDescription(reporting.names) << ")\"]\n";
+       << GetDescription(reporting.graph, reporting.names, *id1) << ")\"]\n";
     return;
   }
-  if (!node1) {
+  if (!id1) {
     os << "  \"" << node << "\" [color=red, label=\"" << "added("
-       << node2->GetDescription(reporting.names) << ")\"]\n";
+       << GetDescription(reporting.graph, reporting.names, *id2) << ")\"]\n";
     return;
   }
 
@@ -233,8 +239,10 @@ void VizPrint(Reporting& reporting, const Comparison& comparison,
   const auto& diff = it->second;
   const char* colour = diff.has_changes ? "color=red, " : "";
   const char* shape = diff.holds_changes ? "shape=rectangle, " : "";
-  const auto description1 = node1->GetResolvedDescription(reporting.names);
-  const auto description2 = node2->GetResolvedDescription(reporting.names);
+  const auto description1 =
+      GetResolvedDescription(reporting.graph, reporting.names, *id1);
+  const auto description2 =
+      GetResolvedDescription(reporting.graph, reporting.names, *id2);
   if (description1 == description2)
     os << "  \"" << node << "\" [" << colour << shape << "label=\""
        << description1 << "\"]\n";
@@ -258,6 +266,7 @@ void VizPrint(Reporting& reporting, const Comparison& comparison,
     }
   }
 }
+
 
 void ReportViz(Reporting& reporting, const Comparison& comparison,
                std::ostream& output) {

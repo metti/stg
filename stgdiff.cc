@@ -82,39 +82,36 @@ using Outputs = std::vector<std::pair<stg::OutputFormat, const char*>>;
 
 bool Run(const Inputs& inputs, const Outputs& outputs) {
   // Read inputs.
-  std::vector<std::unique_ptr<stg::Graph>> graphs;
+  stg::Graph graph;
+  std::vector<stg::Id> roots;
   for (const auto& [format, filename] : inputs) {
-    graphs.push_back({});
-    auto& graph = graphs.back();
     switch (format) {
       case InputFormat::ABI: {
         Time read("read ABI");
-        graph = stg::abixml::Read(filename);
+        roots.push_back(stg::abixml::Read(graph, filename));
         break;
       }
       case InputFormat::BTF: {
         Time read("read BTF");
-        graph = stg::btf::ReadFile(filename);
+        roots.push_back(stg::btf::ReadFile(graph, filename));
         break;
       }
     }
   }
 
   // Compute differences.
-  stg::State state;
+  stg::State state{graph};
   std::pair<bool, std::optional<stg::Comparison>> result;
   {
     Time compute("compute diffs");
-    const stg::Type& lhs = graphs[0]->GetRoot();
-    const stg::Type& rhs = graphs[1]->GetRoot();
-    result = stg::Compare(state, lhs, rhs);
+    result = stg::Compare(state, roots[0], roots[1]);
   }
   stg::Check(state.scc.Empty()) << "internal error: SCC state broken";
   const auto& [equals, comparison] = result;
 
   // Write reports.
   stg::NameCache names;
-  stg::Reporting reporting{state.outcomes, names};
+  stg::Reporting reporting{graph, state.outcomes, names};
   for (const auto& [format, filename] : outputs) {
     std::ofstream output(filename);
     if (comparison) {

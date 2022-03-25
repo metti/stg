@@ -149,11 +149,9 @@ std::optional<uint64_t> ParseLength(const std::string& value) {
 
 }  // namespace
 
-Abigail::Abigail(xmlNodePtr root, bool verbose)
-    : graph_(*this), verbose_(verbose),
-      env_(std::make_unique<abigail::ir::environment>()) {
-  root_ = ProcessRoot(root);
-}
+Abigail::Abigail(Graph& graph, bool verbose)
+    : graph_(graph), verbose_(verbose),
+      env_(std::make_unique<abigail::ir::environment>()) { }
 
 Id Abigail::GetNode(const std::string& type_id) {
   const auto [it, inserted] = type_ids_.insert({type_id, Id(0)});
@@ -606,7 +604,7 @@ Id Abigail::BuildSymbols() {
   return graph_.Add(Make<Symbols>(symbols));
 }
 
-std::unique_ptr<Abigail> Read(const std::string& path, bool verbose) {
+Id Read(Graph& graph, const std::string& path, bool verbose) {
   // Open input for reading.
   const int fd = open(path.c_str(), O_RDONLY);
   if (fd < 0)
@@ -627,7 +625,7 @@ std::unique_ptr<Abigail> Read(const std::string& path, bool verbose) {
   xmlNodePtr root = xmlDocGetRootElement(document.get());
   Check(root) << "XML document has no root element";
 
-  return std::make_unique<Abigail>(root, verbose);
+  return Abigail(graph, verbose).ProcessRoot(root);
 }
 
 }  // namespace abixml

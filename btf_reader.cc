@@ -67,13 +67,11 @@ const T* Structs::MemoryRange::Pull(size_t count) {
   return reinterpret_cast<const T*>(saved);
 }
 
-Structs::Structs(const char* start, size_t size,
+Structs::Structs(Graph& graph,
                  std::unique_ptr<abigail::ir::environment> env,
                  const abigail::symtab_reader::symtab_sptr tab,
                  const bool verbose)
-    : graph_(*this), env_(std::move(env)), tab_(tab), verbose_(verbose) {
-  root_ = Process(start, size);
-}
+    : graph_(graph), env_(std::move(env)), tab_(tab), verbose_(verbose) { }
 
 // Get the index of the void type, creating one if needed.
 Id Structs::GetVoid() {
@@ -512,7 +510,7 @@ class ElfHandle {
   Dwfl_Callbacks offline_callbacks_;
 };
 
-std::unique_ptr<Structs> ReadFile(const std::string& path, bool verbose) {
+Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
   using abigail::symtab_reader::symtab;
 
   ElfHandle elf(path);
@@ -529,8 +527,8 @@ std::unique_ptr<Structs> ReadFile(const std::string& path, bool verbose) {
   auto env = std::make_unique<abigail::ir::environment>();
   auto tab = symtab::load(elf, env.get());
 
-  return std::make_unique<Structs>(
-      btf_start, btf_size, std::move(env), std::move(tab), verbose);
+  Structs structs(graph, std::move(env), std::move(tab), verbose);
+  return structs.Process(btf_start, btf_size);
 }
 
 }  // namespace btf

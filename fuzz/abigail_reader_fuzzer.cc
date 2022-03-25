@@ -42,7 +42,8 @@ extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
   xmlNodePtr root = xmlDocGetRootElement(doc);
   if (root) {
     try {
-      stg::abixml::Abigail _(root);
+      stg::Graph graph;
+      stg::abixml::Abigail(graph).ProcessRoot(root);
     } catch (const stg::Exception&) {
       // Pass as this is us catching invalid XML properly.
     }

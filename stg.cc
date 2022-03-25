@@ -56,20 +56,20 @@ Id Graph::Add(std::unique_ptr<Type> node) {
   return id;
 }
 
-const Type& ResolveQualifiers(
-    const Type& type, std::set<QualifierKind>& qualifiers) {
-  const Type* pointer = &type;
-  while (const auto* maybe = pointer->ResolveQualifier(qualifiers))
-    pointer = maybe;
-  return *pointer;
+const Type& Graph::Get(Id id) const { return *types_[id.ix_].get(); }
+
+Id ResolveQualifiers(
+    const Graph& graph, Id id, std::set<QualifierKind>& qualifiers) {
+  while (const auto maybe = graph.Get(id).ResolveQualifier(qualifiers))
+    id = *maybe;
+  return id;
 }
 
-const Type& ResolveTypedefs(
-    const Type& type, std::vector<std::string>& typedefs) {
-  const Type* pointer = &type;
-  while (const auto* maybe = pointer->ResolveTypedef(typedefs))
-    pointer = maybe;
-  return *pointer;
+Id ResolveTypedefs(
+    const Graph& graph, Id id, std::vector<std::string>& typedefs) {
+  while (const auto maybe = graph.Get(id).ResolveTypedef(typedefs))
+    id = *maybe;
+  return id;
 }
 
 static constexpr std::array<std::string_view, 6> kIntEncoding = {
@@ -134,27 +134,26 @@ std::ostream& operator<<(std::ostream& os, const Name& name) {
   return name.Print(os);
 }
 
-const Name& Type::GetDescription(NameCache& names) const {
+const Name& GetDescription(const Graph& graph, NameCache& names, Id node) {
   // infinite recursion prevention - insert at most once
   static const Name black_hole{"#"};
-  auto insertion = names.insert({this, black_hole});
+  auto insertion = names.insert({node, black_hole});
   Name& cached = insertion.first->second;
   if (insertion.second)
-    cached = MakeDescription(names);
+    cached = graph.Get(node).MakeDescription(graph, names);
   return cached;
 }
 
-std::string Type::GetResolvedDescription(NameCache& names) const {
+std::string GetResolvedDescription(
+    const Graph& graph, NameCache& names, Id id) {
   std::ostringstream os;
   std::vector<std::string> typedefs;
-  const Type& type = ResolveTypedefs(*this, typedefs);
+  const Id resolved = ResolveTypedefs(graph, id, typedefs);
   for (auto td : typedefs)
     os << std::quoted(td, '\'') << " = ";
-  os << '\'' << type.GetDescription(names) << '\'';
+  os << '\'' << GetDescription(graph, names, resolved) << '\'';
   return os.str();
 }
-
-const Type& Type::Get(Id id) const { return *(types_[id.ix_].get()); }
 
 std::string QualifiersMessage(
     QualifierKind qualifier, const std::string& action) {
@@ -163,14 +162,14 @@ std::string QualifiersMessage(
   return os.str();
 }
 
-Comparison Removed(State& state, const Type& node) {
-  Comparison comparison{&node, nullptr};
+Comparison Removed(State& state, Id node) {
+  Comparison comparison{{node}, {}};
   state.outcomes.insert({comparison, {}});
   return comparison;
 }
 
-Comparison Added(State& state, const Type& node) {
-  Comparison comparison{nullptr, &node};
+Comparison Added(State& state, Id node) {
+  Comparison comparison{{}, {node}};
   state.outcomes.insert({comparison, {}});
   return comparison;
 }
@@ -201,8 +200,8 @@ Comparison Added(State& state, const Type& node) {
  * an edge diff.
  */
 std::pair<bool, std::optional<Comparison>> Compare(
-    State& state, const Type& node1, const Type& node2) {
-  const Comparison comparison{&node1, &node2};
+    State& state, Id node1, Id node2) {
+  const Comparison comparison{{node1}, {node2}};
 
   // 1. Check if the comparison has an already known result.
   auto already_known = state.known.find(comparison);
@@ -227,12 +226,13 @@ std::pair<bool, std::optional<Comparison>> Compare(
   }
   // Comparison opened, need to close it before returning.
 
+  const Graph& graph = state.graph;
   Result result;
 
   std::set<QualifierKind> qualifiers1;
   std::set<QualifierKind> qualifiers2;
-  const Type& unqualified1 = ResolveQualifiers(node1, qualifiers1);
-  const Type& unqualified2 = ResolveQualifiers(node2, qualifiers2);
+  const Id unqualified1 = ResolveQualifiers(graph, node1, qualifiers1);
+  const Id unqualified2 = ResolveQualifiers(graph, node2, qualifiers2);
   if (!qualifiers1.empty() || !qualifiers2.empty()) {
     // 3.1 Qualified type difference.
     auto it1 = qualifiers1.begin();
@@ -256,21 +256,25 @@ std::pair<bool, std::optional<Comparison>> Compare(
   } else {
     std::vector<std::string> typedefs1;
     std::vector<std::string> typedefs2;
-    const Type& resolved1 = ResolveTypedefs(unqualified1, typedefs1);
-    const Type& resolved2 = ResolveTypedefs(unqualified2, typedefs2);
-    if (&unqualified1 != &resolved1 || &unqualified2 != &resolved2) {
+    const Id resolved1 = ResolveTypedefs(graph, unqualified1, typedefs1);
+    const Id resolved2 = ResolveTypedefs(graph, unqualified2, typedefs2);
+    if (unqualified1 != resolved1 || unqualified2 != resolved2) {
       // 3.2 Typedef difference.
       const auto comp = Compare(state, resolved1, resolved2);
       result.diff_.holds_changes = !typedefs1.empty() && !typedefs2.empty()
                                    && typedefs1[0] == typedefs2[0];
       result.MaybeAddEdgeDiff("resolved", comp);
-    } else if (typeid(unqualified1) != typeid(unqualified2)) {
-      // 4. Incomparable.
-      result.equals_ = false;
-      result.diff_.has_changes = true;
     } else {
-      // 5. Actually compare with dynamic type dispatch.
-      result = unqualified1.Equals(state, unqualified2);
+      const auto& type1 = graph.Get(unqualified1);
+      const auto& type2 = graph.Get(unqualified2);
+      if (typeid(type1) != typeid(type2)) {
+        // 4. Incomparable.
+        result.equals_ = false;
+        result.diff_.has_changes = true;
+      } else {
+        // 5. Actually compare with dynamic type dispatch.
+        result = type1.Equals(state, type2);
+      }
     }
   }
 
@@ -303,40 +307,45 @@ std::pair<bool, std::optional<Comparison>> Compare(
   return {result.equals_, {comparison}};
 }
 
-Name Void::MakeDescription(NameCache&) const { return Name{"void"}; }
+Name Void::MakeDescription(const Graph&, NameCache&) const {
+  return Name{"void"};
+}
 
-Name Variadic::MakeDescription(NameCache&) const { return Name{"..."}; }
+Name Variadic::MakeDescription(const Graph&, NameCache&) const {
+  return Name{"..."};
+}
 
-Name Ptr::MakeDescription(NameCache& names) const {
-  return Get(GetPointeeTypeId())
-      .GetDescription(names)
+Name Ptr::MakeDescription(const Graph& graph, NameCache& names) const {
+  return GetDescription(graph, names, GetPointeeTypeId())
       .Add(Side::LEFT, Precedence::POINTER, "*");
 }
 
-Name Typedef::MakeDescription(NameCache&) const {
+Name Typedef::MakeDescription(const Graph&, NameCache&) const {
   return Name{GetName()};
 }
 
-Name Qualifier::MakeDescription(NameCache& names) const {
+Name Qualifier::MakeDescription(const Graph& graph, NameCache& names) const {
   std::set<QualifierKind> qualifiers;
-  const Type& under = ResolveQualifiers(*this, qualifiers);
-  return under.GetDescription(names).Qualify(qualifiers);
+  qualifiers.insert(GetQualifierKind());
+  Id under = GetQualifiedTypeId();
+  while (const auto maybe = graph.Get(under).ResolveQualifier(qualifiers))
+    under = *maybe;
+  return GetDescription(graph, names, under).Qualify(qualifiers);
 }
 
-Name Integer::MakeDescription(NameCache&) const {
+Name Integer::MakeDescription(const Graph&, NameCache&) const {
   return Name{GetName()};
 }
 
-Name Array::MakeDescription(NameCache& names) const {
+Name Array::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
   os << '[' << GetNumberOfElements() << ']';
-  return Get(GetElementTypeId())
-      .GetDescription(names)
+  return GetDescription(graph, names, GetElementTypeId())
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
-Name Member::MakeDescription(NameCache& names) const {
-  auto description = Get(GetMemberType()).GetDescription(names);
+Name Member::MakeDescription(const Graph& graph, NameCache& names) const {
+  auto description = GetDescription(graph, names, GetMemberType());
   if (!name_.empty())
     description = description.Add(Side::LEFT, Precedence::ATOMIC, name_);
   if (bitsize_)
@@ -345,7 +354,7 @@ Name Member::MakeDescription(NameCache& names) const {
   return description;
 }
 
-Name StructUnion::MakeDescription(NameCache& names) const {
+Name StructUnion::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
   const auto& name = GetName();
   os << GetStructUnionKind() << ' ';
@@ -354,13 +363,13 @@ Name StructUnion::MakeDescription(NameCache& names) const {
   } else if (const auto& definition = GetDefinition()) {
     os << "{ ";
     for (const auto& member : definition->members)
-      os << Get(member).GetDescription(names) << "; ";
+      os << GetDescription(graph, names, member) << "; ";
     os << '}';
   }
   return Name{os.str()};
 }
 
-Name Enumeration::MakeDescription(NameCache&) const {
+Name Enumeration::MakeDescription(const Graph&, NameCache&) const {
   std::ostringstream os;
   const auto& name = GetName();
   os << "enum ";
@@ -375,7 +384,7 @@ Name Enumeration::MakeDescription(NameCache&) const {
   return Name{os.str()};
 }
 
-Name Function::MakeDescription(NameCache& names) const {
+Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
   os << '(';
   bool sep = false;
@@ -384,27 +393,26 @@ Name Function::MakeDescription(NameCache& names) const {
       os << ", ";
     else
       sep = true;
-    const auto& arg_descr = Get(p.typeId_).GetDescription(names);
+    const auto& arg_descr = GetDescription(graph, names, p.typeId_);
     if (p.name_.empty())
       os << arg_descr;
     else
       os << arg_descr.Add(Side::LEFT, Precedence::ATOMIC, p.name_);
   }
   os << ')';
-  return Get(GetReturnTypeId())
-      .GetDescription(names)
+  return GetDescription(graph, names, GetReturnTypeId())
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
-Name ElfSymbol::MakeDescription(NameCache& names) const {
+Name ElfSymbol::MakeDescription(const Graph& graph, NameCache& names) const {
   const auto& name = symbol_->get_name();
   return type_id_
-      ? Get(*type_id_).GetDescription(names).Add(
+      ? GetDescription(graph, names, *type_id_).Add(
           Side::LEFT, Precedence::ATOMIC, name)
       : Name{name};
 }
 
-Name Symbols::MakeDescription(NameCache&) const {
+Name Symbols::MakeDescription(const Graph&, NameCache&) const {
   return Name{"symbols"};
 }
 
@@ -424,8 +432,8 @@ Result Ptr::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Ptr>();
 
   Result result;
-  const auto ref_diff = Compare(state, Get(GetPointeeTypeId()),
-                                o.Get(o.GetPointeeTypeId()));
+  const auto ref_diff =
+      Compare(state, GetPointeeTypeId(), o.GetPointeeTypeId());
   result.MaybeAddEdgeDiff("pointed-to", ref_diff);
   return result;
 }
@@ -461,8 +469,7 @@ Result Array::Equals(State& state, const Type& other) const {
   result.MaybeAddNodeDiff("number of elements",
                           GetNumberOfElements(), o.GetNumberOfElements());
   const auto element_type_diff =
-      Compare(state, Get(GetElementTypeId()),
-              o.Get(o.GetElementTypeId()));
+      Compare(state, GetElementTypeId(), o.GetElementTypeId());
   result.MaybeAddEdgeDiff("element", element_type_diff);
   return result;
 }
@@ -514,7 +521,7 @@ Result Member::Equals(State& state, const Type& other) const {
   Result result;
   result.MaybeAddNodeDiff("offset", offset_, o.offset_);
   result.MaybeAddNodeDiff("size", bitsize_, o.bitsize_);
-  const auto sub_diff = Compare(state, Get(typeId_), o.Get(o.typeId_));
+  const auto sub_diff = Compare(state, typeId_, o.typeId_);
   result.MaybeAddEdgeDiff("", sub_diff);
   return result;
 }
@@ -545,24 +552,23 @@ Result StructUnion::Equals(State& state, const Type& other) const {
       "byte size", definition1->bytesize, definition2->bytesize);
   const auto& members1 = definition1->members;
   const auto& members2 = definition2->members;
-  const auto names1 = GetMemberNames();
-  const auto names2 = o.GetMemberNames();
+  const auto names1 = GetMemberNames(state.graph);
+  const auto names2 = o.GetMemberNames(state.graph);
   const auto pairs = PairUp(names1, names2);
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
       // removed
       const auto member1 = members1[*index1];
-      result.AddEdgeDiff("", Removed(state, Get(member1)));
+      result.AddEdgeDiff("", Removed(state, member1));
     } else if (!index1 && index2) {
       // added
       const auto member2 = members2[*index2];
-      result.AddEdgeDiff("", Added(state, o.Get(member2)));
+      result.AddEdgeDiff("", Added(state, member2));
     } else {
       // in both
       const auto member1 = members1[*index1];
       const auto member2 = members2[*index2];
-      result.MaybeAddEdgeDiff(
-          "", Compare(state, Get(member1), o.Get(member2)));
+      result.MaybeAddEdgeDiff("", Compare(state, member1, member2));
     }
   }
 
@@ -630,8 +636,8 @@ Result Function::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Function>();
 
   Result result;
-  const auto return_type_diff = Compare(state, Get(GetReturnTypeId()),
-                                        o.Get(o.GetReturnTypeId()));
+  const auto return_type_diff
+      = Compare(state, GetReturnTypeId(), o.GetReturnTypeId());
   result.MaybeAddEdgeDiff("return", return_type_diff);
 
   const auto& parameters1 = GetParameters();
@@ -640,8 +646,7 @@ Result Function::Equals(State& state, const Type& other) const {
   for (size_t i = 0; i < min; ++i) {
     const auto& p1 = parameters1.at(i);
     const auto& p2 = parameters2.at(i);
-    const auto sub_diff =
-        Compare(state, Get(p1.typeId_), o.Get(p2.typeId_));
+    const auto sub_diff = Compare(state, p1.typeId_, p2.typeId_);
     result.MaybeAddEdgeDiff(
         [&](std::ostream& os) {
           os << "parameter " << i + 1;
@@ -673,7 +678,7 @@ Result Function::Equals(State& state, const Type& other) const {
     if (!parameter.name_.empty())
       os << " (" << std::quoted(parameter.name_, '\'') << ")";
     os << " of";
-    const auto& parameter_type = which.Get(parameter.typeId_);
+    const auto parameter_type = parameter.typeId_;
     auto diff =
         added ? Added(state, parameter_type) : Removed(state, parameter_type);
     result.AddEdgeDiff(os.str(), diff);
@@ -758,12 +763,12 @@ Result ElfSymbol::Equals(State& state, const Type& other) const {
   result.MaybeAddNodeDiff("CRC", CRC{s1.get_crc()}, CRC{s2.get_crc()});
 
   if (type_id_ && o.type_id_) {
-    const auto type_diff = Compare(state, Get(*type_id_), o.Get(*o.type_id_));
+    const auto type_diff = Compare(state, *type_id_, *o.type_id_);
     result.MaybeAddEdgeDiff("", type_diff);
   } else if (type_id_) {
-    result.AddEdgeDiff("", Removed(state, Get(*type_id_)));
+    result.AddEdgeDiff("", Removed(state, *type_id_));
   } else if (o.type_id_) {
-    result.AddEdgeDiff("", Added(state, o.Get(*o.type_id_)));
+    result.AddEdgeDiff("", Added(state, *o.type_id_));
   } else {
     // both types missing, we have nothing to say
   }
@@ -806,64 +811,65 @@ Result Symbols::Equals(State& state, const Type& other) const {
   }
 
   for (const auto symbol1 : removed)
-    result.AddEdgeDiff("", Removed(state, Get(symbol1)));
+    result.AddEdgeDiff("", Removed(state, symbol1));
   for (const auto symbol2 : added)
-    result.AddEdgeDiff("", Added(state, o.Get(symbol2)));
+    result.AddEdgeDiff("", Added(state, symbol2));
   for (const auto [symbol1, symbol2] : in_both)
-    result.MaybeAddEdgeDiff("", Compare(state, Get(symbol1), o.Get(symbol2)));
+    result.MaybeAddEdgeDiff("", Compare(state, symbol1, symbol2));
 
   return result;
 }
 
-const Type* Type::ResolveQualifier(std::set<QualifierKind>&) const {
-  return nullptr;
+std::optional<Id> Type::ResolveQualifier(std::set<QualifierKind>&) const {
+  return {};
 }
 
-const Type* Array::ResolveQualifier(
+std::optional<Id> Array::ResolveQualifier(
     std::set<QualifierKind>& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
-  return nullptr;
+  return {};
 }
 
-const Type* Function::ResolveQualifier(
+std::optional<Id> Function::ResolveQualifier(
     std::set<QualifierKind>& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
-  return nullptr;
+  return {};
 }
 
-const Type* Qualifier::ResolveQualifier(
+std::optional<Id> Qualifier::ResolveQualifier(
     std::set<QualifierKind>& qualifiers) const {
   qualifiers.insert(GetQualifierKind());
-  return &Get(GetQualifiedTypeId());
+  return {GetQualifiedTypeId()};
 }
 
-const Type* Type::ResolveTypedef(std::vector<std::string>&) const {
-  return nullptr;
+std::optional<Id> Type::ResolveTypedef(std::vector<std::string>&) const {
+  return {};
 }
 
-const Type* Typedef::ResolveTypedef(std::vector<std::string>& typedefs) const {
+std::optional<Id> Typedef::ResolveTypedef(
+    std::vector<std::string>& typedefs) const {
   typedefs.push_back(GetName());
-  return &Get(GetReferredTypeId());
+  return {GetReferredTypeId()};
 }
 
-std::string Type::FirstName() const { return {}; }
+std::string Type::FirstName(const Graph&) const { return {}; }
 
-std::string Member::FirstName() const {
+std::string Member::FirstName(const Graph& graph) const {
   if (!name_.empty())
     return name_;
-  return Get(typeId_).FirstName();
+  return graph.Get(typeId_).FirstName(graph);
 }
 
-std::string StructUnion::FirstName() const {
+std::string StructUnion::FirstName(const Graph& graph) const {
   const auto& name = GetName();
   if (!name.empty())
     return name;
   if (const auto& definition = GetDefinition()) {
     const auto& members = definition->members;
     for (const auto& member : members) {
-      const auto recursive = Get(member).FirstName();
+      const auto recursive = graph.Get(member).FirstName(graph);
       if (!recursive.empty())
         return recursive;
     }
@@ -871,8 +877,8 @@ std::string StructUnion::FirstName() const {
   return {};
 }
 
-std::vector<std::pair<std::string, size_t>> StructUnion::GetMemberNames()
-    const {
+std::vector<std::pair<std::string, size_t>> StructUnion::GetMemberNames(
+    const Graph& graph) const {
   std::vector<std::pair<std::string, size_t>> names;
   if (const auto& definition = GetDefinition()) {
     const auto& members = definition->members;
@@ -880,7 +886,7 @@ std::vector<std::pair<std::string, size_t>> StructUnion::GetMemberNames()
     names.reserve(size);
     size_t anonymous_ix = 0;
     for (size_t ix = 0; ix < size; ++ix) {
-      auto key = Get(members[ix]).FirstName();
+      auto key = graph.Get(members[ix]).FirstName(graph);
       if (key.empty())
         key = "#anon#" + std::to_string(anonymous_ix++);
       names.push_back({key, ix});

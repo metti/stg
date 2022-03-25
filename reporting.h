@@ -27,6 +27,7 @@
 namespace stg {
 
 struct Reporting {
+  const Graph& graph;
   const Outcomes& outcomes;
   NameCache& names;
 };

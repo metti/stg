@@ -30,7 +30,8 @@ int main(int argc, const char* argv[]) {
   }
 
   try {
-    (void)stg::btf::ReadFile(argv[1], /* verbose = */ true);
+    stg::Graph graph;
+    (void)stg::btf::ReadFile(graph, argv[1], /* verbose = */ true);
   } catch (const stg::Exception& e) {
     std::cerr << e.what() << '\n';
     return 1;
