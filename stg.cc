@@ -814,7 +814,7 @@ Result Symbols::Equals(State& state, const Type& other) const {
     result.AddEdgeDiff("", Removed(state, symbol1));
   for (const auto symbol2 : added)
     result.AddEdgeDiff("", Added(state, symbol2));
-  for (const auto [symbol1, symbol2] : in_both)
+  for (const auto& [symbol1, symbol2] : in_both)
     result.MaybeAddEdgeDiff("", Compare(state, symbol1, symbol2));
 
   return result;

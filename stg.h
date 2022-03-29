@@ -208,6 +208,7 @@ struct HashComparison {
 using Outcomes = std::unordered_map<Comparison, Diff, HashComparison>;
 
 struct State {
+  explicit State(const Graph& g) : graph(g) {}
   const Graph& graph;
   std::unordered_map<Comparison, bool, HashComparison> known;
   Outcomes outcomes;
