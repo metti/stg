@@ -393,11 +393,8 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
       os << ", ";
     else
       sep = true;
-    const auto& arg_descr = GetDescription(graph, names, p.typeId_);
-    if (p.name_.empty())
-      os << arg_descr;
-    else
-      os << arg_descr.Add(Side::LEFT, Precedence::ATOMIC, p.name_);
+    // do not emit parameter name as it's not part of the type
+    os << GetDescription(graph, names, p.typeId_);
   }
   os << ')';
   return GetDescription(graph, names, GetReturnTypeId())
