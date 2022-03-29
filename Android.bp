@@ -82,6 +82,12 @@ cc_library_host_static {
     srcs: ["btf_reader.cc"],
 }
 
+cc_library_host_static {
+    name: "reporting",
+    defaults: ["defaults"],
+    srcs: ["reporting.cc"],
+}
+
 cc_binary_host {
     name: "stgdiff",
     defaults: ["defaults"],
@@ -89,6 +95,7 @@ cc_binary_host {
     static_libs: [
         "abigail_reader",
         "btf_reader",
+        "reporting",
         "stg",
     ],
 }
