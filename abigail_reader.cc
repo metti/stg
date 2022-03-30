@@ -361,7 +361,7 @@ void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
   const auto type = is_variable ? GetEdge(decl)
                                 : graph_.Add(MakeFunctionType(decl));
   if (verbose_ && !is_variable)
-    std::cerr << Id(type) << " function type for function " << name << "\n";
+    std::cerr << type << " function type for function " << name << "\n";
   if (symbol_id) {
     // There's a link to an ELF symbol.
     if (verbose_)
