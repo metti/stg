@@ -131,6 +131,13 @@ struct Diff {
 };
 
 struct Result {
+  // Used when two nodes cannot be meaningfully compared.
+  Result& MarkIncomparable() {
+    equals_ = false;
+    diff_.has_changes = true;
+    return *this;
+  }
+
   // Used when a node attribute has changed.
   void AddNodeDiff(const std::string& text) {
     equals_ = false;

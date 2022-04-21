@@ -269,8 +269,7 @@ std::pair<bool, std::optional<Comparison>> Compare(
       const auto& type2 = graph.Get(unqualified2);
       if (typeid(type1) != typeid(type2)) {
         // 4. Incomparable.
-        result.equals_ = false;
-        result.diff_.has_changes = true;
+        result.MarkIncomparable();
       } else {
         // 5. Actually compare with dynamic type dispatch.
         result = type1.Equals(state, type2);
@@ -534,11 +533,10 @@ Result StructUnion::Equals(State& state, const Type& other) const {
   const auto kind2 = o.GetStructUnionKind();
   const auto& name1 = GetName();
   const auto& name2 = o.GetName();
-  if (kind1 != kind2 || name1 != name2) {
-    result.equals_ = false;
-    result.diff_.has_changes = true;
-    return result;
-  }
+  if (kind1 != kind2 || name1 != name2)
+    return result.MarkIncomparable();
+
+
   result.diff_.holds_changes = !name1.empty();
   const auto& definition1 = GetDefinition();
   const auto& definition2 = o.GetDefinition();
@@ -581,11 +579,9 @@ Result Enumeration::Equals(State&, const Type& other) const {
   // Everything else treated as distinct. No recursion.
   const auto& name1 = GetName();
   const auto& name2 = o.GetName();
-  if (name1 != name2) {
-    result.equals_ = false;
-    result.diff_.has_changes = true;
-    return result;
-  }
+  if (name1 != name2)
+    return result.MarkIncomparable();
+
   result.diff_.holds_changes = !name1.empty();
   const auto& definition1 = GetDefinition();
   const auto& definition2 = o.GetDefinition();
