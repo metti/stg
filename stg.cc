@@ -315,8 +315,20 @@ Name Variadic::MakeDescription(const Graph&, NameCache&) const {
 }
 
 Name Ptr::MakeDescription(const Graph& graph, NameCache& names) const {
+  std::string sign;
+  switch (GetKind()) {
+    case Ptr::Kind::POINTER:
+      sign = "*";
+      break;
+    case Ptr::Kind::LVALUE_REFERENCE:
+      sign = "&";
+      break;
+    case Ptr::Kind::RVALUE_REFERENCE:
+      sign = "&&";
+      break;
+  }
   return GetDescription(graph, names, GetPointeeTypeId())
-      .Add(Side::LEFT, Precedence::POINTER, "*");
+      .Add(Side::LEFT, Precedence::POINTER, sign);
 }
 
 Name Typedef::MakeDescription(const Graph&, NameCache&) const {
@@ -428,9 +440,15 @@ Result Ptr::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Ptr>();
 
   Result result;
+  const auto kind1 = GetKind();
+  const auto kind2 = o.GetKind();
+  if (kind1 != kind2)
+    return result.MarkIncomparable();
   const auto ref_diff =
       Compare(state, GetPointeeTypeId(), o.GetPointeeTypeId());
-  result.MaybeAddEdgeDiff("pointed-to", ref_diff);
+  const auto text =
+      kind1 == Ptr::Kind::POINTER ? "pointed-to" : "referred-to";
+  result.MaybeAddEdgeDiff(text, ref_diff);
   return result;
 }
 
@@ -934,6 +952,21 @@ std::ostream& operator<<(std::ostream& os, QualifierKind kind) {
 std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {
   auto ix = static_cast<size_t>(encoding);
   return os << (ix < kIntEncoding.size() ? kIntEncoding[ix] : "(unknown)");
+}
+
+std::ostream& operator<<(std::ostream& os, Ptr::Kind kind) {
+  switch (kind) {
+    case Ptr::Kind::POINTER:
+      os << "pointer";
+      break;
+    case Ptr::Kind::LVALUE_REFERENCE:
+      os << "lvalue reference";
+      break;
+    case Ptr::Kind::RVALUE_REFERENCE:
+      os << "rvalue reference";
+      break;
+  }
+  return os;
 }
 
 }  // namespace stg

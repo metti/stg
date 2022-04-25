@@ -273,15 +273,24 @@ class Variadic : public Type {
 
 class Ptr : public Type {
  public:
-  Ptr(Id pointeeTypeId)
-      : pointeeTypeId_(pointeeTypeId) {}
+  enum class Kind {
+    POINTER,
+    LVALUE_REFERENCE,
+    RVALUE_REFERENCE,
+  };
+  Ptr(Kind kind, Id pointeeTypeId)
+      : kind_(kind), pointeeTypeId_(pointeeTypeId) {}
+  Kind GetKind() const { return kind_; }
   Id GetPointeeTypeId() const { return pointeeTypeId_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
 
  private:
+  const Kind kind_;
   const Id pointeeTypeId_;
 };
+
+std::ostream& operator<<(std::ostream& os, Ptr::Kind kind);
 
 class Typedef : public Type {
  public:

@@ -147,6 +147,14 @@ std::optional<uint64_t> ParseLength(const std::string& value) {
   return Parse<uint64_t>(value);
 }
 
+std::optional<Ptr::Kind> ParseReferenceKind(const std::string& value) {
+  if (value == "lvalue")
+    return {Ptr::Kind::LVALUE_REFERENCE};
+  if (value == "rvalue")
+    return {Ptr::Kind::RVALUE_REFERENCE};
+  return {};
+}
+
 }  // namespace
 
 Abigail::Abigail(Graph& graph, bool verbose)
@@ -326,7 +334,9 @@ void Abigail::ProcessInstr(xmlNodePtr instr) {
       } else if (name == "typedef-decl") {
         ProcessTypedef(id, element);
       } else if (name == "pointer-type-def") {
-        ProcessPointer(id, element);
+        ProcessPointer(id, true, element);
+      } else if (name == "reference-type-def") {
+        ProcessPointer(id, false, element);
       } else if (name == "qualified-type-def") {
         ProcessQualified(id, element);
       } else if (name == "array-type-def") {
@@ -384,11 +394,14 @@ void Abigail::ProcessTypedef(Id id, xmlNodePtr type_definition) {
     std::cerr << id << " typedef " << name << " of " << type << "\n";
 }
 
-void Abigail::ProcessPointer(Id id, xmlNodePtr pointer) {
+void Abigail::ProcessPointer(Id id, bool isPointer, xmlNodePtr pointer) {
   const auto type = GetEdge(pointer);
-  graph_.Set(id, Make<Ptr>(type));
+  const auto kind = isPointer
+              ? Ptr::Kind::POINTER
+              : ReadAttribute<Ptr::Kind>(pointer, "kind", &ParseReferenceKind);
+  graph_.Set(id, Make<Ptr>(kind, type));
   if (verbose_)
-    std::cerr << id << " pointer to " << type << "\n";
+    std::cerr << id << " " << kind << " to " << type << "\n";
 }
 
 void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {

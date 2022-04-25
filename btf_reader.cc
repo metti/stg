@@ -282,7 +282,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       if (verbose_) {
         std::cout << "PTR '" << ANON << "' type_id=" << t->type << '\n';
       }
-      define(Make<Ptr>(GetId(t->type)));
+      define(Make<Ptr>(Ptr::Kind::POINTER, GetId(t->type)));
       break;
     }
     case BTF_KIND_TYPEDEF: {
