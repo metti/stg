@@ -412,12 +412,8 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
-Name ElfSymbol::MakeDescription(const Graph& graph, NameCache& names) const {
-  const auto& name = symbol_->get_name();
-  return type_id_
-      ? GetDescription(graph, names, *type_id_).Add(
-          Side::LEFT, Precedence::ATOMIC, name)
-      : Name{name};
+Name ElfSymbol::MakeDescription(const Graph&, NameCache&) const {
+  return Name{symbol_->get_name()};
 }
 
 Name Symbols::MakeDescription(const Graph&, NameCache&) const {
