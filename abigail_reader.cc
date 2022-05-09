@@ -30,6 +30,7 @@
 #include <iostream>
 #include <map>
 #include <type_traits>
+#include <utility>
 
 #include <libxml/parser.h>
 #include "crc.h"
@@ -376,8 +377,9 @@ void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
     // There's a link to an ELF symbol.
     if (verbose_)
       std::cerr << "ELF symbol " << *symbol_id << " of " << type << "\n";
-    const auto [it, inserted] = symbol_ids_.emplace(*symbol_id, type);
-    if (!inserted && it->second.ix_ != type.ix_)
+    const auto [it, inserted] = symbol_id_and_full_name_.emplace(
+        *symbol_id, std::make_pair(type, name));
+    if (!inserted && it->second.first != type)
       Die() << "conflicting types for '" << *symbol_id << "'";
   }
 }
@@ -608,11 +610,14 @@ Id Abigail::BuildSymbols() {
   for (const auto& [id, symbol] : id_to_symbol) {
     const auto main = alias_to_main.find(id);
     const auto lookup = main != alias_to_main.end() ? main->second : id;
-    const auto it = symbol_ids_.find(lookup);
+    const auto it = symbol_id_and_full_name_.find(lookup);
     std::optional<Id> type_id;
-    if (it != symbol_ids_.end())
-      type_id = {it->second};
-    symbols.insert({id, graph_.Add(Make<ElfSymbol>(symbol, type_id))});
+    std::optional<std::string> name;
+    if (it != symbol_id_and_full_name_.end()) {
+      type_id = {it->second.first};
+      name = {it->second.second};
+    }
+    symbols.insert({id, graph_.Add(Make<ElfSymbol>(symbol, type_id, name))});
   }
   return graph_.Add(Make<Symbols>(symbols));
 }

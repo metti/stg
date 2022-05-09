@@ -94,8 +94,9 @@ class Abigail {
   std::vector<std::pair<abigail::elf_symbol_sptr, std::vector<std::string>>>
       elf_symbol_aliases_;
   // libabigail decorates certain declarations with symbol ids; this is the
-  // mapping from symbol id to the corresponding type.
-  std::unordered_map<std::string, Id> symbol_ids_;
+  // mapping from symbol id to the corresponding type and full name.
+  std::unordered_map<std::string, std::pair<Id, std::string>>
+      symbol_id_and_full_name_;
 
   Id GetNode(const std::string& type_id);
   Id GetEdge(xmlNodePtr element);

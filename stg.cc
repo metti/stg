@@ -413,7 +413,10 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
 }
 
 Name ElfSymbol::MakeDescription(const Graph&, NameCache&) const {
-  return Name{symbol_->get_name()};
+  const auto& symbol_name = symbol_->get_name();
+  if (!full_name_ || *full_name_ == symbol_name)
+    return Name{symbol_name};
+  return Name{*full_name_ + " {" + symbol_name + "}"};
 }
 
 Name Symbols::MakeDescription(const Graph&, NameCache&) const {

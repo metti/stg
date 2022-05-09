@@ -476,7 +476,8 @@ Id Structs::BuildSymbols() {
     }
 
     elf_symbols.emplace(symbol_name + '@' + symbol->get_version().str(),
-                        graph_.Add(Make<ElfSymbol>(symbol, type_id)));
+                        graph_.Add(Make<ElfSymbol>(
+                            symbol, type_id, /*full_name_=*/std::nullopt)));
   }
   return graph_.Add(Make<Symbols>(elf_symbols));
 }

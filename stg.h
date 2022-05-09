@@ -473,9 +473,9 @@ class Function : public Type {
 
 class ElfSymbol : public Type {
  public:
-  ElfSymbol(abigail::elf_symbol_sptr symbol, std::optional<Id> type_id)
-      : symbol_(symbol),
-        type_id_(type_id) {}
+  ElfSymbol(abigail::elf_symbol_sptr symbol, std::optional<Id> type_id,
+            std::optional<std::string> full_name)
+      : symbol_(symbol), type_id_(type_id), full_name_(full_name) {}
   abigail::elf_symbol_sptr GetElfSymbol() const { return symbol_; }
   std::optional<Id> GetTypeId() const { return type_id_; }
   std::string GetKindDescription() const final;
@@ -485,6 +485,7 @@ class ElfSymbol : public Type {
  private:
   abigail::elf_symbol_sptr symbol_;
   std::optional<Id> type_id_;
+  std::optional<std::string> full_name_;
 };
 
 class Symbols : public Type {
