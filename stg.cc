@@ -269,8 +269,7 @@ std::pair<bool, std::optional<Comparison>> Compare(
       const auto& type2 = graph.Get(unqualified2);
       if (typeid(type1) != typeid(type2)) {
         // 4. Incomparable.
-        result.equals_ = false;
-        result.diff_.has_changes = true;
+        result.MarkIncomparable();
       } else {
         // 5. Actually compare with dynamic type dispatch.
         result = type1.Equals(state, type2);
@@ -316,8 +315,20 @@ Name Variadic::MakeDescription(const Graph&, NameCache&) const {
 }
 
 Name Ptr::MakeDescription(const Graph& graph, NameCache& names) const {
+  std::string sign;
+  switch (GetKind()) {
+    case Ptr::Kind::POINTER:
+      sign = "*";
+      break;
+    case Ptr::Kind::LVALUE_REFERENCE:
+      sign = "&";
+      break;
+    case Ptr::Kind::RVALUE_REFERENCE:
+      sign = "&&";
+      break;
+  }
   return GetDescription(graph, names, GetPointeeTypeId())
-      .Add(Side::LEFT, Precedence::POINTER, "*");
+      .Add(Side::LEFT, Precedence::POINTER, sign);
 }
 
 Name Typedef::MakeDescription(const Graph&, NameCache&) const {
@@ -401,12 +412,11 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
-Name ElfSymbol::MakeDescription(const Graph& graph, NameCache& names) const {
-  const auto& name = symbol_->get_name();
-  return type_id_
-      ? GetDescription(graph, names, *type_id_).Add(
-          Side::LEFT, Precedence::ATOMIC, name)
-      : Name{name};
+Name ElfSymbol::MakeDescription(const Graph&, NameCache&) const {
+  const auto& symbol_name = symbol_->get_name();
+  if (!full_name_ || *full_name_ == symbol_name)
+    return Name{symbol_name};
+  return Name{*full_name_ + " {" + symbol_name + "}"};
 }
 
 Name Symbols::MakeDescription(const Graph&, NameCache&) const {
@@ -429,9 +439,15 @@ Result Ptr::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Ptr>();
 
   Result result;
+  const auto kind1 = GetKind();
+  const auto kind2 = o.GetKind();
+  if (kind1 != kind2)
+    return result.MarkIncomparable();
   const auto ref_diff =
       Compare(state, GetPointeeTypeId(), o.GetPointeeTypeId());
-  result.MaybeAddEdgeDiff("pointed-to", ref_diff);
+  const auto text =
+      kind1 == Ptr::Kind::POINTER ? "pointed-to" : "referred-to";
+  result.MaybeAddEdgeDiff(text, ref_diff);
   return result;
 }
 
@@ -534,11 +550,10 @@ Result StructUnion::Equals(State& state, const Type& other) const {
   const auto kind2 = o.GetStructUnionKind();
   const auto& name1 = GetName();
   const auto& name2 = o.GetName();
-  if (kind1 != kind2 || name1 != name2) {
-    result.equals_ = false;
-    result.diff_.has_changes = true;
-    return result;
-  }
+  if (kind1 != kind2 || name1 != name2)
+    return result.MarkIncomparable();
+
+
   result.diff_.holds_changes = !name1.empty();
   const auto& definition1 = GetDefinition();
   const auto& definition2 = o.GetDefinition();
@@ -581,11 +596,9 @@ Result Enumeration::Equals(State&, const Type& other) const {
   // Everything else treated as distinct. No recursion.
   const auto& name1 = GetName();
   const auto& name2 = o.GetName();
-  if (name1 != name2) {
-    result.equals_ = false;
-    result.diff_.has_changes = true;
-    return result;
-  }
+  if (name1 != name2)
+    return result.MarkIncomparable();
+
   result.diff_.holds_changes = !name1.empty();
   const auto& definition1 = GetDefinition();
   const auto& definition2 = o.GetDefinition();
@@ -938,6 +951,21 @@ std::ostream& operator<<(std::ostream& os, QualifierKind kind) {
 std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {
   auto ix = static_cast<size_t>(encoding);
   return os << (ix < kIntEncoding.size() ? kIntEncoding[ix] : "(unknown)");
+}
+
+std::ostream& operator<<(std::ostream& os, Ptr::Kind kind) {
+  switch (kind) {
+    case Ptr::Kind::POINTER:
+      os << "pointer";
+      break;
+    case Ptr::Kind::LVALUE_REFERENCE:
+      os << "lvalue reference";
+      break;
+    case Ptr::Kind::RVALUE_REFERENCE:
+      os << "rvalue reference";
+      break;
+  }
+  return os;
 }
 
 }  // namespace stg
