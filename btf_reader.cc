@@ -297,10 +297,10 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     case BTF_KIND_CONST:
     case BTF_KIND_RESTRICT: {
       const auto qualifier = kind == BTF_KIND_CONST
-                             ? QualifierKind::CONST
+                             ? Qualifier::CONST
                              : kind == BTF_KIND_VOLATILE
-                             ? QualifierKind::VOLATILE
-                             : QualifierKind::RESTRICT;
+                             ? Qualifier::VOLATILE
+                             : Qualifier::RESTRICT;
       if (verbose_) {
         std::cout << (kind == BTF_KIND_CONST ? "CONST"
                       : kind == BTF_KIND_VOLATILE ? "VOLATILE"

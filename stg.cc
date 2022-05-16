@@ -59,7 +59,7 @@ Id Graph::Add(std::unique_ptr<Type> node) {
 const Type& Graph::Get(Id id) const { return *types_[id.ix_].get(); }
 
 Id ResolveQualifiers(
-    const Graph& graph, Id id, std::set<QualifierKind>& qualifiers) {
+    const Graph& graph, Id id, std::set<Qualifier>& qualifiers) {
   while (const auto maybe = graph.Get(id).ResolveQualifier(qualifiers))
     id = *maybe;
   return id;
@@ -104,7 +104,7 @@ Name Name::Add(Side side, Precedence precedence,
   return Name{left.str(), precedence, right.str()};
 }
 
-Name Name::Qualify(const std::set<QualifierKind>& qualifiers) const {
+Name Name::Qualify(const std::set<Qualifier>& qualifiers) const {
   // this covers the case when bad qualifiers have been dropped
   if (qualifiers.empty())
     return *this;
@@ -155,8 +155,7 @@ std::string GetResolvedDescription(
   return os.str();
 }
 
-std::string QualifiersMessage(
-    QualifierKind qualifier, const std::string& action) {
+std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
   std::ostringstream os;
   os << "qualifier " << qualifier << ' ' << action;
   return os.str();
@@ -229,8 +228,8 @@ std::pair<bool, std::optional<Comparison>> Compare(
   const Graph& graph = state.graph;
   Result result;
 
-  std::set<QualifierKind> qualifiers1;
-  std::set<QualifierKind> qualifiers2;
+  std::set<Qualifier> qualifiers1;
+  std::set<Qualifier> qualifiers2;
   const Id unqualified1 = ResolveQualifiers(graph, node1, qualifiers1);
   const Id unqualified2 = ResolveQualifiers(graph, node2, qualifiers2);
   if (!qualifiers1.empty() || !qualifiers2.empty()) {
@@ -336,8 +335,8 @@ Name Typedef::MakeDescription(const Graph&, NameCache&) const {
 }
 
 Name Qualified::MakeDescription(const Graph& graph, NameCache& names) const {
-  std::set<QualifierKind> qualifiers;
-  qualifiers.insert(GetQualifierKind());
+  std::set<Qualifier> qualifiers;
+  qualifiers.insert(GetQualifier());
   Id under = GetQualifiedTypeId();
   while (const auto maybe = graph.Get(under).ResolveQualifier(qualifiers))
     under = *maybe;
@@ -830,27 +829,27 @@ Result Symbols::Equals(State& state, const Type& other) const {
   return result;
 }
 
-std::optional<Id> Type::ResolveQualifier(std::set<QualifierKind>&) const {
+std::optional<Id> Type::ResolveQualifier(std::set<Qualifier>&) const {
   return {};
 }
 
 std::optional<Id> Array::ResolveQualifier(
-    std::set<QualifierKind>& qualifiers) const {
+    std::set<Qualifier>& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
   return {};
 }
 
 std::optional<Id> Function::ResolveQualifier(
-    std::set<QualifierKind>& qualifiers) const {
+    std::set<Qualifier>& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
   return {};
 }
 
 std::optional<Id> Qualified::ResolveQualifier(
-    std::set<QualifierKind>& qualifiers) const {
-  qualifiers.insert(GetQualifierKind());
+    std::set<Qualifier>& qualifiers) const {
+  qualifiers.insert(GetQualifier());
   return {GetQualifiedTypeId()};
 }
 
@@ -933,15 +932,15 @@ std::ostream& operator<<(std::ostream& os, StructUnionKind kind) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, QualifierKind kind) {
-  switch (kind) {
-    case QualifierKind::CONST:
+std::ostream& operator<<(std::ostream& os, Qualifier qualifier) {
+  switch (qualifier) {
+    case Qualifier::CONST:
       os << "const";
       break;
-    case QualifierKind::VOLATILE:
+    case Qualifier::VOLATILE:
       os << "volatile";
       break;
-    case QualifierKind::RESTRICT:
+    case Qualifier::RESTRICT:
       os << "restrict";
       break;
   }

@@ -407,14 +407,14 @@ void Abigail::ProcessPointer(Id id, bool isPointer, xmlNodePtr pointer) {
 }
 
 void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
-  std::vector<QualifierKind> qualifiers;
+  std::vector<Qualifier> qualifiers;
   // Do these in reverse order so we get CVR ordering.
   if (ReadAttribute<bool>(qualified, "restrict", false))
-    qualifiers.push_back(QualifierKind::RESTRICT);
+    qualifiers.push_back(Qualifier::RESTRICT);
   if (ReadAttribute<bool>(qualified, "volatile", false))
-    qualifiers.push_back(QualifierKind::VOLATILE);
+    qualifiers.push_back(Qualifier::VOLATILE);
   if (ReadAttribute<bool>(qualified, "const", false))
-    qualifiers.push_back(QualifierKind::CONST);
+    qualifiers.push_back(Qualifier::CONST);
   Check(!qualifiers.empty()) << "qualified-type-def has no qualifiers";
   // Handle multiple qualifiers by unconditionally adding as new nodes all but
   // the last qualifier which is set into place.
