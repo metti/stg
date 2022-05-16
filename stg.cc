@@ -58,8 +58,7 @@ Id Graph::Add(std::unique_ptr<Type> node) {
 
 const Type& Graph::Get(Id id) const { return *types_[id.ix_].get(); }
 
-Id ResolveQualifiers(
-    const Graph& graph, Id id, std::set<Qualifier>& qualifiers) {
+Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers) {
   while (const auto maybe = graph.Get(id).ResolveQualifier(qualifiers))
     id = *maybe;
   return id;
@@ -104,7 +103,7 @@ Name Name::Add(Side side, Precedence precedence,
   return Name{left.str(), precedence, right.str()};
 }
 
-Name Name::Qualify(const std::set<Qualifier>& qualifiers) const {
+Name Name::Qualify(const Qualifiers& qualifiers) const {
   // this covers the case when bad qualifiers have been dropped
   if (qualifiers.empty())
     return *this;
@@ -228,8 +227,8 @@ std::pair<bool, std::optional<Comparison>> Compare(
   const Graph& graph = state.graph;
   Result result;
 
-  std::set<Qualifier> qualifiers1;
-  std::set<Qualifier> qualifiers2;
+  Qualifiers qualifiers1;
+  Qualifiers qualifiers2;
   const Id unqualified1 = ResolveQualifiers(graph, node1, qualifiers1);
   const Id unqualified2 = ResolveQualifiers(graph, node2, qualifiers2);
   if (!qualifiers1.empty() || !qualifiers2.empty()) {
@@ -335,7 +334,7 @@ Name Typedef::MakeDescription(const Graph&, NameCache&) const {
 }
 
 Name Qualified::MakeDescription(const Graph& graph, NameCache& names) const {
-  std::set<Qualifier> qualifiers;
+  Qualifiers qualifiers;
   qualifiers.insert(GetQualifier());
   Id under = GetQualifiedTypeId();
   while (const auto maybe = graph.Get(under).ResolveQualifier(qualifiers))
@@ -829,26 +828,23 @@ Result Symbols::Equals(State& state, const Type& other) const {
   return result;
 }
 
-std::optional<Id> Type::ResolveQualifier(std::set<Qualifier>&) const {
+std::optional<Id> Type::ResolveQualifier(Qualifiers&) const {
   return {};
 }
 
-std::optional<Id> Array::ResolveQualifier(
-    std::set<Qualifier>& qualifiers) const {
+std::optional<Id> Array::ResolveQualifier(Qualifiers& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
   return {};
 }
 
-std::optional<Id> Function::ResolveQualifier(
-    std::set<Qualifier>& qualifiers) const {
+std::optional<Id> Function::ResolveQualifier(Qualifiers& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
   return {};
 }
 
-std::optional<Id> Qualified::ResolveQualifier(
-    std::set<Qualifier>& qualifiers) const {
+std::optional<Id> Qualified::ResolveQualifier(Qualifiers& qualifiers) const {
   qualifiers.insert(GetQualifier());
   return {GetQualifiedTypeId()};
 }

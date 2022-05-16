@@ -71,6 +71,7 @@ struct Parameter {
 
 enum class StructUnionKind { STRUCT, UNION };
 enum class Qualifier { CONST, VOLATILE, RESTRICT };
+using Qualifiers = std::set<Qualifier>;
 
 std::ostream& operator<<(std::ostream& os, StructUnionKind kind);
 std::ostream& operator<<(std::ostream& os, Qualifier qualifier);
@@ -87,7 +88,7 @@ class Name {
   Name(const std::string& left, Precedence precedence, const std::string& right)
       : left_(left), precedence_(precedence), right_(right) {}
   Name Add(Side side, Precedence precedence, const std::string& text) const;
-  Name Qualify(const std::set<Qualifier>& qualifiers) const;
+  Name Qualify(const Qualifiers& qualifiers) const;
   std::ostream& Print(std::ostream& os) const;
 
  private:
@@ -100,8 +101,7 @@ std::ostream& operator<<(std::ostream& os, const Name& name);
 
 using NameCache = std::unordered_map<Id, Name>;
 
-Id ResolveQualifiers(
-    const Graph& graph, Id id, std::set<Qualifier>& qualifiers);
+Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers);
 Id ResolveTypedefs(
     const Graph& graph, Id id, std::vector<std::string>& typedefs);
 std::string GetFirstName(const Graph& graph, Id id);
@@ -240,8 +240,7 @@ class Type {
   //
   // The caller must always be prepared to receive a different type as
   // qualifiers are sometimes discarded.
-  virtual std::optional<Id> ResolveQualifier(
-      std::set<Qualifier>& qualifiers) const;
+  virtual std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const;
   virtual std::optional<Id> ResolveTypedef(
       std::vector<std::string>& typedefs) const;
   virtual std::string FirstName(const Graph& graph) const;
@@ -318,8 +317,7 @@ class Qualified : public Type {
   Id GetQualifiedTypeId() const { return qualifiedTypeId_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  std::optional<Id> ResolveQualifier(
-      std::set<Qualifier>& qualifiers) const final;
+  std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
  private:
   Qualifier qualifier_;
@@ -369,8 +367,7 @@ class Array : public Type {
   uint64_t GetNumberOfElements() const { return numOfElements_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  std::optional<Id> ResolveQualifier(
-      std::set<Qualifier>& qualifiers) const final;
+  std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
  private:
   const Id elementTypeId_;
@@ -463,8 +460,7 @@ class Function : public Type {
   const std::vector<Parameter>& GetParameters() const { return parameters_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  std::optional<Id> ResolveQualifier(
-      std::set<Qualifier>& qualifiers) const final;
+  std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
  private:
   const Id returnTypeId_;
