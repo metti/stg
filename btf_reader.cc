@@ -307,7 +307,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                       : "RESTRICT")
                   << " '" << ANON << "' type_id=" << t->type << '\n';
       }
-      define(Make<Qualifier>(qualifier, GetId(t->type)));
+      define(Make<Qualified>(qualifier, GetId(t->type)));
       break;
     }
     case BTF_KIND_ARRAY: {

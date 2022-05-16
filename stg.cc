@@ -335,7 +335,7 @@ Name Typedef::MakeDescription(const Graph&, NameCache&) const {
   return Name{GetName()};
 }
 
-Name Qualifier::MakeDescription(const Graph& graph, NameCache& names) const {
+Name Qualified::MakeDescription(const Graph& graph, NameCache& names) const {
   std::set<QualifierKind> qualifiers;
   qualifiers.insert(GetQualifierKind());
   Id under = GetQualifiedTypeId();
@@ -457,9 +457,9 @@ Result Typedef::Equals(State&, const Type&) const {
   __builtin_unreachable();
 }
 
-Result Qualifier::Equals(State&, const Type&) const {
+Result Qualified::Equals(State&, const Type&) const {
   // Compare will never attempt to directly compare Qualifiers.
-  Die() << "internal error: Qualifier::Equals";
+  Die() << "internal error: Qualified::Equals";
   __builtin_unreachable();
 }
 
@@ -848,7 +848,7 @@ std::optional<Id> Function::ResolveQualifier(
   return {};
 }
 
-std::optional<Id> Qualifier::ResolveQualifier(
+std::optional<Id> Qualified::ResolveQualifier(
     std::set<QualifierKind>& qualifiers) const {
   qualifiers.insert(GetQualifierKind());
   return {GetQualifiedTypeId()};

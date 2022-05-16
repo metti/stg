@@ -424,7 +424,7 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
   auto count = qualifiers.size();
   for (auto qualifier : qualifiers) {
     --count;
-    auto node = Make<Qualifier>(qualifier, type);
+    auto node = Make<Qualified>(qualifier, type);
     if (count)
       type = graph_.Add(std::move(node));
     else

@@ -309,9 +309,9 @@ class Typedef : public Type {
   const Id referredTypeId_;
 };
 
-class Qualifier : public Type {
+class Qualified : public Type {
  public:
-  Qualifier(QualifierKind qualifierKind, Id qualifiedTypeId)
+  Qualified(QualifierKind qualifierKind, Id qualifiedTypeId)
       : qualifierKind_(qualifierKind),
         qualifiedTypeId_(qualifiedTypeId) {}
   QualifierKind GetQualifierKind() const { return qualifierKind_; }
