@@ -552,7 +552,6 @@ Result StructUnion::Equals(State& state, const Type& other) const {
   if (kind1 != kind2 || name1 != name2)
     return result.MarkIncomparable();
 
-
   result.diff_.holds_changes = !name1.empty();
   const auto& definition1 = GetDefinition();
   const auto& definition2 = o.GetDefinition();

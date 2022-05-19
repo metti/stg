@@ -402,16 +402,16 @@ class StructUnion : public Type {
     const uint64_t bytesize;
     const std::vector<Id> members;
   };
-  StructUnion(const std::string& name, Kind kind)
-      : name_(name),
-        kind_(kind) {}
-  StructUnion(const std::string& name, Kind kind,
+  StructUnion(Kind kind, const std::string& name)
+      : kind_(kind),
+        name_(name) {}
+  StructUnion(Kind kind, const std::string& name,
               uint64_t bytesize, const std::vector<Id>& members)
-      : name_(name),
-        kind_(kind),
+      : kind_(kind),
+        name_(name),
         definition_({bytesize, members}) {}
-  const std::string& GetName() const { return name_; }
   Kind GetKind() const { return kind_; }
+  const std::string& GetName() const { return name_; }
   const std::optional<Definition>& GetDefinition() const { return definition_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
@@ -420,8 +420,8 @@ class StructUnion : public Type {
  private:
   std::vector<std::pair<std::string, size_t>> GetMemberNames(
       const Graph& graph) const;
-  const std::string name_;
   const Kind kind_;
+  const std::string name_;
   const std::optional<Definition> definition_;
 };
 

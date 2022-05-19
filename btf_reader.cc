@@ -338,7 +338,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       }
       const auto* btf_members = memory.Pull<struct btf_member>(vlen);
       const auto members = BuildMembers(kflag, btf_members, vlen);
-      define(Make<StructUnion>(name, structUnionKind, t->size, members));
+      define(Make<StructUnion>(structUnionKind, name, t->size, members));
       break;
     }
     case BTF_KIND_ENUM: {
@@ -371,7 +371,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
         std::cout << "FWD '" << name << "' fwd_kind=" << structUnionKind
                   << '\n';
       }
-      define(Make<StructUnion>(name, structUnionKind));
+      define(Make<StructUnion>(structUnionKind, name));
       break;
     }
     case BTF_KIND_FUNC: {

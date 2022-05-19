@@ -505,13 +505,13 @@ void Abigail::ProcessStructUnion(
     Id id, bool is_struct, xmlNodePtr struct_union) {
   bool forward =
       ReadAttribute<bool>(struct_union, "is-declaration-only", false);
+  const auto kind = is_struct ? StructUnion::Kind::STRUCT
+                              : StructUnion::Kind::UNION;
   const auto name = ReadAttribute<bool>(struct_union, "is-anonymous", false)
                     ? std::string()
                     : GetAttributeOrDie(struct_union, "name");
-  const auto kind = is_struct ? StructUnion::Kind::STRUCT
-                              : StructUnion::Kind::UNION;
   if (forward) {
-    graph_.Set(id, Make<StructUnion>(name, kind));
+    graph_.Set(id, Make<StructUnion>(kind, name));
     if (verbose_)
       std::cerr << id << " " << kind << " (forward-declared) " << name << "\n";
     return;
@@ -536,7 +536,7 @@ void Abigail::ProcessStructUnion(
     members.push_back(graph_.Add(Make<Member>(member_name, type, offset, 0)));
   }
 
-  graph_.Set(id, Make<StructUnion>(name, kind, bytes, members));
+  graph_.Set(id, Make<StructUnion>(kind, name, bytes, members));
   if (verbose_)
     std::cerr << id << " " << kind << " " << name << "\n";
 }
