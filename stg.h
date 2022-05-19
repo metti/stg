@@ -268,14 +268,14 @@ class Variadic : public Type {
   Result Equals(State& state, const Type& other) const final;
 };
 
-class Ptr : public Type {
+class PointerReference : public Type {
  public:
   enum class Kind {
     POINTER,
     LVALUE_REFERENCE,
     RVALUE_REFERENCE,
   };
-  Ptr(Kind kind, Id pointeeTypeId)
+  PointerReference(Kind kind, Id pointeeTypeId)
       : kind_(kind), pointeeTypeId_(pointeeTypeId) {}
   Kind GetKind() const { return kind_; }
   Id GetPointeeTypeId() const { return pointeeTypeId_; }
@@ -287,7 +287,7 @@ class Ptr : public Type {
   const Id pointeeTypeId_;
 };
 
-std::ostream& operator<<(std::ostream& os, Ptr::Kind kind);
+std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind);
 
 class Typedef : public Type {
  public:

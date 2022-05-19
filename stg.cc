@@ -312,16 +312,17 @@ Name Variadic::MakeDescription(const Graph&, NameCache&) const {
   return Name{"..."};
 }
 
-Name Ptr::MakeDescription(const Graph& graph, NameCache& names) const {
+Name PointerReference::MakeDescription(const Graph& graph,
+                                       NameCache& names) const {
   std::string sign;
   switch (GetKind()) {
-    case Ptr::Kind::POINTER:
+    case PointerReference::Kind::POINTER:
       sign = "*";
       break;
-    case Ptr::Kind::LVALUE_REFERENCE:
+    case PointerReference::Kind::LVALUE_REFERENCE:
       sign = "&";
       break;
-    case Ptr::Kind::RVALUE_REFERENCE:
+    case PointerReference::Kind::RVALUE_REFERENCE:
       sign = "&&";
       break;
   }
@@ -433,8 +434,8 @@ Result Void::Equals(State&, const Type&) const { return {}; }
 
 Result Variadic::Equals(State&, const Type&) const { return {}; }
 
-Result Ptr::Equals(State& state, const Type& other) const {
-  const auto& o = other.as<Ptr>();
+Result PointerReference::Equals(State& state, const Type& other) const {
+  const auto& o = other.as<PointerReference>();
 
   Result result;
   const auto kind1 = GetKind();
@@ -444,7 +445,7 @@ Result Ptr::Equals(State& state, const Type& other) const {
   const auto ref_diff =
       Compare(state, GetPointeeTypeId(), o.GetPointeeTypeId());
   const auto text =
-      kind1 == Ptr::Kind::POINTER ? "pointed-to" : "referred-to";
+      kind1 == PointerReference::Kind::POINTER ? "pointed-to" : "referred-to";
   result.MaybeAddEdgeDiff(text, ref_diff);
   return result;
 }
@@ -948,15 +949,15 @@ std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {
   return os << (ix < kIntEncoding.size() ? kIntEncoding[ix] : "(unknown)");
 }
 
-std::ostream& operator<<(std::ostream& os, Ptr::Kind kind) {
+std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind) {
   switch (kind) {
-    case Ptr::Kind::POINTER:
+    case PointerReference::Kind::POINTER:
       os << "pointer";
       break;
-    case Ptr::Kind::LVALUE_REFERENCE:
+    case PointerReference::Kind::LVALUE_REFERENCE:
       os << "lvalue reference";
       break;
-    case Ptr::Kind::RVALUE_REFERENCE:
+    case PointerReference::Kind::RVALUE_REFERENCE:
       os << "rvalue reference";
       break;
   }

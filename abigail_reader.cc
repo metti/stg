@@ -148,11 +148,12 @@ std::optional<uint64_t> ParseLength(const std::string& value) {
   return Parse<uint64_t>(value);
 }
 
-std::optional<Ptr::Kind> ParseReferenceKind(const std::string& value) {
+std::optional<PointerReference::Kind> ParseReferenceKind(
+    const std::string& value) {
   if (value == "lvalue")
-    return {Ptr::Kind::LVALUE_REFERENCE};
+    return {PointerReference::Kind::LVALUE_REFERENCE};
   if (value == "rvalue")
-    return {Ptr::Kind::RVALUE_REFERENCE};
+    return {PointerReference::Kind::RVALUE_REFERENCE};
   return {};
 }
 
@@ -398,10 +399,10 @@ void Abigail::ProcessTypedef(Id id, xmlNodePtr type_definition) {
 
 void Abigail::ProcessPointer(Id id, bool isPointer, xmlNodePtr pointer) {
   const auto type = GetEdge(pointer);
-  const auto kind = isPointer
-              ? Ptr::Kind::POINTER
-              : ReadAttribute<Ptr::Kind>(pointer, "kind", &ParseReferenceKind);
-  graph_.Set(id, Make<Ptr>(kind, type));
+  const auto kind = isPointer ? PointerReference::Kind::POINTER
+                              : ReadAttribute<PointerReference::Kind>(
+                                    pointer, "kind", &ParseReferenceKind);
+  graph_.Set(id, Make<PointerReference>(kind, type));
   if (verbose_)
     std::cerr << id << " " << kind << " to " << type << "\n";
 }
