@@ -366,7 +366,7 @@ Name Member::MakeDescription(const Graph& graph, NameCache& names) const {
 Name StructUnion::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
   const auto& name = GetName();
-  os << GetStructUnionKind() << ' ';
+  os << GetKind() << ' ';
   if (!name.empty()) {
     os << GetName();
   } else if (const auto& definition = GetDefinition()) {
@@ -544,8 +544,8 @@ Result StructUnion::Equals(State& state, const Type& other) const {
   // Compare two anonymous types recursively, not holding diffs.
   // Compare two identically named types recursively, holding diffs.
   // Everything else treated as distinct. No recursion.
-  const auto kind1 = GetStructUnionKind();
-  const auto kind2 = o.GetStructUnionKind();
+  const auto kind1 = GetKind();
+  const auto kind2 = o.GetKind();
   const auto& name1 = GetName();
   const auto& name2 = o.GetName();
   if (kind1 != kind2 || name1 != name2)
@@ -916,12 +916,12 @@ std::vector<std::pair<std::string, size_t>> Enumeration::GetEnumNames() const {
   return names;
 }
 
-std::ostream& operator<<(std::ostream& os, StructUnionKind kind) {
+std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind) {
   switch (kind) {
-    case StructUnionKind::STRUCT:
+    case StructUnion::Kind::STRUCT:
       os << "struct";
       break;
-    case StructUnionKind::UNION:
+    case StructUnion::Kind::UNION:
       os << "union";
       break;
   }

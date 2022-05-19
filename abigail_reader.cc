@@ -507,8 +507,8 @@ void Abigail::ProcessStructUnion(
   const auto name = ReadAttribute<bool>(struct_union, "is-anonymous", false)
                     ? std::string()
                     : GetAttributeOrDie(struct_union, "name");
-  const auto kind = is_struct ? StructUnionKind::STRUCT
-                              : StructUnionKind::UNION;
+  const auto kind = is_struct ? StructUnion::Kind::STRUCT
+                              : StructUnion::Kind::UNION;
   if (forward) {
     graph_.Set(id, Make<StructUnion>(name, kind));
     if (verbose_)

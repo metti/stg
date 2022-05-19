@@ -69,11 +69,9 @@ struct Parameter {
   Id typeId_;
 };
 
-enum class StructUnionKind { STRUCT, UNION };
 enum class Qualifier { CONST, VOLATILE, RESTRICT };
 using Qualifiers = std::set<Qualifier>;
 
-std::ostream& operator<<(std::ostream& os, StructUnionKind kind);
 std::ostream& operator<<(std::ostream& os, Qualifier qualifier);
 
 using Comparison = std::pair<std::optional<Id>, std::optional<Id>>;
@@ -399,20 +397,21 @@ class Member : public Type {
 
 class StructUnion : public Type {
  public:
+  enum class Kind { STRUCT, UNION };
   struct Definition {
     const uint64_t bytesize;
     const std::vector<Id> members;
   };
-  StructUnion(const std::string& name, StructUnionKind structUnionKind)
+  StructUnion(const std::string& name, Kind kind)
       : name_(name),
-        structUnionKind_(structUnionKind) {}
-  StructUnion(const std::string& name, StructUnionKind structUnionKind,
+        kind_(kind) {}
+  StructUnion(const std::string& name, Kind kind,
               uint64_t bytesize, const std::vector<Id>& members)
       : name_(name),
-        structUnionKind_(structUnionKind),
+        kind_(kind),
         definition_({bytesize, members}) {}
   const std::string& GetName() const { return name_; }
-  StructUnionKind GetStructUnionKind() const { return structUnionKind_; }
+  Kind GetKind() const { return kind_; }
   const std::optional<Definition>& GetDefinition() const { return definition_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
@@ -422,9 +421,11 @@ class StructUnion : public Type {
   std::vector<std::pair<std::string, size_t>> GetMemberNames(
       const Graph& graph) const;
   const std::string name_;
-  const StructUnionKind structUnionKind_;
+  const Kind kind_;
   const std::optional<Definition> definition_;
 };
+
+std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind);
 
 class Enumeration : public Type {
  public:

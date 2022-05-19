@@ -325,8 +325,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     case BTF_KIND_STRUCT:
     case BTF_KIND_UNION: {
       const auto structUnionKind = kind == BTF_KIND_STRUCT
-                                   ? StructUnionKind::STRUCT
-                                   : StructUnionKind::UNION;
+                                   ? StructUnion::Kind::STRUCT
+                                   : StructUnion::Kind::UNION;
       const auto name = GetName(t->name_off);
       const bool kflag = BTF_INFO_KFLAG(t->info);
       if (verbose_) {
@@ -364,8 +364,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     case BTF_KIND_FWD: {
       const auto name = GetName(t->name_off);
       const auto structUnionKind = BTF_INFO_KFLAG(t->info)
-                                   ? StructUnionKind::UNION
-                                   : StructUnionKind::STRUCT;
+                                   ? StructUnion::Kind::UNION
+                                   : StructUnion::Kind::STRUCT;
       if (verbose_) {
         std::cout << "FWD '" << name << "' fwd_kind=" << structUnionKind
                   << '\n';
