@@ -237,7 +237,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                            MemoryRange& memory) {
   const auto kind = BTF_INFO_KIND(t->info);
   const auto vlen = BTF_INFO_VLEN(t->info);
-  Check(kind >= 0 && kind < NR_BTF_KINDS) << "Unknown BTF kind";
+  Check(kind < NR_BTF_KINDS) << "Unknown BTF kind";
 
   if (verbose_)
     std::cout << '[' << btf_index << "] ";
