@@ -79,6 +79,13 @@ class Abigail {
   Id ProcessRoot(xmlNodePtr root);
 
  private:
+  struct SymbolInfo {
+    std::string name;
+    std::string version;
+    bool is_default_version;
+    xmlNodePtr node;
+  };
+
   Graph& graph_;
 
   const bool verbose_;
@@ -91,8 +98,10 @@ class Abigail {
   std::unordered_map<std::string, Id> type_ids_;
 
   std::unique_ptr<abigail::ir::environment> env_;
-  std::vector<std::pair<abigail::elf_symbol_sptr, std::vector<std::string>>>
-      elf_symbol_aliases_;
+  // symbol id to symbol information
+  std::unordered_map<std::string, SymbolInfo> symbol_info_map_;
+  // alias symbol id to main symbol id
+  std::unordered_map<std::string, std::string> alias_to_main_;
   // libabigail decorates certain declarations with symbol ids; this is the
   // mapping from symbol id to the corresponding type and full name.
   std::unordered_map<std::string, std::pair<Id, std::string>>
@@ -120,6 +129,9 @@ class Abigail {
   void ProcessStructUnion(Id id, bool is_struct, xmlNodePtr struct_union);
   void ProcessEnum(Id id, xmlNodePtr enumeration);
 
+  Id BuildSymbol(const SymbolInfo& info,
+                 std::optional<Id> type_id,
+                 const std::optional<std::string>& name);
   Id BuildSymbols();
 };
 

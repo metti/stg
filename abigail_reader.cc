@@ -272,51 +272,36 @@ void Abigail::ProcessSymbols(xmlNodePtr symbols) {
 }
 
 void Abigail::ProcessSymbol(xmlNodePtr symbol) {
+  // Symbol processing is done in two parts. In this first part, we parse just
+  // enough XML attributes to generate a symbol id and determine any aliases.
+  // Symbol ids in this format can be found in elf-symbol alias attributes and
+  // in {var,function}-decl elf-symbol-id attributes.
   const auto name = GetAttributeOrDie(symbol, "name");
-  const auto size = ReadAttribute<size_t>(symbol, "size", 0);
-  const bool is_defined = ReadAttributeOrDie<bool>(symbol, "is-defined");
-  const bool is_common = ReadAttribute<bool>(symbol, "is-common", false);
   const auto version =
       ReadAttribute<std::string>(symbol, "version", std::string());
   const bool is_default_version =
       ReadAttribute<bool>(symbol, "is-default-version", false);
-  const auto crc = ReadAttribute<CRC>(symbol, "crc", CRC{0});
-  const auto type = GetAttributeOrDie(symbol, "type");
-  const auto binding = GetAttributeOrDie(symbol, "binding");
-  const auto visibility = GetAttributeOrDie(symbol, "visibility");
   const auto alias = GetAttribute(symbol, "alias");
 
-  abigail::elf_symbol::type sym_type;
-  Check(string_to_elf_symbol_type(type, sym_type))
-      << "unrecognised elf-symbol type '" << type << "'";
+  std::string elf_symbol_id = name;
+  if (!version.empty()) {
+    elf_symbol_id += '@';
+    if (is_default_version)
+      elf_symbol_id += '@';
+    elf_symbol_id += version;
+  }
 
-  abigail::elf_symbol::binding sym_binding;
-  Check(string_to_elf_symbol_binding(binding, sym_binding))
-      << "unrecognised elf-symbol binding '" << binding << "'";
+  const SymbolInfo info{name, version, is_default_version, symbol};
+  Check(symbol_info_map_.emplace(elf_symbol_id, std::move(info)).second)
+      << "multiple symbols with id " << elf_symbol_id;
 
-  abigail::elf_symbol::visibility sym_visibility;
-  Check(string_to_elf_symbol_visibility(visibility, sym_visibility))
-      << "unrecognised elf-symbol visibility '" << visibility << "'";
-
-  const auto sym_version =
-      abigail::elf_symbol::version(version, is_default_version);
-
-  std::vector<std::string> aliases;
   if (alias) {
     std::istringstream is(*alias);
     std::string item;
     while (std::getline(is, item, ','))
-      aliases.push_back(item);
+      Check(alias_to_main_.insert({item, elf_symbol_id}).second)
+          << "multiple aliases with id " << elf_symbol_id;
   }
-
-  auto elf_symbol = abigail::elf_symbol::create(
-      env_.get(), /*index=*/0, size, name, sym_type, sym_binding, is_defined,
-      is_common, sym_version, sym_visibility);
-
-  if (crc.number)
-    elf_symbol->set_crc(crc.number);
-
-  elf_symbol_aliases_.push_back({elf_symbol, aliases});
 }
 
 void Abigail::ProcessInstr(xmlNodePtr instr) {
@@ -576,6 +561,43 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
     std::cerr << id << " enum " << name << "\n";
 }
 
+Id Abigail::BuildSymbol(const SymbolInfo& info,
+                        std::optional<Id> type_id,
+                        const std::optional<std::string>& name) {
+  const xmlNodePtr symbol = info.node;
+  const auto size = ReadAttribute<size_t>(symbol, "size", 0);
+  const bool is_defined = ReadAttributeOrDie<bool>(symbol, "is-defined");
+  const bool is_common = ReadAttribute<bool>(symbol, "is-common", false);
+  const auto crc = ReadAttribute<CRC>(symbol, "crc", CRC{0});
+  const auto type = GetAttributeOrDie(symbol, "type");
+  const auto binding = GetAttributeOrDie(symbol, "binding");
+  const auto visibility = GetAttributeOrDie(symbol, "visibility");
+
+  abigail::elf_symbol::type sym_type;
+  Check(string_to_elf_symbol_type(type, sym_type))
+      << "unrecognised elf-symbol type '" << type << "'";
+
+  abigail::elf_symbol::binding sym_binding;
+  Check(string_to_elf_symbol_binding(binding, sym_binding))
+      << "unrecognised elf-symbol binding '" << binding << "'";
+
+  abigail::elf_symbol::visibility sym_visibility;
+  Check(string_to_elf_symbol_visibility(visibility, sym_visibility))
+      << "unrecognised elf-symbol visibility '" << visibility << "'";
+
+  const auto sym_version =
+      abigail::elf_symbol::version(info.version, info.is_default_version);
+
+  auto elf_symbol = abigail::elf_symbol::create(
+      env_.get(), /*index=*/0, size, info.name, sym_type, sym_binding,
+      is_defined, is_common, sym_version, sym_visibility);
+
+  if (crc.number)
+    elf_symbol->set_crc(crc.number);
+
+  return graph_.Add(Make<ElfSymbol>(elf_symbol, type_id, name));
+}
+
 Id Abigail::BuildSymbols() {
   // Libabigail's model is (approximately):
   //
@@ -585,40 +607,23 @@ Id Abigail::BuildSymbols() {
   //
   //   symbol / alias -> type
   //
-  // Make some auxiliary maps.
-  std::unordered_map<std::string, abigail::elf_symbol_sptr> id_to_symbol;
-  std::unordered_map<std::string, std::string> alias_to_main;
-  for (auto& [symbol, aliases] : elf_symbol_aliases_) {
-    const auto id = symbol->get_id_string();
-    Check(id_to_symbol.insert({id, symbol}).second)
-        << "multiple symbols with id " << id;
-    for (const auto& alias : aliases)
-      Check(alias_to_main.insert({alias, id}).second)
-          << "multiple aliases with id " << alias;
-  }
-  for (const auto& [alias, main] : alias_to_main)
-    Check(!alias_to_main.count(main))
+  for (const auto& [alias, main] : alias_to_main_)
+    Check(!alias_to_main_.count(main))
         << "found main symbol and alias with id " << main;
-  // Tie aliases to their main symbol.
-  for (const auto& [alias, main] : alias_to_main) {
-    const auto it = id_to_symbol.find(alias);
-    Check(it != id_to_symbol.end())
-        << "missing symbol alias " << alias;
-    id_to_symbol[main]->add_alias(it->second);
-  }
   // Build final symbol table, tying symbols to their types.
   std::map<std::string, Id> symbols;
-  for (const auto& [id, symbol] : id_to_symbol) {
-    const auto main = alias_to_main.find(id);
-    const auto lookup = main != alias_to_main.end() ? main->second : id;
-    const auto it = symbol_id_and_full_name_.find(lookup);
+  for (const auto& [id, symbol_info] : symbol_info_map_) {
+    const auto main = alias_to_main_.find(id);
+    const auto lookup = main != alias_to_main_.end() ? main->second : id;
+    const auto type_id_and_name_it = symbol_id_and_full_name_.find(lookup);
     std::optional<Id> type_id;
     std::optional<std::string> name;
-    if (it != symbol_id_and_full_name_.end()) {
-      type_id = {it->second.first};
-      name = {it->second.second};
+    if (type_id_and_name_it != symbol_id_and_full_name_.end()) {
+      const auto& type_id_and_name = type_id_and_name_it->second;
+      type_id = {type_id_and_name.first};
+      name = {type_id_and_name.second};
     }
-    symbols.insert({id, graph_.Add(Make<ElfSymbol>(symbol, type_id, name))});
+    symbols.insert({id, BuildSymbol(symbol_info, type_id, name)});
   }
   return graph_.Add(Make<Symbols>(symbols));
 }
