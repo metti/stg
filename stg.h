@@ -166,6 +166,23 @@ struct Result {
     }
   }
 
+  // Used when node attributes are optional values.
+  template <typename T>
+  void MaybeAddNodeDiff(const std::string& text, const std::optional<T>& before,
+                        const std::optional<T>& after) {
+    if (before && after) {
+      MaybeAddNodeDiff(text, *before, *after);
+    } else if (before) {
+      std::ostringstream os;
+      os << text << *before << " was removed";
+      AddNodeDiff(os.str());
+    } else if (after) {
+      std::ostringstream os;
+      os << text << *after << " was added";
+      AddNodeDiff(os.str());
+    }
+  }
+
   // Used when an edge has been removed or added.
   void AddEdgeDiff(const std::string& text, const Comparison& comparison) {
     equals_ = false;
