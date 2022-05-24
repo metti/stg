@@ -934,16 +934,16 @@ std::ostream& operator<<(std::ostream& os, Qualifier qualifier) {
 std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType type) {
   switch (type) {
     case ElfSymbol::SymbolType::OBJECT:
-      os << "variable symbol type";
+      os << "object";
       break;
     case ElfSymbol::SymbolType::FUNCTION:
-      os << "function symbol type";
+      os << "function";
       break;
     case ElfSymbol::SymbolType::COMMON:
-      os << "common data object symbol type";
+      os << "common";
       break;
     case ElfSymbol::SymbolType::TLS:
-      os << "thread local data object symbol type";
+      os << "TLS";
       break;
   }
   return os;
@@ -952,16 +952,16 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType type) {
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding binding) {
   switch (binding) {
     case ElfSymbol::Binding::GLOBAL:
-      os << "global binding";
+      os << "global";
       break;
     case ElfSymbol::Binding::LOCAL:
-      os << "local binding";
+      os << "local";
       break;
     case ElfSymbol::Binding::WEAK:
-      os << "weak binding";
+      os << "weak";
       break;
     case ElfSymbol::Binding::GNU_UNIQUE:
-      os << "GNU unique binding";
+      os << "GNU unique";
       break;
   }
   return os;
@@ -970,16 +970,16 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding binding) {
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility visibility) {
   switch (visibility) {
     case ElfSymbol::Visibility::DEFAULT:
-      os << "default visibility";
+      os << "default";
       break;
     case ElfSymbol::Visibility::PROTECTED:
-      os << "protected visibility";
+      os << "protected";
       break;
     case ElfSymbol::Visibility::HIDDEN:
-      os << "hidden visibility";
+      os << "hidden";
       break;
     case ElfSymbol::Visibility::INTERNAL:
-      os << "internal visibility";
+      os << "internal";
       break;
   }
   return os;
