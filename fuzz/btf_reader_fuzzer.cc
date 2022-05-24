@@ -19,7 +19,7 @@
 
 #include <stdexcept>
 
-#include <abg-symtab-reader.h>  // for symtab_reader
+#include "third_party/libabigail/src/abg-symtab-reader.h"  // for symtab_reader
 #include "btf_reader.h"
 #include "error.h"
 

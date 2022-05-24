@@ -115,6 +115,9 @@ class Abigail {
   void ProcessCorpus(xmlNodePtr corpus);
   void ProcessSymbols(xmlNodePtr symbols);
   void ProcessSymbol(xmlNodePtr symbol);
+
+  void ProcessScope(xmlNodePtr scope);
+
   void ProcessInstr(xmlNodePtr instr);
 
   void ProcessDecl(bool is_variable, xmlNodePtr decl);

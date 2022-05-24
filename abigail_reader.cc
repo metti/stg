@@ -353,8 +353,8 @@ void Abigail::ProcessSymbol(xmlNodePtr symbol) {
   }
 }
 
-void Abigail::ProcessInstr(xmlNodePtr instr) {
-  for (auto element = xmlFirstElementChild(instr); element;
+void Abigail::ProcessScope(xmlNodePtr scope) {
+  for (auto element = xmlFirstElementChild(scope); element;
        element = xmlNextElementSibling(element)) {
     const auto name = GetElementName(element);
     const auto type_id = GetAttribute(element, "id");
@@ -399,6 +399,8 @@ void Abigail::ProcessInstr(xmlNodePtr instr) {
     }
   }
 }
+
+void Abigail::ProcessInstr(xmlNodePtr instr) { ProcessScope(instr); }
 
 void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
   const auto name = GetAttributeOrDie(decl, "name");

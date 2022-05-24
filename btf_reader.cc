@@ -27,9 +27,9 @@
 #include <string_view>
 #include <utility>
 
-#include <abg-tools-utils.h>  // for base_name
-#include <abg-elf-helpers.h>  // for find_section
-#include <abg-symtab-reader.h>  // for symtab_reader
+#include "third_party/libabigail/include/abg-tools-utils.h"  // for base_name
+#include "third_party/libabigail/src/abg-elf-helpers.h"  // for find_section
+#include "third_party/libabigail/src/abg-symtab-reader.h"  // for symtab_reader
 #include "error.h"
 
 namespace stg {
