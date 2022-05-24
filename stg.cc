@@ -412,10 +412,9 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
 }
 
 Name ElfSymbol::MakeDescription(const Graph&, NameCache&) const {
-  const auto& symbol_name = symbol_->get_name();
-  if (!full_name_ || *full_name_ == symbol_name)
-    return Name{symbol_name};
-  return Name{*full_name_ + " {" + symbol_name + "}"};
+  if (!full_name_ || *full_name_ == symbol_name_)
+    return Name{symbol_name_};
+  return Name{*full_name_ + " {" + symbol_name_ + "}"};
 }
 
 Name Symbols::MakeDescription(const Graph&, NameCache&) const {
@@ -746,29 +745,18 @@ Result ElfSymbol::Equals(State& state, const Type& other) const {
   //
   // Symbol namespaces - not yet supported by symtab_reader
 
-  const auto& s1 = *symbol_;
-  const auto& s2 = *o.symbol_;
-
   Result result;
-  result.MaybeAddNodeDiff("name", s1.get_name(), s2.get_name());
+  result.MaybeAddNodeDiff("name", symbol_name_, o.symbol_name_);
 
-  // Abigail ELF symbol version encapsulates both a version string and a default
-  // flag but only the former is used in its equality operator! Abigail also
-  // conflates no version with an empty version (though the latter may be
-  // illegal).
-  const auto version1 = s1.get_version();
-  const auto version2 = s2.get_version();
-  result.MaybeAddNodeDiff("version", version1.str(), version2.str());
+  result.MaybeAddNodeDiff("version", version_, o.version_);
   result.MaybeAddNodeDiff(
-      "default version", version1.is_default(), version2.is_default());
+      "default version", is_default_version_, o.is_default_version_);
 
-  result.MaybeAddNodeDiff("defined", s1.is_defined(), s2.is_defined());
-  result.MaybeAddNodeDiff("symbol type", s1.get_type(), s2.get_type());
-  result.MaybeAddNodeDiff("binding", s1.get_binding(), s2.get_binding());
-  result.MaybeAddNodeDiff(
-      "visibility", s1.get_visibility(), s2.get_visibility());
-
-  result.MaybeAddNodeDiff("CRC", CRC{s1.get_crc()}, CRC{s2.get_crc()});
+  result.MaybeAddNodeDiff("defined", is_defined_, o.is_defined_);
+  result.MaybeAddNodeDiff("symbol type", symbol_type_, o.symbol_type_);
+  result.MaybeAddNodeDiff("binding", binding_, o.binding_);
+  result.MaybeAddNodeDiff("visibility", visibility_, o.visibility_);
+  result.MaybeAddNodeDiff("CRC", crc_, o.crc_);
 
   if (type_id_ && o.type_id_) {
     const auto type_diff = Compare(state, *type_id_, *o.type_id_);
@@ -938,6 +926,60 @@ std::ostream& operator<<(std::ostream& os, Qualifier qualifier) {
       break;
     case Qualifier::RESTRICT:
       os << "restrict";
+      break;
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType type) {
+  switch (type) {
+    case ElfSymbol::SymbolType::OBJECT:
+      os << "variable symbol type";
+      break;
+    case ElfSymbol::SymbolType::FUNCTION:
+      os << "function symbol type";
+      break;
+    case ElfSymbol::SymbolType::COMMON:
+      os << "common data object symbol type";
+      break;
+    case ElfSymbol::SymbolType::TLS:
+      os << "thread local data object symbol type";
+      break;
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding binding) {
+  switch (binding) {
+    case ElfSymbol::Binding::GLOBAL:
+      os << "global binding";
+      break;
+    case ElfSymbol::Binding::LOCAL:
+      os << "local binding";
+      break;
+    case ElfSymbol::Binding::WEAK:
+      os << "weak binding";
+      break;
+    case ElfSymbol::Binding::GNU_UNIQUE:
+      os << "GNU unique binding";
+      break;
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility visibility) {
+  switch (visibility) {
+    case ElfSymbol::Visibility::DEFAULT:
+      os << "default visibility";
+      break;
+    case ElfSymbol::Visibility::PROTECTED:
+      os << "protected visibility";
+      break;
+    case ElfSymbol::Visibility::HIDDEN:
+      os << "hidden visibility";
+      break;
+    case ElfSymbol::Visibility::INTERNAL:
+      os << "internal visibility";
       break;
   }
   return os;

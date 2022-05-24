@@ -101,6 +101,48 @@ std::optional<bool> Parse<bool>(const std::string& value) {
 }
 
 template <>
+std::optional<ElfSymbol::SymbolType> Parse<ElfSymbol::SymbolType>(
+    const std::string& value) {
+  if (value == "object-type")
+    return {ElfSymbol::SymbolType::OBJECT};
+  if (value == "func-type")
+    return {ElfSymbol::SymbolType::FUNCTION};
+  if (value == "common-type")
+    return {ElfSymbol::SymbolType::COMMON};
+  if (value == "tls-type")
+    return {ElfSymbol::SymbolType::TLS};
+  return {};
+}
+
+template <>
+std::optional<ElfSymbol::Binding> Parse<ElfSymbol::Binding>(
+    const std::string& value) {
+  if (value == "global-binding")
+    return {ElfSymbol::Binding::GLOBAL};
+  if (value == "local-binding")
+    return {ElfSymbol::Binding::LOCAL};
+  if (value == "weak-binding")
+    return {ElfSymbol::Binding::WEAK};
+  if (value == "gnu-unique-binding")
+    return {ElfSymbol::Binding::GNU_UNIQUE};
+  return {};
+}
+
+template <>
+std::optional<ElfSymbol::Visibility> Parse<ElfSymbol::Visibility>(
+    const std::string& value) {
+  if (value == "default-visibility")
+    return {ElfSymbol::Visibility::DEFAULT};
+  if (value == "protected-visibility")
+    return {ElfSymbol::Visibility::PROTECTED};
+  if (value == "hidden-visibility")
+    return {ElfSymbol::Visibility::HIDDEN};
+  if (value == "internal-visibility")
+    return {ElfSymbol::Visibility::INTERNAL};
+  return {};
+}
+
+template <>
 std::optional<CRC> Parse<CRC>(const std::string& value) {
   CRC result;
   std::istringstream is(value);
@@ -125,6 +167,14 @@ template <typename T>
 T ReadAttributeOrDie(xmlNodePtr element, const char* name) {
   const auto value = GetAttributeOrDie(element, name);
   return GetParsedValueOrDie(element, name, value, Parse<T>(value));
+}
+
+template <typename T>
+std::optional<T> ReadAttribute(xmlNodePtr element, const char* name) {
+  const auto value = GetAttribute(element, name);
+  if (!value)
+    return {};
+  return {GetParsedValueOrDie(element, name, *value, Parse<T>(*value))};
 }
 
 template <typename T>
@@ -160,8 +210,7 @@ std::optional<PointerReference::Kind> ParseReferenceKind(
 }  // namespace
 
 Abigail::Abigail(Graph& graph, bool verbose)
-    : graph_(graph), verbose_(verbose),
-      env_(std::make_unique<abigail::ir::environment>()) { }
+    : graph_(graph), verbose_(verbose) { }
 
 Id Abigail::GetNode(const std::string& type_id) {
   const auto [it, inserted] = type_ids_.insert({type_id, Id(0)});
@@ -565,37 +614,17 @@ Id Abigail::BuildSymbol(const SymbolInfo& info,
                         std::optional<Id> type_id,
                         const std::optional<std::string>& name) {
   const xmlNodePtr symbol = info.node;
-  const auto size = ReadAttribute<size_t>(symbol, "size", 0);
   const bool is_defined = ReadAttributeOrDie<bool>(symbol, "is-defined");
-  const bool is_common = ReadAttribute<bool>(symbol, "is-common", false);
-  const auto crc = ReadAttribute<CRC>(symbol, "crc", CRC{0});
-  const auto type = GetAttributeOrDie(symbol, "type");
-  const auto binding = GetAttributeOrDie(symbol, "binding");
-  const auto visibility = GetAttributeOrDie(symbol, "visibility");
+  const auto crc = ReadAttribute<CRC>(symbol, "crc");
+  const auto type = ReadAttributeOrDie<ElfSymbol::SymbolType>(symbol, "type");
+  const auto binding =
+      ReadAttributeOrDie<ElfSymbol::Binding>(symbol, "binding");
+  const auto visibility =
+      ReadAttributeOrDie<ElfSymbol::Visibility>(symbol, "visibility");
 
-  abigail::elf_symbol::type sym_type;
-  Check(string_to_elf_symbol_type(type, sym_type))
-      << "unrecognised elf-symbol type '" << type << "'";
-
-  abigail::elf_symbol::binding sym_binding;
-  Check(string_to_elf_symbol_binding(binding, sym_binding))
-      << "unrecognised elf-symbol binding '" << binding << "'";
-
-  abigail::elf_symbol::visibility sym_visibility;
-  Check(string_to_elf_symbol_visibility(visibility, sym_visibility))
-      << "unrecognised elf-symbol visibility '" << visibility << "'";
-
-  const auto sym_version =
-      abigail::elf_symbol::version(info.version, info.is_default_version);
-
-  auto elf_symbol = abigail::elf_symbol::create(
-      env_.get(), /*index=*/0, size, info.name, sym_type, sym_binding,
-      is_defined, is_common, sym_version, sym_visibility);
-
-  if (crc.number)
-    elf_symbol->set_crc(crc.number);
-
-  return graph_.Add(Make<ElfSymbol>(elf_symbol, type_id, name));
+  return graph_.Add(Make<ElfSymbol>(
+      info.name, info.version, info.is_default_version,
+      is_defined, type, binding, visibility, crc, type_id, name));
 }
 
 Id Abigail::BuildSymbols() {

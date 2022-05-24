@@ -35,7 +35,7 @@
 #include <utility>
 #include <vector>
 
-#include <abg-ir.h>  // for ELF symbol bits
+#include "crc.h"
 #include "id.h"
 #include "scc.h"
 
@@ -487,20 +487,50 @@ class Function : public Type {
 
 class ElfSymbol : public Type {
  public:
-  ElfSymbol(abigail::elf_symbol_sptr symbol, std::optional<Id> type_id,
-            std::optional<std::string> full_name)
-      : symbol_(symbol), type_id_(type_id), full_name_(full_name) {}
-  abigail::elf_symbol_sptr GetElfSymbol() const { return symbol_; }
+  enum class SymbolType { OBJECT, FUNCTION, COMMON, TLS };
+  enum class Binding { GLOBAL, LOCAL, WEAK, GNU_UNIQUE };
+  enum class Visibility { DEFAULT, PROTECTED, HIDDEN, INTERNAL };
+  ElfSymbol(const std::string& symbol_name,
+            const std::string& version,
+            bool is_default_version,
+            bool is_defined,
+            SymbolType symbol_type,
+            Binding binding,
+            Visibility visibility,
+            std::optional<CRC> crc,
+            std::optional<Id> type_id,
+            const std::optional<std::string>& full_name)
+      : symbol_name_(symbol_name),
+        version_(version),
+        is_default_version_(is_default_version),
+        is_defined_(is_defined),
+        symbol_type_(symbol_type),
+        binding_(binding),
+        visibility_(visibility),
+        crc_(crc),
+        type_id_(type_id),
+        full_name_(full_name) {}
   std::optional<Id> GetTypeId() const { return type_id_; }
   std::string GetKindDescription() const final;
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
 
  private:
-  abigail::elf_symbol_sptr symbol_;
-  std::optional<Id> type_id_;
-  std::optional<std::string> full_name_;
+  const std::string symbol_name_;
+  const std::string version_;
+  const bool is_default_version_;
+  const bool is_defined_;
+  const SymbolType symbol_type_;
+  const Binding binding_;
+  const Visibility visibility_;
+  const std::optional<CRC> crc_;
+  const std::optional<Id> type_id_;
+  const std::optional<std::string> full_name_;
 };
+
+std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType);
+std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding);
+std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility);
 
 class Symbols : public Type {
  public:

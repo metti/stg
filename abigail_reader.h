@@ -97,7 +97,6 @@ class Abigail {
   // variadic parameters.
   std::unordered_map<std::string, Id> type_ids_;
 
-  std::unique_ptr<abigail::ir::environment> env_;
   // symbol id to symbol information
   std::unordered_map<std::string, SymbolInfo> symbol_info_map_;
   // alias symbol id to main symbol id
