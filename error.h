@@ -60,9 +60,21 @@ class Check {
   std::optional<std::ostringstream> os_;
 };
 
-inline Check Die() {
-  return Check(false);
-}
+class Die {
+ public:
+  [[noreturn]] ~Die() noexcept(false) {
+    throw Exception(os_.str());
+  }
+
+  template <typename T>
+  Die& operator<<(const T& t) {
+    os_ << t;
+    return *this;
+  }
+
+ private:
+  std::ostringstream os_;
+};
 
 }  // namespace stg
 

@@ -35,7 +35,7 @@
 #include <utility>
 #include <vector>
 
-#include <abg-ir.h>  // for ELF symbol bits
+#include "crc.h"
 #include "id.h"
 #include "scc.h"
 
@@ -69,11 +69,10 @@ struct Parameter {
   Id typeId_;
 };
 
-enum class StructUnionKind { STRUCT, UNION };
-enum class QualifierKind { CONST, VOLATILE, RESTRICT };
+enum class Qualifier { CONST, VOLATILE, RESTRICT };
+using Qualifiers = std::set<Qualifier>;
 
-std::ostream& operator<<(std::ostream& os, StructUnionKind kind);
-std::ostream& operator<<(std::ostream& os, QualifierKind kind);
+std::ostream& operator<<(std::ostream& os, Qualifier qualifier);
 
 using Comparison = std::pair<std::optional<Id>, std::optional<Id>>;
 
@@ -87,7 +86,7 @@ class Name {
   Name(const std::string& left, Precedence precedence, const std::string& right)
       : left_(left), precedence_(precedence), right_(right) {}
   Name Add(Side side, Precedence precedence, const std::string& text) const;
-  Name Qualify(const std::set<QualifierKind>& qualifiers) const;
+  Name Qualify(const Qualifiers& qualifiers) const;
   std::ostream& Print(std::ostream& os) const;
 
  private:
@@ -100,8 +99,7 @@ std::ostream& operator<<(std::ostream& os, const Name& name);
 
 using NameCache = std::unordered_map<Id, Name>;
 
-Id ResolveQualifiers(
-    const Graph& graph, Id id, std::set<QualifierKind>& qualifiers);
+Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers);
 Id ResolveTypedefs(
     const Graph& graph, Id id, std::vector<std::string>& typedefs);
 std::string GetFirstName(const Graph& graph, Id id);
@@ -164,6 +162,23 @@ struct Result {
       std::ostringstream os;
       text(os);
       os << " changed from " << before << " to " << after;
+      AddNodeDiff(os.str());
+    }
+  }
+
+  // Used when node attributes are optional values.
+  template <typename T>
+  void MaybeAddNodeDiff(const std::string& text, const std::optional<T>& before,
+                        const std::optional<T>& after) {
+    if (before && after) {
+      MaybeAddNodeDiff(text, *before, *after);
+    } else if (before) {
+      std::ostringstream os;
+      os << text << *before << " was removed";
+      AddNodeDiff(os.str());
+    } else if (after) {
+      std::ostringstream os;
+      os << text << *after << " was added";
       AddNodeDiff(os.str());
     }
   }
@@ -240,8 +255,7 @@ class Type {
   //
   // The caller must always be prepared to receive a different type as
   // qualifiers are sometimes discarded.
-  virtual std::optional<Id> ResolveQualifier(
-      std::set<QualifierKind>& qualifiers) const;
+  virtual std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const;
   virtual std::optional<Id> ResolveTypedef(
       std::vector<std::string>& typedefs) const;
   virtual std::string FirstName(const Graph& graph) const;
@@ -271,14 +285,14 @@ class Variadic : public Type {
   Result Equals(State& state, const Type& other) const final;
 };
 
-class Ptr : public Type {
+class PointerReference : public Type {
  public:
   enum class Kind {
     POINTER,
     LVALUE_REFERENCE,
     RVALUE_REFERENCE,
   };
-  Ptr(Kind kind, Id pointeeTypeId)
+  PointerReference(Kind kind, Id pointeeTypeId)
       : kind_(kind), pointeeTypeId_(pointeeTypeId) {}
   Kind GetKind() const { return kind_; }
   Id GetPointeeTypeId() const { return pointeeTypeId_; }
@@ -290,7 +304,7 @@ class Ptr : public Type {
   const Id pointeeTypeId_;
 };
 
-std::ostream& operator<<(std::ostream& os, Ptr::Kind kind);
+std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind);
 
 class Typedef : public Type {
  public:
@@ -309,20 +323,19 @@ class Typedef : public Type {
   const Id referredTypeId_;
 };
 
-class Qualifier : public Type {
+class Qualified : public Type {
  public:
-  Qualifier(QualifierKind qualifierKind, Id qualifiedTypeId)
-      : qualifierKind_(qualifierKind),
+  Qualified(Qualifier qualifier, Id qualifiedTypeId)
+      : qualifier_(qualifier),
         qualifiedTypeId_(qualifiedTypeId) {}
-  QualifierKind GetQualifierKind() const { return qualifierKind_; }
+  Qualifier GetQualifier() const { return qualifier_; }
   Id GetQualifiedTypeId() const { return qualifiedTypeId_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  std::optional<Id> ResolveQualifier(
-      std::set<QualifierKind>& qualifiers) const final;
+  std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
  private:
-  QualifierKind qualifierKind_;
+  Qualifier qualifier_;
   const Id qualifiedTypeId_;
 };
 
@@ -369,8 +382,7 @@ class Array : public Type {
   uint64_t GetNumberOfElements() const { return numOfElements_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  std::optional<Id> ResolveQualifier(
-      std::set<QualifierKind>& qualifiers) const final;
+  std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
  private:
   const Id elementTypeId_;
@@ -402,20 +414,21 @@ class Member : public Type {
 
 class StructUnion : public Type {
  public:
+  enum class Kind { STRUCT, UNION };
   struct Definition {
     const uint64_t bytesize;
     const std::vector<Id> members;
   };
-  StructUnion(const std::string& name, StructUnionKind structUnionKind)
-      : name_(name),
-        structUnionKind_(structUnionKind) {}
-  StructUnion(const std::string& name, StructUnionKind structUnionKind,
+  StructUnion(Kind kind, const std::string& name)
+      : kind_(kind),
+        name_(name) {}
+  StructUnion(Kind kind, const std::string& name,
               uint64_t bytesize, const std::vector<Id>& members)
-      : name_(name),
-        structUnionKind_(structUnionKind),
+      : kind_(kind),
+        name_(name),
         definition_({bytesize, members}) {}
+  Kind GetKind() const { return kind_; }
   const std::string& GetName() const { return name_; }
-  StructUnionKind GetStructUnionKind() const { return structUnionKind_; }
   const std::optional<Definition>& GetDefinition() const { return definition_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
@@ -424,10 +437,12 @@ class StructUnion : public Type {
  private:
   std::vector<std::pair<std::string, size_t>> GetMemberNames(
       const Graph& graph) const;
+  const Kind kind_;
   const std::string name_;
-  const StructUnionKind structUnionKind_;
   const std::optional<Definition> definition_;
 };
+
+std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind);
 
 class Enumeration : public Type {
  public:
@@ -463,8 +478,7 @@ class Function : public Type {
   const std::vector<Parameter>& GetParameters() const { return parameters_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  std::optional<Id> ResolveQualifier(
-      std::set<QualifierKind>& qualifiers) const final;
+  std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
  private:
   const Id returnTypeId_;
@@ -473,20 +487,50 @@ class Function : public Type {
 
 class ElfSymbol : public Type {
  public:
-  ElfSymbol(abigail::elf_symbol_sptr symbol, std::optional<Id> type_id,
-            std::optional<std::string> full_name)
-      : symbol_(symbol), type_id_(type_id), full_name_(full_name) {}
-  abigail::elf_symbol_sptr GetElfSymbol() const { return symbol_; }
+  enum class SymbolType { OBJECT, FUNCTION, COMMON, TLS };
+  enum class Binding { GLOBAL, LOCAL, WEAK, GNU_UNIQUE };
+  enum class Visibility { DEFAULT, PROTECTED, HIDDEN, INTERNAL };
+  ElfSymbol(const std::string& symbol_name,
+            const std::string& version,
+            bool is_default_version,
+            bool is_defined,
+            SymbolType symbol_type,
+            Binding binding,
+            Visibility visibility,
+            std::optional<CRC> crc,
+            std::optional<Id> type_id,
+            const std::optional<std::string>& full_name)
+      : symbol_name_(symbol_name),
+        version_(version),
+        is_default_version_(is_default_version),
+        is_defined_(is_defined),
+        symbol_type_(symbol_type),
+        binding_(binding),
+        visibility_(visibility),
+        crc_(crc),
+        type_id_(type_id),
+        full_name_(full_name) {}
   std::optional<Id> GetTypeId() const { return type_id_; }
   std::string GetKindDescription() const final;
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
 
  private:
-  abigail::elf_symbol_sptr symbol_;
-  std::optional<Id> type_id_;
-  std::optional<std::string> full_name_;
+  const std::string symbol_name_;
+  const std::string version_;
+  const bool is_default_version_;
+  const bool is_defined_;
+  const SymbolType symbol_type_;
+  const Binding binding_;
+  const Visibility visibility_;
+  const std::optional<CRC> crc_;
+  const std::optional<Id> type_id_;
+  const std::optional<std::string> full_name_;
 };
+
+std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType);
+std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding);
+std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility);
 
 class Symbols : public Type {
  public:

@@ -101,6 +101,48 @@ std::optional<bool> Parse<bool>(const std::string& value) {
 }
 
 template <>
+std::optional<ElfSymbol::SymbolType> Parse<ElfSymbol::SymbolType>(
+    const std::string& value) {
+  if (value == "object-type")
+    return {ElfSymbol::SymbolType::OBJECT};
+  if (value == "func-type")
+    return {ElfSymbol::SymbolType::FUNCTION};
+  if (value == "common-type")
+    return {ElfSymbol::SymbolType::COMMON};
+  if (value == "tls-type")
+    return {ElfSymbol::SymbolType::TLS};
+  return {};
+}
+
+template <>
+std::optional<ElfSymbol::Binding> Parse<ElfSymbol::Binding>(
+    const std::string& value) {
+  if (value == "global-binding")
+    return {ElfSymbol::Binding::GLOBAL};
+  if (value == "local-binding")
+    return {ElfSymbol::Binding::LOCAL};
+  if (value == "weak-binding")
+    return {ElfSymbol::Binding::WEAK};
+  if (value == "gnu-unique-binding")
+    return {ElfSymbol::Binding::GNU_UNIQUE};
+  return {};
+}
+
+template <>
+std::optional<ElfSymbol::Visibility> Parse<ElfSymbol::Visibility>(
+    const std::string& value) {
+  if (value == "default-visibility")
+    return {ElfSymbol::Visibility::DEFAULT};
+  if (value == "protected-visibility")
+    return {ElfSymbol::Visibility::PROTECTED};
+  if (value == "hidden-visibility")
+    return {ElfSymbol::Visibility::HIDDEN};
+  if (value == "internal-visibility")
+    return {ElfSymbol::Visibility::INTERNAL};
+  return {};
+}
+
+template <>
 std::optional<CRC> Parse<CRC>(const std::string& value) {
   CRC result;
   std::istringstream is(value);
@@ -128,6 +170,14 @@ T ReadAttributeOrDie(xmlNodePtr element, const char* name) {
 }
 
 template <typename T>
+std::optional<T> ReadAttribute(xmlNodePtr element, const char* name) {
+  const auto value = GetAttribute(element, name);
+  if (!value)
+    return {};
+  return {GetParsedValueOrDie(element, name, *value, Parse<T>(*value))};
+}
+
+template <typename T>
 T ReadAttribute(xmlNodePtr element, const char* name, T default_value) {
   const auto value = GetAttribute(element, name);
   if (!value)
@@ -148,19 +198,19 @@ std::optional<uint64_t> ParseLength(const std::string& value) {
   return Parse<uint64_t>(value);
 }
 
-std::optional<Ptr::Kind> ParseReferenceKind(const std::string& value) {
+std::optional<PointerReference::Kind> ParseReferenceKind(
+    const std::string& value) {
   if (value == "lvalue")
-    return {Ptr::Kind::LVALUE_REFERENCE};
+    return {PointerReference::Kind::LVALUE_REFERENCE};
   if (value == "rvalue")
-    return {Ptr::Kind::RVALUE_REFERENCE};
+    return {PointerReference::Kind::RVALUE_REFERENCE};
   return {};
 }
 
 }  // namespace
 
 Abigail::Abigail(Graph& graph, bool verbose)
-    : graph_(graph), verbose_(verbose),
-      env_(std::make_unique<abigail::ir::environment>()) { }
+    : graph_(graph), verbose_(verbose) { }
 
 Id Abigail::GetNode(const std::string& type_id) {
   const auto [it, inserted] = type_ids_.insert({type_id, Id(0)});
@@ -271,51 +321,36 @@ void Abigail::ProcessSymbols(xmlNodePtr symbols) {
 }
 
 void Abigail::ProcessSymbol(xmlNodePtr symbol) {
+  // Symbol processing is done in two parts. In this first part, we parse just
+  // enough XML attributes to generate a symbol id and determine any aliases.
+  // Symbol ids in this format can be found in elf-symbol alias attributes and
+  // in {var,function}-decl elf-symbol-id attributes.
   const auto name = GetAttributeOrDie(symbol, "name");
-  const auto size = ReadAttribute<size_t>(symbol, "size", 0);
-  const bool is_defined = ReadAttributeOrDie<bool>(symbol, "is-defined");
-  const bool is_common = ReadAttribute<bool>(symbol, "is-common", false);
   const auto version =
       ReadAttribute<std::string>(symbol, "version", std::string());
   const bool is_default_version =
       ReadAttribute<bool>(symbol, "is-default-version", false);
-  const auto crc = ReadAttribute<CRC>(symbol, "crc", CRC{0});
-  const auto type = GetAttributeOrDie(symbol, "type");
-  const auto binding = GetAttributeOrDie(symbol, "binding");
-  const auto visibility = GetAttributeOrDie(symbol, "visibility");
   const auto alias = GetAttribute(symbol, "alias");
 
-  abigail::elf_symbol::type sym_type;
-  Check(string_to_elf_symbol_type(type, sym_type))
-      << "unrecognised elf-symbol type '" << type << "'";
+  std::string elf_symbol_id = name;
+  if (!version.empty()) {
+    elf_symbol_id += '@';
+    if (is_default_version)
+      elf_symbol_id += '@';
+    elf_symbol_id += version;
+  }
 
-  abigail::elf_symbol::binding sym_binding;
-  Check(string_to_elf_symbol_binding(binding, sym_binding))
-      << "unrecognised elf-symbol binding '" << binding << "'";
+  const SymbolInfo info{name, version, is_default_version, symbol};
+  Check(symbol_info_map_.emplace(elf_symbol_id, std::move(info)).second)
+      << "multiple symbols with id " << elf_symbol_id;
 
-  abigail::elf_symbol::visibility sym_visibility;
-  Check(string_to_elf_symbol_visibility(visibility, sym_visibility))
-      << "unrecognised elf-symbol visibility '" << visibility << "'";
-
-  const auto sym_version =
-      abigail::elf_symbol::version(version, is_default_version);
-
-  std::vector<std::string> aliases;
   if (alias) {
     std::istringstream is(*alias);
     std::string item;
     while (std::getline(is, item, ','))
-      aliases.push_back(item);
+      Check(alias_to_main_.insert({item, elf_symbol_id}).second)
+          << "multiple aliases with id " << elf_symbol_id;
   }
-
-  auto elf_symbol = abigail::elf_symbol::create(
-      env_.get(), /*index=*/0, size, name, sym_type, sym_binding, is_defined,
-      is_common, sym_version, sym_visibility);
-
-  if (crc.number)
-    elf_symbol->set_crc(crc.number);
-
-  elf_symbol_aliases_.push_back({elf_symbol, aliases});
 }
 
 void Abigail::ProcessInstr(xmlNodePtr instr) {
@@ -398,23 +433,23 @@ void Abigail::ProcessTypedef(Id id, xmlNodePtr type_definition) {
 
 void Abigail::ProcessPointer(Id id, bool isPointer, xmlNodePtr pointer) {
   const auto type = GetEdge(pointer);
-  const auto kind = isPointer
-              ? Ptr::Kind::POINTER
-              : ReadAttribute<Ptr::Kind>(pointer, "kind", &ParseReferenceKind);
-  graph_.Set(id, Make<Ptr>(kind, type));
+  const auto kind = isPointer ? PointerReference::Kind::POINTER
+                              : ReadAttribute<PointerReference::Kind>(
+                                    pointer, "kind", &ParseReferenceKind);
+  graph_.Set(id, Make<PointerReference>(kind, type));
   if (verbose_)
     std::cerr << id << " " << kind << " to " << type << "\n";
 }
 
 void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
-  std::vector<QualifierKind> qualifiers;
+  std::vector<Qualifier> qualifiers;
   // Do these in reverse order so we get CVR ordering.
   if (ReadAttribute<bool>(qualified, "restrict", false))
-    qualifiers.push_back(QualifierKind::RESTRICT);
+    qualifiers.push_back(Qualifier::RESTRICT);
   if (ReadAttribute<bool>(qualified, "volatile", false))
-    qualifiers.push_back(QualifierKind::VOLATILE);
+    qualifiers.push_back(Qualifier::VOLATILE);
   if (ReadAttribute<bool>(qualified, "const", false))
-    qualifiers.push_back(QualifierKind::CONST);
+    qualifiers.push_back(Qualifier::CONST);
   Check(!qualifiers.empty()) << "qualified-type-def has no qualifiers";
   // Handle multiple qualifiers by unconditionally adding as new nodes all but
   // the last qualifier which is set into place.
@@ -424,7 +459,7 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
   auto count = qualifiers.size();
   for (auto qualifier : qualifiers) {
     --count;
-    auto node = Make<Qualifier>(qualifier, type);
+    auto node = Make<Qualified>(qualifier, type);
     if (count)
       type = graph_.Add(std::move(node));
     else
@@ -504,13 +539,13 @@ void Abigail::ProcessStructUnion(
     Id id, bool is_struct, xmlNodePtr struct_union) {
   bool forward =
       ReadAttribute<bool>(struct_union, "is-declaration-only", false);
+  const auto kind = is_struct ? StructUnion::Kind::STRUCT
+                              : StructUnion::Kind::UNION;
   const auto name = ReadAttribute<bool>(struct_union, "is-anonymous", false)
                     ? std::string()
                     : GetAttributeOrDie(struct_union, "name");
-  const auto kind = is_struct ? StructUnionKind::STRUCT
-                              : StructUnionKind::UNION;
   if (forward) {
-    graph_.Set(id, Make<StructUnion>(name, kind));
+    graph_.Set(id, Make<StructUnion>(kind, name));
     if (verbose_)
       std::cerr << id << " " << kind << " (forward-declared) " << name << "\n";
     return;
@@ -535,7 +570,7 @@ void Abigail::ProcessStructUnion(
     members.push_back(graph_.Add(Make<Member>(member_name, type, offset, 0)));
   }
 
-  graph_.Set(id, Make<StructUnion>(name, kind, bytes, members));
+  graph_.Set(id, Make<StructUnion>(kind, name, bytes, members));
   if (verbose_)
     std::cerr << id << " " << kind << " " << name << "\n";
 }
@@ -575,6 +610,23 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
     std::cerr << id << " enum " << name << "\n";
 }
 
+Id Abigail::BuildSymbol(const SymbolInfo& info,
+                        std::optional<Id> type_id,
+                        const std::optional<std::string>& name) {
+  const xmlNodePtr symbol = info.node;
+  const bool is_defined = ReadAttributeOrDie<bool>(symbol, "is-defined");
+  const auto crc = ReadAttribute<CRC>(symbol, "crc");
+  const auto type = ReadAttributeOrDie<ElfSymbol::SymbolType>(symbol, "type");
+  const auto binding =
+      ReadAttributeOrDie<ElfSymbol::Binding>(symbol, "binding");
+  const auto visibility =
+      ReadAttributeOrDie<ElfSymbol::Visibility>(symbol, "visibility");
+
+  return graph_.Add(Make<ElfSymbol>(
+      info.name, info.version, info.is_default_version,
+      is_defined, type, binding, visibility, crc, type_id, name));
+}
+
 Id Abigail::BuildSymbols() {
   // Libabigail's model is (approximately):
   //
@@ -584,40 +636,23 @@ Id Abigail::BuildSymbols() {
   //
   //   symbol / alias -> type
   //
-  // Make some auxiliary maps.
-  std::unordered_map<std::string, abigail::elf_symbol_sptr> id_to_symbol;
-  std::unordered_map<std::string, std::string> alias_to_main;
-  for (auto& [symbol, aliases] : elf_symbol_aliases_) {
-    const auto id = symbol->get_id_string();
-    Check(id_to_symbol.insert({id, symbol}).second)
-        << "multiple symbols with id " << id;
-    for (const auto& alias : aliases)
-      Check(alias_to_main.insert({alias, id}).second)
-          << "multiple aliases with id " << alias;
-  }
-  for (const auto& [alias, main] : alias_to_main)
-    Check(!alias_to_main.count(main))
+  for (const auto& [alias, main] : alias_to_main_)
+    Check(!alias_to_main_.count(main))
         << "found main symbol and alias with id " << main;
-  // Tie aliases to their main symbol.
-  for (const auto& [alias, main] : alias_to_main) {
-    const auto it = id_to_symbol.find(alias);
-    Check(it != id_to_symbol.end())
-        << "missing symbol alias " << alias;
-    id_to_symbol[main]->add_alias(it->second);
-  }
   // Build final symbol table, tying symbols to their types.
   std::map<std::string, Id> symbols;
-  for (const auto& [id, symbol] : id_to_symbol) {
-    const auto main = alias_to_main.find(id);
-    const auto lookup = main != alias_to_main.end() ? main->second : id;
-    const auto it = symbol_id_and_full_name_.find(lookup);
+  for (const auto& [id, symbol_info] : symbol_info_map_) {
+    const auto main = alias_to_main_.find(id);
+    const auto lookup = main != alias_to_main_.end() ? main->second : id;
+    const auto type_id_and_name_it = symbol_id_and_full_name_.find(lookup);
     std::optional<Id> type_id;
     std::optional<std::string> name;
-    if (it != symbol_id_and_full_name_.end()) {
-      type_id = {it->second.first};
-      name = {it->second.second};
+    if (type_id_and_name_it != symbol_id_and_full_name_.end()) {
+      const auto& type_id_and_name = type_id_and_name_it->second;
+      type_id = {type_id_and_name.first};
+      name = {type_id_and_name.second};
     }
-    symbols.insert({id, graph_.Add(Make<ElfSymbol>(symbol, type_id, name))});
+    symbols.insert({id, BuildSymbol(symbol_info, type_id, name)});
   }
   return graph_.Add(Make<Symbols>(symbols));
 }
