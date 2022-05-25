@@ -106,6 +106,9 @@ class Abigail {
   std::unordered_map<std::string, std::pair<Id, std::string>>
       symbol_id_and_full_name_;
 
+  // Full name of the current scope.
+  std::string scope_name_;
+
   Id GetNode(const std::string& type_id);
   Id GetEdge(xmlNodePtr element);
   Id GetVariadic();
@@ -119,6 +122,7 @@ class Abigail {
   void ProcessScope(xmlNodePtr scope);
 
   void ProcessInstr(xmlNodePtr instr);
+  void ProcessNamespace(xmlNodePtr scope);
 
   void ProcessDecl(bool is_variable, xmlNodePtr decl);
 

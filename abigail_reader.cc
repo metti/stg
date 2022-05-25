@@ -29,6 +29,7 @@
 #include <functional>
 #include <iostream>
 #include <map>
+#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -206,6 +207,22 @@ std::optional<PointerReference::Kind> ParseReferenceKind(
     return {PointerReference::Kind::RVALUE_REFERENCE};
   return {};
 }
+
+class PushScopeName {
+ public:
+  PushScopeName(std::string& scope_name, const std::string& name)
+      : scope_name_(scope_name), old_size_(scope_name.size()) {
+    scope_name_ += name;
+    scope_name_ += "::";
+  }
+  PushScopeName(const PushScopeName& other) = delete;
+  PushScopeName& operator=(const PushScopeName& other) = delete;
+  ~PushScopeName() { scope_name_.resize(old_size_); }
+
+ private:
+  std::string& scope_name_;
+  const size_t old_size_;
+};
 
 }  // namespace
 
@@ -393,6 +410,8 @@ void Abigail::ProcessScope(xmlNodePtr scope) {
         ProcessDecl(true, element);
       } else if (name == "function-decl") {
         ProcessDecl(false, element);
+      } else if (name == "namespace-decl") {
+        ProcessNamespace(element);
       } else {
         Die() << "bad abi-instr non-type child element '" << name << "'";
       }
@@ -402,8 +421,14 @@ void Abigail::ProcessScope(xmlNodePtr scope) {
 
 void Abigail::ProcessInstr(xmlNodePtr instr) { ProcessScope(instr); }
 
+void Abigail::ProcessNamespace(xmlNodePtr scope) {
+  const auto name = GetAttributeOrDie(scope, "name");
+  PushScopeName push_scope_name(scope_name_, name);
+  ProcessScope(scope);
+}
+
 void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
-  const auto name = GetAttributeOrDie(decl, "name");
+  const auto name = scope_name_ + GetAttributeOrDie(decl, "name");
   const auto mangled_name = GetAttribute(decl, "mangled-name");
   const auto symbol_id = GetAttribute(decl, "elf-symbol-id");
   const auto type = is_variable ? GetEdge(decl)
@@ -426,7 +451,7 @@ void Abigail::ProcessFunctionType(Id id, xmlNodePtr function) {
 }
 
 void Abigail::ProcessTypedef(Id id, xmlNodePtr type_definition) {
-  const auto name = GetAttributeOrDie(type_definition, "name");
+  const auto name = scope_name_ + GetAttributeOrDie(type_definition, "name");
   const auto type = GetEdge(type_definition);
   graph_.Set(id, Make<Typedef>(name, type));
   if (verbose_)
@@ -512,7 +537,7 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
 }
 
 void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
-  const auto name = GetAttributeOrDie(type_decl, "name");
+  const auto name = scope_name_ + GetAttributeOrDie(type_decl, "name");
   const auto bits = ReadAttribute<size_t>(type_decl, "size-in-bits", 0);
   const auto bytes = (bits + 7) / 8;
 
@@ -543,9 +568,10 @@ void Abigail::ProcessStructUnion(
       ReadAttribute<bool>(struct_union, "is-declaration-only", false);
   const auto kind = is_struct ? StructUnion::Kind::STRUCT
                               : StructUnion::Kind::UNION;
-  const auto name = ReadAttribute<bool>(struct_union, "is-anonymous", false)
+  const auto name = scope_name_ +
+                    (ReadAttribute<bool>(struct_union, "is-anonymous", false)
                     ? std::string()
-                    : GetAttributeOrDie(struct_union, "name");
+                    : GetAttributeOrDie(struct_union, "name"));
   if (forward) {
     graph_.Set(id, Make<StructUnion>(kind, name));
     if (verbose_)
@@ -579,9 +605,10 @@ void Abigail::ProcessStructUnion(
 
 void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
   bool forward = ReadAttribute<bool>(enumeration, "is-declaration-only", false);
-  const auto name = ReadAttribute<bool>(enumeration, "is-anonymous", false)
+  const auto name = scope_name_ +
+                    (ReadAttribute<bool>(enumeration, "is-anonymous", false)
                     ? std::string()
-                    : GetAttributeOrDie(enumeration, "name");
+                    : GetAttributeOrDie(enumeration, "name"));
   if (forward) {
     graph_.Set(id, Make<Enumeration>(name));
     if (verbose_)
