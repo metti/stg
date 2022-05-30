@@ -906,6 +906,9 @@ std::vector<std::pair<std::string, size_t>> Enumeration::GetEnumNames() const {
 
 std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind) {
   switch (kind) {
+    case StructUnion::Kind::CLASS:
+      os << "class";
+      break;
     case StructUnion::Kind::STRUCT:
       os << "struct";
       break;

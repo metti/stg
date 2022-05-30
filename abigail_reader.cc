@@ -566,8 +566,11 @@ void Abigail::ProcessStructUnion(
     Id id, bool is_struct, xmlNodePtr struct_union) {
   bool forward =
       ReadAttribute<bool>(struct_union, "is-declaration-only", false);
-  const auto kind = is_struct ? StructUnion::Kind::STRUCT
-                              : StructUnion::Kind::UNION;
+  const auto kind = is_struct
+                        ? (ReadAttribute<bool>(struct_union, "is-struct", false)
+                               ? StructUnion::Kind::STRUCT
+                               : StructUnion::Kind::CLASS)
+                        : StructUnion::Kind::UNION;
   const auto name = scope_name_ +
                     (ReadAttribute<bool>(struct_union, "is-anonymous", false)
                     ? std::string()
