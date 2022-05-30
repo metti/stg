@@ -571,10 +571,9 @@ void Abigail::ProcessStructUnion(
                                ? StructUnion::Kind::STRUCT
                                : StructUnion::Kind::CLASS)
                         : StructUnion::Kind::UNION;
-  const auto name = scope_name_ +
-                    (ReadAttribute<bool>(struct_union, "is-anonymous", false)
+  const auto name = ReadAttribute<bool>(struct_union, "is-anonymous", false)
                     ? std::string()
-                    : GetAttributeOrDie(struct_union, "name"));
+                    : scope_name_ + GetAttributeOrDie(struct_union, "name");
   if (forward) {
     graph_.Set(id, Make<StructUnion>(kind, name));
     if (verbose_)
@@ -608,10 +607,9 @@ void Abigail::ProcessStructUnion(
 
 void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
   bool forward = ReadAttribute<bool>(enumeration, "is-declaration-only", false);
-  const auto name = scope_name_ +
-                    (ReadAttribute<bool>(enumeration, "is-anonymous", false)
+  const auto name = ReadAttribute<bool>(enumeration, "is-anonymous", false)
                     ? std::string()
-                    : GetAttributeOrDie(enumeration, "name"));
+                    : scope_name_ + GetAttributeOrDie(enumeration, "name");
   if (forward) {
     graph_.Set(id, Make<Enumeration>(name));
     if (verbose_)
