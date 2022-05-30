@@ -119,6 +119,7 @@ class Abigail {
   void ProcessSymbols(xmlNodePtr symbols);
   void ProcessSymbol(xmlNodePtr symbol);
 
+  bool ProcessUserDefinedType(const std::string& name, Id id, xmlNodePtr decl);
   void ProcessScope(xmlNodePtr scope);
 
   void ProcessInstr(xmlNodePtr instr);
@@ -134,6 +135,8 @@ class Abigail {
   void ProcessTypeDecl(Id id, xmlNodePtr type_decl);
   void ProcessStructUnion(Id id, bool is_struct, xmlNodePtr struct_union);
   void ProcessEnum(Id id, xmlNodePtr enumeration);
+
+  Id ProcessDataMember(bool is_struct, xmlNodePtr data_member);
 
   Id BuildSymbol(const SymbolInfo& info,
                  std::optional<Id> type_id,

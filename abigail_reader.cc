@@ -61,6 +61,13 @@ void CheckElementName(const char* name, xmlNodePtr element) {
           << "' but got '" << element_name << "'";
 }
 
+xmlNodePtr GetOnlyChild(const std::string& name, xmlNodePtr element) {
+  xmlNodePtr child = xmlFirstElementChild(element);
+  Check(child && !xmlNextElementSibling(child))
+      << name << " with not exactly one child element";
+  return child;
+}
+
 std::optional<std::string> GetAttribute(xmlNodePtr node, const char* name) {
   std::optional<std::string> result;
   xmlChar* attribute = xmlGetProp(node, ToLibxml(name));
@@ -370,6 +377,22 @@ void Abigail::ProcessSymbol(xmlNodePtr symbol) {
   }
 }
 
+bool Abigail::ProcessUserDefinedType(const std::string& name, Id id,
+                                     xmlNodePtr decl) {
+  if (name == "typedef-decl") {
+    ProcessTypedef(id, decl);
+  } else if (name == "class-decl") {
+    ProcessStructUnion(id, true, decl);
+  } else if (name == "union-decl") {
+    ProcessStructUnion(id, false, decl);
+  } else if (name == "enum-decl") {
+    ProcessEnum(id, decl);
+  } else {
+    return false;
+  }
+  return true;
+}
+
 void Abigail::ProcessScope(xmlNodePtr scope) {
   for (auto element = xmlFirstElementChild(scope); element;
        element = xmlNextElementSibling(element)) {
@@ -384,8 +407,6 @@ void Abigail::ProcessScope(xmlNodePtr scope) {
       }
       if (name == "function-type") {
         ProcessFunctionType(id, element);
-      } else if (name == "typedef-decl") {
-        ProcessTypedef(id, element);
       } else if (name == "pointer-type-def") {
         ProcessPointer(id, true, element);
       } else if (name == "reference-type-def") {
@@ -396,13 +417,7 @@ void Abigail::ProcessScope(xmlNodePtr scope) {
         ProcessArray(id, element);
       } else if (name == "type-decl") {
         ProcessTypeDecl(id, element);
-      } else if (name == "class-decl") {
-        ProcessStructUnion(id, true, element);
-      } else if (name == "union-decl") {
-        ProcessStructUnion(id, false, element);
-      } else if (name == "enum-decl") {
-        ProcessEnum(id, element);
-      } else {
+      } else if (!ProcessUserDefinedType(name, id, element)) {
         Die() << "bad abi-instr type child element '" << name << "'";
       }
     } else {
@@ -586,18 +601,13 @@ void Abigail::ProcessStructUnion(
   std::vector<Id> members;
   for (xmlNodePtr child = xmlFirstElementChild(struct_union); child;
        child = xmlNextElementSibling(child)) {
-    CheckElementName("data-member", child);
-    size_t offset = is_struct
-                    ? ReadAttributeOrDie<size_t>(child, "layout-offset-in-bits")
-                    : 0;
-    xmlNodePtr decl = xmlFirstElementChild(child);
-    Check(decl && !xmlNextElementSibling(decl))
-        << "data-member with not exactly one child element";
-    CheckElementName("var-decl", decl);
-    const auto member_name = GetAttributeOrDie(decl, "name");
-    const auto type = GetEdge(decl);
-    // Note: libabigail does not model member size, yet
-    members.push_back(graph_.Add(Make<Member>(member_name, type, offset, 0)));
+    const auto child_name = GetElementName(child);
+    if (child_name == "data-member") {
+      members.push_back(ProcessDataMember(is_struct, child));
+    } else {
+      Die() << "unrecognised " << kind << "-decl child element '" << child_name
+            << "'";
+    }
   }
 
   graph_.Set(id, Make<StructUnion>(kind, name, bytes, members));
@@ -638,6 +648,19 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
   graph_.Set(id, Make<Enumeration>(name, 0, enumerators));
   if (verbose_)
     std::cerr << id << " enum " << name << "\n";
+}
+
+Id Abigail::ProcessDataMember(bool is_struct, xmlNodePtr data_member) {
+  size_t offset = is_struct
+              ? ReadAttributeOrDie<size_t>(data_member, "layout-offset-in-bits")
+              : 0;
+  xmlNodePtr decl = GetOnlyChild("data-member", data_member);
+  CheckElementName("var-decl", decl);
+  const auto name = GetAttributeOrDie(decl, "name");
+  const auto type = GetEdge(decl);
+
+  // Note: libabigail does not model member size, yet
+  return graph_.Add(Make<Member>(name, type, offset, 0));
 }
 
 Id Abigail::BuildSymbol(const SymbolInfo& info,
