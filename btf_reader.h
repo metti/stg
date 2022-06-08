@@ -30,8 +30,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "third_party/libabigail/include/abg-fwd.h"  // for symtab_sptr
-#include "third_party/libabigail/include/abg-ir.h"  // for environment
 #include "id.h"
 #include "stg.h"
 #include <linux/btf.h>
@@ -42,10 +40,7 @@ namespace btf {
 // BTF Specification: https://www.kernel.org/doc/html/latest/bpf/btf.html
 class Structs {
  public:
-  Structs(Graph& graph,
-          std::unique_ptr<abigail::ir::environment> env,
-          const abigail::symtab_reader::symtab_sptr tab,
-          const bool verbose = false);
+  Structs(Graph& graph, const bool verbose = false);
   Id Process(const char* start, size_t size);
 
  private:
@@ -59,14 +54,12 @@ class Structs {
   Graph& graph_;
 
   MemoryRange string_section_;
-  const std::unique_ptr<abigail::ir::environment> env_;
-  const abigail::symtab_reader::symtab_sptr tab_;
   const bool verbose_;
 
   std::optional<Id> void_;
   std::optional<Id> variadic_;
   std::unordered_map<uint32_t, Id> btf_type_ids_;
-  std::map<std::string, Id> btf_symbol_types_;
+  std::map<std::string, Id> btf_symbols_;
 
   Id GetVoid();
   Id GetVariadic();
