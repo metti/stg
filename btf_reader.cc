@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <string_view>
