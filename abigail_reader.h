@@ -137,6 +137,7 @@ class Abigail {
   void ProcessEnum(Id id, xmlNodePtr enumeration);
 
   Id ProcessDataMember(bool is_struct, xmlNodePtr data_member);
+  void ProcessMemberType(xmlNodePtr member_type);
 
   Id BuildSymbol(const SymbolInfo& info,
                  std::optional<Id> type_id,

@@ -577,22 +577,28 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
     std::cerr << id << " " << name << "\n";
 }
 
-void Abigail::ProcessStructUnion(
-    Id id, bool is_struct, xmlNodePtr struct_union) {
+void Abigail::ProcessStructUnion(Id id, bool is_struct,
+                                 xmlNodePtr struct_union) {
   bool forward =
       ReadAttribute<bool>(struct_union, "is-declaration-only", false);
   const auto kind = is_struct
-                        ? (ReadAttribute<bool>(struct_union, "is-struct", false)
-                               ? StructUnion::Kind::STRUCT
-                               : StructUnion::Kind::CLASS)
-                        : StructUnion::Kind::UNION;
+                    ? (ReadAttribute<bool>(struct_union, "is-struct", false)
+                           ? StructUnion::Kind::STRUCT
+                           : StructUnion::Kind::CLASS)
+                    : StructUnion::Kind::UNION;
   const auto name = ReadAttribute<bool>(struct_union, "is-anonymous", false)
                     ? std::string()
-                    : scope_name_ + GetAttributeOrDie(struct_union, "name");
+                    : GetAttributeOrDie(struct_union, "name");
+  const auto full_name = name.empty() ? std::string() : scope_name_ + name;
+  PushScopeName push_scope_name(
+      scope_name_,
+      name.empty() ? (std::ostringstream() << "<unnamed " << kind << ">").str()
+                   : name);
   if (forward) {
-    graph_.Set(id, Make<StructUnion>(kind, name));
+    graph_.Set(id, Make<StructUnion>(kind, full_name));
     if (verbose_)
-      std::cerr << id << " " << kind << " (forward-declared) " << name << "\n";
+      std::cerr << id << " " << kind << " (forward-declared) " << full_name
+                << "\n";
     return;
   }
   const auto bits = ReadAttribute<size_t>(struct_union, "size-in-bits", 0);
@@ -604,15 +610,16 @@ void Abigail::ProcessStructUnion(
     const auto child_name = GetElementName(child);
     if (child_name == "data-member") {
       members.push_back(ProcessDataMember(is_struct, child));
+    } else if (child_name == "member-type") {
+      ProcessMemberType(child);
     } else {
       Die() << "unrecognised " << kind << "-decl child element '" << child_name
             << "'";
     }
   }
 
-  graph_.Set(id, Make<StructUnion>(kind, name, bytes, members));
-  if (verbose_)
-    std::cerr << id << " " << kind << " " << name << "\n";
+  graph_.Set(id, Make<StructUnion>(kind, full_name, bytes, members));
+  if (verbose_) std::cerr << id << " " << kind << " " << full_name << "\n";
 }
 
 void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
@@ -661,6 +668,19 @@ Id Abigail::ProcessDataMember(bool is_struct, xmlNodePtr data_member) {
 
   // Note: libabigail does not model member size, yet
   return graph_.Add(Make<Member>(name, type, offset, 0));
+}
+
+void Abigail::ProcessMemberType(xmlNodePtr member_type) {
+  xmlNodePtr decl = GetOnlyChild("member-type", member_type);
+  const auto type_id = GetAttributeOrDie(decl, "id");
+  const auto id = GetNode(type_id);
+  if (graph_.Is(id)) {
+    std::cerr << "duplicate definition of type '" << type_id << "'\n";
+    return;
+  }
+  const auto name = GetElementName(decl);
+  if (!ProcessUserDefinedType(name, id, decl))
+    Die() << "unrecognised member-type child element '" << name << "'";
 }
 
 Id Abigail::BuildSymbol(const SymbolInfo& info,
