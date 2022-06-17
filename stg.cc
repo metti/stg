@@ -354,6 +354,10 @@ Name Array::MakeDescription(const Graph& graph, NameCache& names) const {
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
+Name BaseClass::MakeDescription(const Graph& graph, NameCache&) const {
+  return Name{FirstName(graph)};
+}
+
 Name Member::MakeDescription(const Graph& graph, NameCache& names) const {
   auto description = GetDescription(graph, names, GetMemberType());
   if (!name_.empty())
@@ -422,6 +426,8 @@ Name Symbols::MakeDescription(const Graph&, NameCache&) const {
 }
 
 std::string Type::GetKindDescription() const { return "type"; }
+
+std::string BaseClass::GetKindDescription() const { return "base class"; }
 
 std::string Member::GetKindDescription() const { return "member"; }
 
@@ -526,6 +532,17 @@ PairUp(const std::vector<std::pair<std::string, size_t>>& names1,
   return pairs;
 }
 
+Result BaseClass::Equals(State& state, const Type& other) const {
+  const auto& o = other.as<BaseClass>();
+
+  Result result;
+  result.MaybeAddNodeDiff("inheritance", inheritance_, o.inheritance_);
+  result.MaybeAddNodeDiff("offset", offset_, o.offset_);
+  const auto sub_diff = Compare(state, type_id_, o.type_id_);
+  result.MaybeAddEdgeDiff("", sub_diff);
+  return result;
+}
+
 Result Member::Equals(State& state, const Type& other) const {
   const auto& o = other.as<Member>();
 
@@ -559,6 +576,29 @@ Result StructUnion::Equals(State& state, const Type& other) const {
 
   result.MaybeAddNodeDiff(
       "byte size", definition1->bytesize, definition2->bytesize);
+
+  const auto& base_classes1 = definition1->base_classes;
+  const auto& base_classes2 = definition2->base_classes;
+  const auto base_names1 = GetBaseClassNames(state.graph);
+  const auto base_names2 = o.GetBaseClassNames(state.graph);
+  const auto base_pairs = PairUp(base_names1, base_names2);
+  for (const auto& [index1, index2] : base_pairs) {
+    if (index1 && !index2) {
+      // removed
+      const auto base_class1 = base_classes1[*index1];
+      result.AddEdgeDiff("", Removed(state, base_class1));
+    } else if (!index1 && index2) {
+      // added
+      const auto base_class2 = base_classes2[*index2];
+      result.AddEdgeDiff("", Added(state, base_class2));
+    } else {
+      // in both
+      const auto base_class1 = base_classes1[*index1];
+      const auto base_class2 = base_classes2[*index2];
+      result.MaybeAddEdgeDiff("", Compare(state, base_class1, base_class2));
+    }
+  }
+
   const auto& members1 = definition1->members;
   const auto& members2 = definition2->members;
   const auto names1 = GetMemberNames(state.graph);
@@ -849,6 +889,10 @@ std::optional<Id> Typedef::ResolveTypedef(
 
 std::string Type::FirstName(const Graph&) const { return {}; }
 
+std::string BaseClass::FirstName(const Graph& graph) const {
+  return graph.Get(type_id_).FirstName(graph);
+}
+
 std::string Member::FirstName(const Graph& graph) const {
   if (!name_.empty())
     return name_;
@@ -868,6 +912,22 @@ std::string StructUnion::FirstName(const Graph& graph) const {
     }
   }
   return {};
+}
+
+std::vector<std::pair<std::string, size_t>> StructUnion::GetBaseClassNames(
+    const Graph& graph) const {
+  std::vector<std::pair<std::string, size_t>> names;
+  if (const auto& definition = GetDefinition()) {
+    const auto& base_classes = definition->base_classes;
+    const auto size = base_classes.size();
+    names.reserve(size);
+    for (size_t ix = 0; ix < size; ++ix) {
+      auto key = graph.Get(base_classes[ix]).FirstName(graph);
+      names.push_back({key, ix});
+    }
+    std::stable_sort(names.begin(), names.end());
+  }
+  return names;
 }
 
 std::vector<std::pair<std::string, size_t>> StructUnion::GetMemberNames(
@@ -902,6 +962,18 @@ std::vector<std::pair<std::string, size_t>> Enumeration::GetEnumNames() const {
     std::stable_sort(names.begin(), names.end());
   }
   return names;
+}
+
+std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance) {
+  switch (inheritance) {
+    case BaseClass::Inheritance::NON_VIRTUAL:
+      os << "non-virtual";
+      break;
+    case BaseClass::Inheritance::VIRTUAL:
+      os << "virtual";
+      break;
+  }
+  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind) {

@@ -389,6 +389,24 @@ class Array : public Type {
   const uint64_t numOfElements_;
 };
 
+class BaseClass : public Type {
+ public:
+  enum class Inheritance { NON_VIRTUAL, VIRTUAL };
+  BaseClass(Id type_id, uint64_t offset, Inheritance inheritance)
+      : type_id_(type_id), offset_(offset), inheritance_(inheritance) {}
+  std::string GetKindDescription() const final;
+  Name MakeDescription(const Graph& graph, NameCache& names) const final;
+  Result Equals(State& state, const Type& other) const final;
+  std::string FirstName(const Graph& graph) const final;
+
+ private:
+  const Id type_id_;
+  const uint64_t offset_;
+  const Inheritance inheritance_;
+};
+
+std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance);
+
 class Member : public Type {
  public:
   Member(const std::string& name, Id typeId, uint64_t offset, uint64_t bitsize)
@@ -417,16 +435,19 @@ class StructUnion : public Type {
   enum class Kind { CLASS, STRUCT, UNION };
   struct Definition {
     const uint64_t bytesize;
+    const std::vector<Id> base_classes;
     const std::vector<Id> members;
   };
   StructUnion(Kind kind, const std::string& name)
       : kind_(kind),
         name_(name) {}
   StructUnion(Kind kind, const std::string& name,
-              uint64_t bytesize, const std::vector<Id>& members)
+              uint64_t bytesize,
+              const std::vector<Id>& base_classes,
+              const std::vector<Id>& members)
       : kind_(kind),
         name_(name),
-        definition_({bytesize, members}) {}
+        definition_({bytesize, base_classes, members}) {}
   Kind GetKind() const { return kind_; }
   const std::string& GetName() const { return name_; }
   const std::optional<Definition>& GetDefinition() const { return definition_; }
@@ -435,6 +456,8 @@ class StructUnion : public Type {
   std::string FirstName(const Graph& graph) const final;
 
  private:
+  std::vector<std::pair<std::string, size_t>> GetBaseClassNames(
+      const Graph& graph) const;
   std::vector<std::pair<std::string, size_t>> GetMemberNames(
       const Graph& graph) const;
   const Kind kind_;

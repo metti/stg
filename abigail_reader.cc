@@ -604,6 +604,7 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
   const auto bits = ReadAttribute<size_t>(struct_union, "size-in-bits", 0);
   const auto bytes = (bits + 7) / 8;
 
+  std::vector<Id> base_classes;
   std::vector<Id> members;
   for (xmlNodePtr child = xmlFirstElementChild(struct_union); child;
        child = xmlNextElementSibling(child)) {
@@ -612,13 +613,16 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
       members.push_back(ProcessDataMember(is_struct, child));
     } else if (child_name == "member-type") {
       ProcessMemberType(child);
+    } else if (child_name == "base-class") {
+      base_classes.push_back(ProcessBaseClass(child));
     } else {
       Die() << "unrecognised " << kind << "-decl child element '" << child_name
             << "'";
     }
   }
 
-  graph_.Set(id, Make<StructUnion>(kind, full_name, bytes, members));
+  graph_.Set(id,
+             Make<StructUnion>(kind, full_name, bytes, base_classes, members));
   if (verbose_) std::cerr << id << " " << kind << " " << full_name << "\n";
 }
 
@@ -655,6 +659,16 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
   graph_.Set(id, Make<Enumeration>(name, 0, enumerators));
   if (verbose_)
     std::cerr << id << " enum " << name << "\n";
+}
+
+Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {
+  const auto& type = GetEdge(base_class);
+  const auto offset =
+      ReadAttributeOrDie<size_t>(base_class, "layout-offset-in-bits");
+  const auto inheritance = ReadAttribute<bool>(base_class, "is-virtual", false)
+                           ? BaseClass::Inheritance::VIRTUAL
+                           : BaseClass::Inheritance::NON_VIRTUAL;
+  return graph_.Add(Make<BaseClass>(type, offset, inheritance));
 }
 
 Id Abigail::ProcessDataMember(bool is_struct, xmlNodePtr data_member) {

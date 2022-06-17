@@ -136,6 +136,7 @@ class Abigail {
   void ProcessStructUnion(Id id, bool is_struct, xmlNodePtr struct_union);
   void ProcessEnum(Id id, xmlNodePtr enumeration);
 
+  Id ProcessBaseClass(xmlNodePtr base_class);
   Id ProcessDataMember(bool is_struct, xmlNodePtr data_member);
   void ProcessMemberType(xmlNodePtr member_type);
 
