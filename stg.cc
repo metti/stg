@@ -355,7 +355,7 @@ Name Array::MakeDescription(const Graph& graph, NameCache& names) const {
 }
 
 Name BaseClass::MakeDescription(const Graph& graph, NameCache&) const {
-  return Name{FirstName(graph)};
+  return Name{MatchingKey(graph)};
 }
 
 Name Member::MakeDescription(const Graph& graph, NameCache& names) const {
@@ -501,15 +501,33 @@ static bool CompareDefined(bool defined1, bool defined2, Result& result) {
   return false;
 }
 
-static std::vector<std::pair<std::optional<size_t>, std::optional<size_t>>>
-PairUp(const std::vector<std::pair<std::string, size_t>>& names1,
-       const std::vector<std::pair<std::string, size_t>>& names2) {
-  std::vector<std::pair<std::optional<size_t>, std::optional<size_t>>> pairs;
-  pairs.reserve(std::max(names1.size(), names2.size()));
-  auto it1 = names1.begin();
-  auto it2 = names2.begin();
-  const auto end1 = names1.end();
-  const auto end2 = names2.end();
+using KeyIndexPairs = std::vector<std::pair<std::string, size_t>>;
+static KeyIndexPairs MatchingKeys(const Graph& graph,
+                                  const std::vector<Id>& nodes) {
+  KeyIndexPairs keys;
+  const auto size = nodes.size();
+  keys.reserve(size);
+  size_t anonymous_ix = 0;
+  for (size_t ix = 0; ix < size; ++ix) {
+    auto key = graph.Get(nodes[ix]).MatchingKey(graph);
+    if (key.empty())
+      key = "#anon#" + std::to_string(anonymous_ix++);
+    keys.push_back({key, ix});
+  }
+  std::stable_sort(keys.begin(), keys.end());
+  return keys;
+}
+
+using MatchedPairs =
+    std::vector<std::pair<std::optional<size_t>, std::optional<size_t>>>;
+static MatchedPairs PairUp(const KeyIndexPairs& keys1,
+                           const KeyIndexPairs& keys2) {
+  MatchedPairs pairs;
+  pairs.reserve(std::max(keys1.size(), keys2.size()));
+  auto it1 = keys1.begin();
+  auto it2 = keys2.begin();
+  const auto end1 = keys1.end();
+  const auto end2 = keys2.end();
   while (it1 != end1 || it2 != end2) {
     if (it2 == end2 || (it1 != end1 && it1->first < it2->first)) {
       // removed
@@ -528,6 +546,30 @@ PairUp(const std::vector<std::pair<std::string, size_t>>& names1,
   }
   Reorder(pairs);
   return pairs;
+}
+
+static void CompareNodes(Result& result, State& state,
+                         const std::vector<Id>& nodes1,
+                         const std::vector<Id>& nodes2) {
+  const auto& keys1 = MatchingKeys(state.graph, nodes1);
+  const auto& keys2 = MatchingKeys(state.graph, nodes2);
+  const auto& pairs = PairUp(keys1, keys2);
+  for (const auto& [index1, index2] : pairs) {
+    if (index1 && !index2) {
+      // removed
+      const auto& node1 = nodes1[*index1];
+      result.AddEdgeDiff("", Removed(state, node1));
+    } else if (!index1 && index2) {
+      // added
+      const auto& node2 = nodes2[*index2];
+      result.AddEdgeDiff("", Added(state, node2));
+    } else {
+      // in both
+      const auto& node1 = nodes1[*index1];
+      const auto& node2 = nodes2[*index2];
+      result.MaybeAddEdgeDiff("", Compare(state, node1, node2));
+    }
+  }
 }
 
 Result BaseClass::Equals(State& state, const Type& other) const {
@@ -574,50 +616,9 @@ Result StructUnion::Equals(State& state, const Type& other) const {
 
   result.MaybeAddNodeDiff(
       "byte size", definition1->bytesize, definition2->bytesize);
-
-  const auto& base_classes1 = definition1->base_classes;
-  const auto& base_classes2 = definition2->base_classes;
-  const auto base_names1 = GetBaseClassNames(state.graph);
-  const auto base_names2 = o.GetBaseClassNames(state.graph);
-  const auto base_pairs = PairUp(base_names1, base_names2);
-  for (const auto& [index1, index2] : base_pairs) {
-    if (index1 && !index2) {
-      // removed
-      const auto base_class1 = base_classes1[*index1];
-      result.AddEdgeDiff("", Removed(state, base_class1));
-    } else if (!index1 && index2) {
-      // added
-      const auto base_class2 = base_classes2[*index2];
-      result.AddEdgeDiff("", Added(state, base_class2));
-    } else {
-      // in both
-      const auto base_class1 = base_classes1[*index1];
-      const auto base_class2 = base_classes2[*index2];
-      result.MaybeAddEdgeDiff("", Compare(state, base_class1, base_class2));
-    }
-  }
-
-  const auto& members1 = definition1->members;
-  const auto& members2 = definition2->members;
-  const auto names1 = GetMemberNames(state.graph);
-  const auto names2 = o.GetMemberNames(state.graph);
-  const auto pairs = PairUp(names1, names2);
-  for (const auto& [index1, index2] : pairs) {
-    if (index1 && !index2) {
-      // removed
-      const auto member1 = members1[*index1];
-      result.AddEdgeDiff("", Removed(state, member1));
-    } else if (!index1 && index2) {
-      // added
-      const auto member2 = members2[*index2];
-      result.AddEdgeDiff("", Added(state, member2));
-    } else {
-      // in both
-      const auto member1 = members1[*index1];
-      const auto member2 = members2[*index2];
-      result.MaybeAddEdgeDiff("", Compare(state, member1, member2));
-    }
-  }
+  CompareNodes(
+      result, state, definition1->base_classes, definition2->base_classes);
+  CompareNodes(result, state, definition1->members, definition2->members);
 
   return result;
 }
@@ -885,66 +886,31 @@ std::optional<Id> Typedef::ResolveTypedef(
   return {GetReferredTypeId()};
 }
 
-std::string Type::FirstName(const Graph&) const { return {}; }
+std::string Type::MatchingKey(const Graph&) const { return {}; }
 
-std::string BaseClass::FirstName(const Graph& graph) const {
-  return graph.Get(type_id_).FirstName(graph);
+std::string BaseClass::MatchingKey(const Graph& graph) const {
+  return graph.Get(type_id_).MatchingKey(graph);
 }
 
-std::string Member::FirstName(const Graph& graph) const {
+std::string Member::MatchingKey(const Graph& graph) const {
   if (!name_.empty())
     return name_;
-  return graph.Get(type_id_).FirstName(graph);
+  return graph.Get(type_id_).MatchingKey(graph);
 }
 
-std::string StructUnion::FirstName(const Graph& graph) const {
+std::string StructUnion::MatchingKey(const Graph& graph) const {
   const auto& name = GetName();
   if (!name.empty())
     return name;
   if (const auto& definition = GetDefinition()) {
     const auto& members = definition->members;
     for (const auto& member : members) {
-      const auto recursive = graph.Get(member).FirstName(graph);
+      const auto recursive = graph.Get(member).MatchingKey(graph);
       if (!recursive.empty())
         return recursive;
     }
   }
   return {};
-}
-
-std::vector<std::pair<std::string, size_t>> StructUnion::GetBaseClassNames(
-    const Graph& graph) const {
-  std::vector<std::pair<std::string, size_t>> names;
-  if (const auto& definition = GetDefinition()) {
-    const auto& base_classes = definition->base_classes;
-    const auto size = base_classes.size();
-    names.reserve(size);
-    for (size_t ix = 0; ix < size; ++ix) {
-      auto key = graph.Get(base_classes[ix]).FirstName(graph);
-      names.push_back({key, ix});
-    }
-    std::stable_sort(names.begin(), names.end());
-  }
-  return names;
-}
-
-std::vector<std::pair<std::string, size_t>> StructUnion::GetMemberNames(
-    const Graph& graph) const {
-  std::vector<std::pair<std::string, size_t>> names;
-  if (const auto& definition = GetDefinition()) {
-    const auto& members = definition->members;
-    const auto size = members.size();
-    names.reserve(size);
-    size_t anonymous_ix = 0;
-    for (size_t ix = 0; ix < size; ++ix) {
-      auto key = graph.Get(members[ix]).FirstName(graph);
-      if (key.empty())
-        key = "#anon#" + std::to_string(anonymous_ix++);
-      names.push_back({key, ix});
-    }
-    std::stable_sort(names.begin(), names.end());
-  }
-  return names;
 }
 
 std::vector<std::pair<std::string, size_t>> Enumeration::GetEnumNames() const {

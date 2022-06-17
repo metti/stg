@@ -257,7 +257,7 @@ class Type {
   virtual std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const;
   virtual std::optional<Id> ResolveTypedef(
       std::vector<std::string>& typedefs) const;
-  virtual std::string FirstName(const Graph& graph) const;
+  virtual std::string MatchingKey(const Graph& graph) const;
 
   virtual Name MakeDescription(const Graph& graph, NameCache& names) const = 0;
   virtual std::string GetKindDescription() const;
@@ -396,7 +396,7 @@ class BaseClass : public Type {
   std::string GetKindDescription() const final;
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  std::string FirstName(const Graph& graph) const final;
+  std::string MatchingKey(const Graph& graph) const final;
 
  private:
   const Id type_id_;
@@ -420,7 +420,7 @@ class Member : public Type {
   std::string GetKindDescription() const final;
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  std::string FirstName(const Graph& graph) const final;
+  std::string MatchingKey(const Graph& graph) const final;
 
  private:
   const std::string name_;
@@ -452,13 +452,9 @@ class StructUnion : public Type {
   const std::optional<Definition>& GetDefinition() const { return definition_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
-  std::string FirstName(const Graph& graph) const final;
+  std::string MatchingKey(const Graph& graph) const final;
 
  private:
-  std::vector<std::pair<std::string, size_t>> GetBaseClassNames(
-      const Graph& graph) const;
-  std::vector<std::pair<std::string, size_t>> GetMemberNames(
-      const Graph& graph) const;
   const Kind kind_;
   const std::string name_;
   const std::optional<Definition> definition_;
