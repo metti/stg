@@ -458,13 +458,11 @@ Result PointerReference::Equals(State& state, const Type& other) const {
 Result Typedef::Equals(State&, const Type&) const {
   // Compare will never attempt to directly compare Typedefs.
   Die() << "internal error: Typedef::Equals";
-  __builtin_unreachable();
 }
 
 Result Qualified::Equals(State&, const Type&) const {
   // Compare will never attempt to directly compare Qualifiers.
   Die() << "internal error: Qualified::Equals";
-  __builtin_unreachable();
 }
 
 Result Integer::Equals(State&, const Type& other) const {
