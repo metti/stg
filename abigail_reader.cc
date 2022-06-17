@@ -268,13 +268,13 @@ std::unique_ptr<Type> Abigail::MakeFunctionType(xmlNodePtr function) {
       const auto is_variadic = ReadAttribute<bool>(child, "is-variadic", false);
       if (is_variadic) {
         const auto type = GetVariadic();
-        Parameter parameter{.name_ = std::string(), .typeId_ = type};
+        Parameter parameter{.name_ = std::string(), .type_id_ = type};
         parameters.push_back(std::move(parameter));
       } else {
         const auto name = GetAttribute(child, "name");
         const auto type = GetEdge(child);
         Parameter parameter{.name_ = name ? *name : std::string(),
-                            .typeId_ = type};
+                            .type_id_ = type};
         parameters.push_back(std::move(parameter));
       }
     } else if (child_name == "return") {
@@ -292,7 +292,7 @@ std::unique_ptr<Type> Abigail::MakeFunctionType(xmlNodePtr function) {
     for (const auto& p : parameters) {
       if (comma)
         std::cerr << ", ";
-      std::cerr << p.typeId_;
+      std::cerr << p.type_id_;
       comma = true;
     }
     std::cerr << ") -> " << *return_type << "\n";
@@ -473,11 +473,11 @@ void Abigail::ProcessTypedef(Id id, xmlNodePtr type_definition) {
     std::cerr << id << " typedef " << name << " of " << type << "\n";
 }
 
-void Abigail::ProcessPointer(Id id, bool isPointer, xmlNodePtr pointer) {
+void Abigail::ProcessPointer(Id id, bool is_pointer, xmlNodePtr pointer) {
   const auto type = GetEdge(pointer);
-  const auto kind = isPointer ? PointerReference::Kind::POINTER
-                              : ReadAttribute<PointerReference::Kind>(
-                                    pointer, "kind", &ParseReferenceKind);
+  const auto kind = is_pointer ? PointerReference::Kind::POINTER
+                               : ReadAttribute<PointerReference::Kind>(
+                                     pointer, "kind", &ParseReferenceKind);
   graph_.Set(id, Make<PointerReference>(kind, type));
   if (verbose_)
     std::cerr << id << " " << kind << " to " << type << "\n";

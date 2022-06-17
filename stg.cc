@@ -408,7 +408,7 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
     else
       sep = true;
     // do not emit parameter name as it's not part of the type
-    os << GetDescription(graph, names, p.typeId_);
+    os << GetDescription(graph, names, p.type_id_);
   }
   os << ')';
   return GetDescription(graph, names, GetReturnTypeId())
@@ -549,7 +549,7 @@ Result Member::Equals(State& state, const Type& other) const {
   Result result;
   result.MaybeAddNodeDiff("offset", offset_, o.offset_);
   result.MaybeAddNodeDiff("size", bitsize_, o.bitsize_);
-  const auto sub_diff = Compare(state, typeId_, o.typeId_);
+  const auto sub_diff = Compare(state, type_id_, o.type_id_);
   result.MaybeAddEdgeDiff("", sub_diff);
   return result;
 }
@@ -693,7 +693,7 @@ Result Function::Equals(State& state, const Type& other) const {
   for (size_t i = 0; i < min; ++i) {
     const auto& p1 = parameters1.at(i);
     const auto& p2 = parameters2.at(i);
-    const auto sub_diff = Compare(state, p1.typeId_, p2.typeId_);
+    const auto sub_diff = Compare(state, p1.type_id_, p2.type_id_);
     result.MaybeAddEdgeDiff(
         [&](std::ostream& os) {
           os << "parameter " << i + 1;
@@ -725,7 +725,7 @@ Result Function::Equals(State& state, const Type& other) const {
     if (!parameter.name_.empty())
       os << " (" << std::quoted(parameter.name_, '\'') << ")";
     os << " of";
-    const auto parameter_type = parameter.typeId_;
+    const auto parameter_type = parameter.type_id_;
     auto diff =
         added ? Added(state, parameter_type) : Removed(state, parameter_type);
     result.AddEdgeDiff(os.str(), diff);
@@ -896,7 +896,7 @@ std::string BaseClass::FirstName(const Graph& graph) const {
 std::string Member::FirstName(const Graph& graph) const {
   if (!name_.empty())
     return name_;
-  return graph.Get(typeId_).FirstName(graph);
+  return graph.Get(type_id_).FirstName(graph);
 }
 
 std::string StructUnion::FirstName(const Graph& graph) const {

@@ -66,7 +66,7 @@ class Graph {
 // in the context of Function.
 struct Parameter {
   std::string name_;
-  Id typeId_;
+  Id type_id_;
 };
 
 enum class Qualifier { CONST, VOLATILE, RESTRICT };
@@ -292,27 +292,27 @@ class PointerReference : public Type {
     LVALUE_REFERENCE,
     RVALUE_REFERENCE,
   };
-  PointerReference(Kind kind, Id pointeeTypeId)
-      : kind_(kind), pointeeTypeId_(pointeeTypeId) {}
+  PointerReference(Kind kind, Id pointee_type_id)
+      : kind_(kind), pointee_type_id_(pointee_type_id) {}
   Kind GetKind() const { return kind_; }
-  Id GetPointeeTypeId() const { return pointeeTypeId_; }
+  Id GetPointeeTypeId() const { return pointee_type_id_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
 
  private:
   const Kind kind_;
-  const Id pointeeTypeId_;
+  const Id pointee_type_id_;
 };
 
 std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind);
 
 class Typedef : public Type {
  public:
-  Typedef(const std::string& name, Id referredTypeId)
+  Typedef(const std::string& name, Id referred_type_id)
       : name_(name),
-        referredTypeId_(referredTypeId) {}
+        referred_type_id_(referred_type_id) {}
   const std::string& GetName() const { return name_; }
-  Id GetReferredTypeId() const { return referredTypeId_; }
+  Id GetReferredTypeId() const { return referred_type_id_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
   std::optional<Id> ResolveTypedef(
@@ -320,23 +320,23 @@ class Typedef : public Type {
 
  private:
   const std::string name_;
-  const Id referredTypeId_;
+  const Id referred_type_id_;
 };
 
 class Qualified : public Type {
  public:
-  Qualified(Qualifier qualifier, Id qualifiedTypeId)
+  Qualified(Qualifier qualifier, Id qualified_type_id)
       : qualifier_(qualifier),
-        qualifiedTypeId_(qualifiedTypeId) {}
+        qualified_type_id_(qualified_type_id) {}
   Qualifier GetQualifier() const { return qualifier_; }
-  Id GetQualifiedTypeId() const { return qualifiedTypeId_; }
+  Id GetQualifiedTypeId() const { return qualified_type_id_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
  private:
   Qualifier qualifier_;
-  const Id qualifiedTypeId_;
+  const Id qualified_type_id_;
 };
 
 class Integer : public Type {
@@ -374,19 +374,19 @@ class Integer : public Type {
 
 class Array : public Type {
  public:
-  Array(Id elementTypeId,
-        uint64_t numOfElements)
-      : elementTypeId_(elementTypeId),
-        numOfElements_(numOfElements) {}
-  Id GetElementTypeId() const { return elementTypeId_; }
-  uint64_t GetNumberOfElements() const { return numOfElements_; }
+  Array(Id element_type_id,
+        uint64_t number_of_elements)
+      : element_type_id_(element_type_id),
+        number_of_elements_(number_of_elements) {}
+  Id GetElementTypeId() const { return element_type_id_; }
+  uint64_t GetNumberOfElements() const { return number_of_elements_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
  private:
-  const Id elementTypeId_;
-  const uint64_t numOfElements_;
+  const Id element_type_id_;
+  const uint64_t number_of_elements_;
 };
 
 class BaseClass : public Type {
@@ -409,13 +409,13 @@ std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance);
 
 class Member : public Type {
  public:
-  Member(const std::string& name, Id typeId, uint64_t offset, uint64_t bitsize)
+  Member(const std::string& name, Id type_id, uint64_t offset, uint64_t bitsize)
       : name_(name),
-        typeId_(typeId),
+        type_id_(type_id),
         offset_(offset),
         bitsize_(bitsize) {}
   const std::string& GetName() const { return name_; }
-  Id GetMemberType() const { return typeId_; }
+  Id GetMemberType() const { return type_id_; }
   uint64_t GetOffset() const { return offset_; }
   uint64_t GetBitSize() const { return bitsize_; }
   std::string GetKindDescription() const final;
@@ -425,7 +425,7 @@ class Member : public Type {
 
  private:
   const std::string name_;
-  const Id typeId_;
+  const Id type_id_;
   const uint64_t offset_;
   const uint64_t bitsize_;
 };
@@ -493,18 +493,18 @@ class Enumeration : public Type {
 
 class Function : public Type {
  public:
-  Function(Id returnTypeId,
+  Function(Id return_type_id,
            const std::vector<Parameter>& parameters)
-      : returnTypeId_(returnTypeId),
+      : return_type_id_(return_type_id),
         parameters_(parameters) {}
-  Id GetReturnTypeId() const { return returnTypeId_; }
+  Id GetReturnTypeId() const { return return_type_id_; }
   const std::vector<Parameter>& GetParameters() const { return parameters_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
  private:
-  const Id returnTypeId_;
+  const Id return_type_id_;
   const std::vector<Parameter> parameters_;
 };
 

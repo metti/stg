@@ -208,7 +208,7 @@ std::vector<Parameter> Structs::BuildParams(const struct btf_param* params,
       std::cout << "\t'" << (name.empty() ? ANON : name)
                 << "' type_id=" << type << '\n';
     }
-    Parameter parameter{.name_ = name, .typeId_ = GetParameterId(type)};
+    Parameter parameter{.name_ = name, .type_id_ = GetParameterId(type)};
     result.push_back(std::move(parameter));
   }
   return result;
@@ -326,9 +326,9 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     }
     case BTF_KIND_STRUCT:
     case BTF_KIND_UNION: {
-      const auto structUnionKind = kind == BTF_KIND_STRUCT
-                                   ? StructUnion::Kind::STRUCT
-                                   : StructUnion::Kind::UNION;
+      const auto struct_union_kind = kind == BTF_KIND_STRUCT
+                                     ? StructUnion::Kind::STRUCT
+                                     : StructUnion::Kind::UNION;
       const auto name = GetName(t->name_off);
       const bool kflag = BTF_INFO_KFLAG(t->info);
       if (verbose_) {
@@ -339,7 +339,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       }
       const auto* btf_members = memory.Pull<struct btf_member>(vlen);
       const auto members = BuildMembers(kflag, btf_members, vlen);
-      define(Make<StructUnion>(structUnionKind, name, t->size,
+      define(Make<StructUnion>(struct_union_kind, name, t->size,
                                std::vector<Id>(), members));
       break;
     }
@@ -366,14 +366,14 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     }
     case BTF_KIND_FWD: {
       const auto name = GetName(t->name_off);
-      const auto structUnionKind = BTF_INFO_KFLAG(t->info)
-                                   ? StructUnion::Kind::UNION
-                                   : StructUnion::Kind::STRUCT;
+      const auto struct_union_kind = BTF_INFO_KFLAG(t->info)
+                                     ? StructUnion::Kind::UNION
+                                     : StructUnion::Kind::STRUCT;
       if (verbose_) {
-        std::cout << "FWD '" << name << "' fwd_kind=" << structUnionKind
+        std::cout << "FWD '" << name << "' fwd_kind=" << struct_union_kind
                   << '\n';
       }
-      define(Make<StructUnion>(structUnionKind, name));
+      define(Make<StructUnion>(struct_union_kind, name));
       break;
     }
     case BTF_KIND_FUNC: {

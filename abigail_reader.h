@@ -129,7 +129,7 @@ class Abigail {
 
   void ProcessFunctionType(Id id, xmlNodePtr function);
   void ProcessTypedef(Id id, xmlNodePtr type_definition);
-  void ProcessPointer(Id id, bool isPointer, xmlNodePtr pointer);
+  void ProcessPointer(Id id, bool is_pointer, xmlNodePtr pointer);
   void ProcessQualified(Id id, xmlNodePtr qualified);
   void ProcessArray(Id id, xmlNodePtr array);
   void ProcessTypeDecl(Id id, xmlNodePtr type_decl);
