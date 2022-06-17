@@ -102,7 +102,6 @@ using NameCache = std::unordered_map<Id, Name>;
 Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers);
 Id ResolveTypedefs(
     const Graph& graph, Id id, std::vector<std::string>& typedefs);
-std::string GetFirstName(const Graph& graph, Id id);
 
 const Name& GetDescription(const Graph& graph, NameCache& names, Id node);
 std::string GetResolvedDescription(const Graph& graph, NameCache& names, Id id);
