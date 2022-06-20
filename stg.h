@@ -334,7 +334,7 @@ class Qualified : public Type {
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
  private:
-  Qualifier qualifier_;
+  const Qualifier qualifier_;
   const Id qualified_type_id_;
 };
 
@@ -559,7 +559,7 @@ class Symbols : public Type {
   Result Equals(State& state, const Type& other) const final;
 
  private:
-  std::map<std::string, Id> symbols_;
+  const std::map<std::string, Id> symbols_;
 };
 
 std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding);
