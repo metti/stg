@@ -358,7 +358,7 @@ class Integer : public Type {
   Encoding GetEncoding() const { return encoding_; }
 
   // GetBitSize() gives the semantics of the field. GetByteSize() gives the
-  // storage size, and is equal or greater than GetBitSize()*8
+  // storage size, and is equal to GetBitSize() / 8 rounded up.
   uint32_t GetBitSize() const { return bitsize_; }
   uint32_t GetByteSize() const { return bytesize_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
