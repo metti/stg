@@ -241,7 +241,7 @@ class Type {
  public:
   virtual ~Type() = default;
 
-  // as<Type>() provides a method to defer downcasting to the base class,
+  // as<Target>() provides a method to delegate downcasting to the base class,
   // instead of needing to use dynamic_cast in a local context. If the type is
   // not correct, an exception will be thrown.
   template <typename Target>
