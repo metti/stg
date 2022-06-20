@@ -539,7 +539,7 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
   for (auto it = dimensions.crbegin(); it != dimensions.crend(); ++it) {
     --count;
     const auto size = *it;
-    auto node = Make<Array>(type, size);
+    auto node = Make<Array>(size, type);
     if (count)
       type = graph_.Add(std::move(node));
     else

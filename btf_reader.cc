@@ -321,7 +321,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << " nr_elems=" << array->nelems
                   << '\n';
       }
-      define(Make<Array>(GetId(array->type), array->nelems));
+      define(Make<Array>(array->nelems, GetId(array->type)));
       break;
     }
     case BTF_KIND_STRUCT:

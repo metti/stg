@@ -362,17 +362,17 @@ class Integer : public Node {
 
 class Array : public Node {
  public:
-  Array(Id element_type_id,
-        uint64_t number_of_elements)
-      : element_type_id_(element_type_id),
-        number_of_elements_(number_of_elements) {}
+  Array(uint64_t number_of_elements,
+        Id element_type_id)
+      : number_of_elements_(number_of_elements),
+        element_type_id_(element_type_id) {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
  private:
-  const Id element_type_id_;
   const uint64_t number_of_elements_;
+  const Id element_type_id_;
 };
 
 class BaseClass : public Node {
