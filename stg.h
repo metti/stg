@@ -41,32 +41,32 @@
 
 namespace stg {
 
-class Type;
+struct Node;
 
 template <typename Kind, typename... Args>
-    std::unique_ptr<Type> Make(Args&&... args) {
+    std::unique_ptr<Node> Make(Args&&... args) {
   return std::make_unique<Kind>(std::forward<Args>(args)...);
 }
 
 // Concrete graph type.
 class Graph {
  public:
-  const Type& Get(Id id) const;
+  const Node& Get(Id id) const;
 
   bool Is(Id) const;
   Id Allocate();
-  void Set(Id id, std::unique_ptr<Type> node);
-  Id Add(std::unique_ptr<Type> node);
+  void Set(Id id, std::unique_ptr<Node> node);
+  Id Add(std::unique_ptr<Node> node);
 
  private:
-  std::vector<std::unique_ptr<Type>> types_;
+  std::vector<std::unique_ptr<Node>> nodes_;
 };
 
 // A Parameter refers to a variable declared in the function declaration, used
 // in the context of Function.
 struct Parameter {
-  std::string name_;
-  Id typeId_;
+  const std::string name;
+  const Id type_id;
 };
 
 enum class Qualifier { CONST, VOLATILE, RESTRICT };
@@ -102,7 +102,6 @@ using NameCache = std::unordered_map<Id, Name>;
 Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers);
 Id ResolveTypedefs(
     const Graph& graph, Id id, std::vector<std::string>& typedefs);
-std::string GetFirstName(const Graph& graph, Id id);
 
 const Name& GetDescription(const Graph& graph, NameCache& names, Id node);
 std::string GetResolvedDescription(const Graph& graph, NameCache& names, Id id);
@@ -238,17 +237,16 @@ struct State {
   SCC<Comparison, HashComparison> scc;
 };
 
-class Type {
- public:
-  virtual ~Type() = default;
+struct Node {
+  virtual ~Node() = default;
 
-  // as<Type>() provides a method to defer downcasting to the base class,
+  // as<Target>() provides a method to delegate downcasting to the base class,
   // instead of needing to use dynamic_cast in a local context. If the type is
   // not correct, an exception will be thrown.
   template <typename Target>
   const Target& as() const {
-    static_assert(std::is_convertible<Target*, Type*>::value,
-                  "Target must publically inherit Type");
+    static_assert(std::is_convertible<Target*, Node*>::value,
+                  "Target must publically inherit Node");
     return dynamic_cast<const Target&>(*this);
   }
   // Separate qualifiers from underlying type.
@@ -258,12 +256,12 @@ class Type {
   virtual std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const;
   virtual std::optional<Id> ResolveTypedef(
       std::vector<std::string>& typedefs) const;
-  virtual std::string FirstName(const Graph& graph) const;
+  virtual std::string MatchingKey(const Graph& graph) const;
 
   virtual Name MakeDescription(const Graph& graph, NameCache& names) const = 0;
   virtual std::string GetKindDescription() const;
 
-  virtual Result Equals(State& state, const Type& other) const = 0;
+  virtual Result Equals(State& state, const Node& other) const = 0;
 };
 
 Comparison Removed(State& state, Id node);
@@ -271,76 +269,57 @@ Comparison Added(State& state, Id node);
 std::pair<bool, std::optional<Comparison>> Compare(
     State& state, Id node1, const Id node2);
 
-class Void : public Type {
- public:
-  Void() {}
+struct Void : Node {
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
+  Result Equals(State& state, const Node& other) const final;
 };
 
-class Variadic : public Type {
- public:
-  Variadic() {}
+struct Variadic : Node {
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
+  Result Equals(State& state, const Node& other) const final;
 };
 
-class PointerReference : public Type {
- public:
+struct PointerReference : Node {
   enum class Kind {
     POINTER,
     LVALUE_REFERENCE,
     RVALUE_REFERENCE,
   };
-  PointerReference(Kind kind, Id pointeeTypeId)
-      : kind_(kind), pointeeTypeId_(pointeeTypeId) {}
-  Kind GetKind() const { return kind_; }
-  Id GetPointeeTypeId() const { return pointeeTypeId_; }
+  PointerReference(Kind kind, Id pointee_type_id)
+      : kind(kind), pointee_type_id(pointee_type_id) {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
+  Result Equals(State& state, const Node& other) const final;
 
- private:
-  const Kind kind_;
-  const Id pointeeTypeId_;
+  const Kind kind;
+  const Id pointee_type_id;
 };
 
 std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind);
 
-class Typedef : public Type {
- public:
-  Typedef(const std::string& name, Id referredTypeId)
-      : name_(name),
-        referredTypeId_(referredTypeId) {}
-  const std::string& GetName() const { return name_; }
-  Id GetReferredTypeId() const { return referredTypeId_; }
+struct Typedef : Node {
+  Typedef(const std::string& name, Id referred_type_id)
+      : name(name), referred_type_id(referred_type_id) {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
+  Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveTypedef(
       std::vector<std::string>& typedefs) const final;
 
- private:
-  const std::string name_;
-  const Id referredTypeId_;
+  const std::string name;
+  const Id referred_type_id;
 };
 
-class Qualified : public Type {
- public:
-  Qualified(Qualifier qualifier, Id qualifiedTypeId)
-      : qualifier_(qualifier),
-        qualifiedTypeId_(qualifiedTypeId) {}
-  Qualifier GetQualifier() const { return qualifier_; }
-  Id GetQualifiedTypeId() const { return qualifiedTypeId_; }
+struct Qualified : Node {
+  Qualified(Qualifier qualifier, Id qualified_type_id)
+      : qualifier(qualifier), qualified_type_id(qualified_type_id) {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
+  Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
- private:
-  Qualifier qualifier_;
-  const Id qualifiedTypeId_;
+  const Qualifier qualifier;
+  const Id qualified_type_id;
 };
 
-class Integer : public Type {
- public:
+struct Integer : Node {
   enum class Encoding {
     BOOLEAN,
     SIGNED_INTEGER,
@@ -351,142 +330,114 @@ class Integer : public Type {
   };
   Integer(const std::string& name, Encoding encoding, uint32_t bitsize,
           uint32_t bytesize)
-      : name_(name),
-        bitsize_(bitsize),
-        bytesize_(bytesize),
-        encoding_(encoding) {}
-  const std::string& GetName() const { return name_; }
-  Encoding GetEncoding() const { return encoding_; }
+      : name(name), encoding(encoding), bitsize(bitsize), bytesize(bytesize) {}
 
-  // GetBitSize() gives the semantics of the field. GetByteSize() gives the
-  // storage size, and is equal or greater than GetBitSize()*8
-  uint32_t GetBitSize() const { return bitsize_; }
-  uint32_t GetByteSize() const { return bytesize_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
+  Result Equals(State& state, const Node& other) const final;
 
- private:
-  const std::string name_;
-  const uint32_t bitsize_;
-  const uint32_t bytesize_;
-  const Encoding encoding_;
+  const std::string name;
+  const Encoding encoding;
+  // bitsize gives the semantics of the field. bytesize gives the
+  // storage size, and is equal to bitsize / 8 rounded up.
+  const uint32_t bitsize;
+  const uint32_t bytesize;
 };
 
-class Array : public Type {
- public:
-  Array(Id elementTypeId,
-        uint64_t numOfElements)
-      : elementTypeId_(elementTypeId),
-        numOfElements_(numOfElements) {}
-  Id GetElementTypeId() const { return elementTypeId_; }
-  uint64_t GetNumberOfElements() const { return numOfElements_; }
+struct Array : Node {
+  Array(uint64_t number_of_elements, Id element_type_id)
+      : number_of_elements(number_of_elements),
+        element_type_id(element_type_id)  {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
+  Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
- private:
-  const Id elementTypeId_;
-  const uint64_t numOfElements_;
+  const uint64_t number_of_elements;
+  const Id element_type_id;
 };
 
-class Member : public Type {
- public:
-  Member(const std::string& name, Id typeId, uint64_t offset, uint64_t bitsize)
-      : name_(name),
-        typeId_(typeId),
-        offset_(offset),
-        bitsize_(bitsize) {}
-  const std::string& GetName() const { return name_; }
-  Id GetMemberType() const { return typeId_; }
-  uint64_t GetOffset() const { return offset_; }
-  uint64_t GetBitSize() const { return bitsize_; }
+struct BaseClass : Node {
+  enum class Inheritance { NON_VIRTUAL, VIRTUAL };
+  BaseClass(Id type_id, uint64_t offset, Inheritance inheritance)
+      : type_id(type_id), offset(offset), inheritance(inheritance) {}
   std::string GetKindDescription() const final;
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
-  std::string FirstName(const Graph& graph) const final;
+  Result Equals(State& state, const Node& other) const final;
+  std::string MatchingKey(const Graph& graph) const final;
 
- private:
-  const std::string name_;
-  const Id typeId_;
-  const uint64_t offset_;
-  const uint64_t bitsize_;
+  const Id type_id;
+  const uint64_t offset;
+  const Inheritance inheritance;
 };
 
-class StructUnion : public Type {
- public:
+std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance);
+
+struct Member : Node {
+  Member(const std::string& name, Id type_id, uint64_t offset, uint64_t bitsize)
+      : name(name), type_id(type_id), offset(offset), bitsize(bitsize) {}
+  std::string GetKindDescription() const final;
+  Name MakeDescription(const Graph& graph, NameCache& names) const final;
+  Result Equals(State& state, const Node& other) const final;
+  std::string MatchingKey(const Graph& graph) const final;
+
+  const std::string name;
+  const Id type_id;
+  const uint64_t offset;
+  const uint64_t bitsize;
+};
+
+struct StructUnion : Node {
   enum class Kind { CLASS, STRUCT, UNION };
   struct Definition {
     const uint64_t bytesize;
+    const std::vector<Id> base_classes;
     const std::vector<Id> members;
   };
-  StructUnion(Kind kind, const std::string& name)
-      : kind_(kind),
-        name_(name) {}
-  StructUnion(Kind kind, const std::string& name,
-              uint64_t bytesize, const std::vector<Id>& members)
-      : kind_(kind),
-        name_(name),
-        definition_({bytesize, members}) {}
-  Kind GetKind() const { return kind_; }
-  const std::string& GetName() const { return name_; }
-  const std::optional<Definition>& GetDefinition() const { return definition_; }
+  StructUnion(Kind kind, const std::string& name) : kind(kind), name(name) {}
+  StructUnion(Kind kind, const std::string& name, uint64_t bytesize,
+              const std::vector<Id>& base_classes,
+              const std::vector<Id>& members)
+      : kind(kind), name(name), definition({bytesize, base_classes, members}) {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
-  std::string FirstName(const Graph& graph) const final;
+  Result Equals(State& state, const Node& other) const final;
+  std::string MatchingKey(const Graph& graph) const final;
 
- private:
-  std::vector<std::pair<std::string, size_t>> GetMemberNames(
-      const Graph& graph) const;
-  const Kind kind_;
-  const std::string name_;
-  const std::optional<Definition> definition_;
+  const Kind kind;
+  const std::string name;
+  const std::optional<Definition> definition;
 };
 
 std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind);
 
-class Enumeration : public Type {
- public:
+struct Enumeration : Node {
   using Enumerators = std::vector<std::pair<std::string, int64_t>>;
   struct Definition {
     const uint32_t bytesize;
     const Enumerators enumerators;
   };
-  Enumeration(const std::string& name)
-      : name_(name) {}
+  Enumeration(const std::string& name) : name(name) {}
   Enumeration(const std::string& name, uint32_t bytesize,
               const Enumerators& enumerators)
-      : name_(name),
-        definition_({bytesize, enumerators}) {}
-  const std::string& GetName() const { return name_; }
-  const std::optional<Definition>& GetDefinition() const { return definition_; }
+      : name(name), definition({bytesize, enumerators}) {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
+  Result Equals(State& state, const Node& other) const final;
 
- private:
   std::vector<std::pair<std::string, size_t>> GetEnumNames() const;
-  const std::string name_;
-  const std::optional<Definition> definition_;
+  const std::string name;
+  const std::optional<Definition> definition;
 };
 
-class Function : public Type {
- public:
-  Function(Id returnTypeId,
-           const std::vector<Parameter>& parameters)
-      : returnTypeId_(returnTypeId),
-        parameters_(parameters) {}
-  Id GetReturnTypeId() const { return returnTypeId_; }
-  const std::vector<Parameter>& GetParameters() const { return parameters_; }
+struct Function : Node {
+  Function(Id return_type_id, const std::vector<Parameter>& parameters)
+      : return_type_id(return_type_id), parameters(parameters) {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
+  Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
- private:
-  const Id returnTypeId_;
-  const std::vector<Parameter> parameters_;
+  const Id return_type_id;
+  const std::vector<Parameter> parameters;
 };
 
-class ElfSymbol : public Type {
- public:
+struct ElfSymbol : Node {
   enum class SymbolType { OBJECT, FUNCTION, COMMON, TLS };
   enum class Binding { GLOBAL, LOCAL, WEAK, GNU_UNIQUE };
   enum class Visibility { DEFAULT, PROTECTED, HIDDEN, INTERNAL };
@@ -500,48 +451,43 @@ class ElfSymbol : public Type {
             std::optional<CRC> crc,
             std::optional<Id> type_id,
             const std::optional<std::string>& full_name)
-      : symbol_name_(symbol_name),
-        version_(version),
-        is_default_version_(is_default_version),
-        is_defined_(is_defined),
-        symbol_type_(symbol_type),
-        binding_(binding),
-        visibility_(visibility),
-        crc_(crc),
-        type_id_(type_id),
-        full_name_(full_name) {}
-  std::optional<Id> GetTypeId() const { return type_id_; }
+      : symbol_name(symbol_name),
+        version(version),
+        is_default_version(is_default_version),
+        is_defined(is_defined),
+        symbol_type(symbol_type),
+        binding(binding),
+        visibility(visibility),
+        crc(crc),
+        type_id(type_id),
+        full_name(full_name) {}
   std::string GetKindDescription() const final;
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
+  Result Equals(State& state, const Node& other) const final;
 
- private:
-  const std::string symbol_name_;
-  const std::string version_;
-  const bool is_default_version_;
-  const bool is_defined_;
-  const SymbolType symbol_type_;
-  const Binding binding_;
-  const Visibility visibility_;
-  const std::optional<CRC> crc_;
-  const std::optional<Id> type_id_;
-  const std::optional<std::string> full_name_;
+  const std::string symbol_name;
+  const std::string version;
+  const bool is_default_version;
+  const bool is_defined;
+  const SymbolType symbol_type;
+  const Binding binding;
+  const Visibility visibility;
+  const std::optional<CRC> crc;
+  const std::optional<Id> type_id;
+  const std::optional<std::string> full_name;
 };
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType);
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding);
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility);
 
-class Symbols : public Type {
- public:
-  Symbols(const std::map<std::string, Id>& symbols)
-      : symbols_(symbols) {}
+struct Symbols : Node {
+  Symbols(const std::map<std::string, Id>& symbols) : symbols(symbols) {}
   std::string GetKindDescription() const final;
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
-  Result Equals(State& state, const Type& other) const final;
+  Result Equals(State& state, const Node& other) const final;
 
- private:
-  std::map<std::string, Id> symbols_;
+  const std::map<std::string, Id> symbols;
 };
 
 std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding);
