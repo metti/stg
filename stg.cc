@@ -34,29 +34,29 @@
 namespace stg {
 
 bool Graph::Is(Id id) const {
-  return types_[id.ix_] != nullptr;
+  return nodes_[id.ix_] != nullptr;
 }
 
 Id Graph::Allocate() {
-  const auto ix = types_.size();
-  types_.push_back(nullptr);
+  const auto ix = nodes_.size();
+  nodes_.push_back(nullptr);
   return Id(ix);
 }
 
-void Graph::Set(Id id, std::unique_ptr<Type> node) {
+void Graph::Set(Id id, std::unique_ptr<Node> node) {
   Check(node != nullptr) << "node value not set";
-  auto& reference = types_[id.ix_];
+  auto& reference = nodes_[id.ix_];
   Check(reference == nullptr) << "node value already set";
   reference = std::move(node);
 }
 
-Id Graph::Add(std::unique_ptr<Type> node) {
+Id Graph::Add(std::unique_ptr<Node> node) {
   auto id = Allocate();
   Set(id, std::move(node));
   return id;
 }
 
-const Type& Graph::Get(Id id) const { return *types_[id.ix_].get(); }
+const Node& Graph::Get(Id id) const { return *nodes_[id.ix_].get(); }
 
 Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers) {
   while (const auto maybe = graph.Get(id).ResolveQualifier(qualifiers))
@@ -425,7 +425,7 @@ Name Symbols::MakeDescription(const Graph&, NameCache&) const {
   return Name{"symbols"};
 }
 
-std::string Type::GetKindDescription() const { return "type"; }
+std::string Node::GetKindDescription() const { return "type"; }
 
 std::string BaseClass::GetKindDescription() const { return "base class"; }
 
@@ -435,11 +435,11 @@ std::string ElfSymbol::GetKindDescription() const { return "symbol"; }
 
 std::string Symbols::GetKindDescription() const { return "symbols"; }
 
-Result Void::Equals(State&, const Type&) const { return {}; }
+Result Void::Equals(State&, const Node&) const { return {}; }
 
-Result Variadic::Equals(State&, const Type&) const { return {}; }
+Result Variadic::Equals(State&, const Node&) const { return {}; }
 
-Result PointerReference::Equals(State& state, const Type& other) const {
+Result PointerReference::Equals(State& state, const Node& other) const {
   const auto& o = other.as<PointerReference>();
 
   Result result;
@@ -455,17 +455,17 @@ Result PointerReference::Equals(State& state, const Type& other) const {
   return result;
 }
 
-Result Typedef::Equals(State&, const Type&) const {
+Result Typedef::Equals(State&, const Node&) const {
   // Compare will never attempt to directly compare Typedefs.
   Die() << "internal error: Typedef::Equals";
 }
 
-Result Qualified::Equals(State&, const Type&) const {
+Result Qualified::Equals(State&, const Node&) const {
   // Compare will never attempt to directly compare Qualifiers.
   Die() << "internal error: Qualified::Equals";
 }
 
-Result Integer::Equals(State&, const Type& other) const {
+Result Integer::Equals(State&, const Node& other) const {
   const auto& o = other.as<Integer>();
 
   Result result;
@@ -477,7 +477,7 @@ Result Integer::Equals(State&, const Type& other) const {
   return result;
 }
 
-Result Array::Equals(State& state, const Type& other) const {
+Result Array::Equals(State& state, const Node& other) const {
   const auto& o = other.as<Array>();
 
   Result result;
@@ -572,7 +572,7 @@ static void CompareNodes(Result& result, State& state,
   }
 }
 
-Result BaseClass::Equals(State& state, const Type& other) const {
+Result BaseClass::Equals(State& state, const Node& other) const {
   const auto& o = other.as<BaseClass>();
 
   Result result;
@@ -583,7 +583,7 @@ Result BaseClass::Equals(State& state, const Type& other) const {
   return result;
 }
 
-Result Member::Equals(State& state, const Type& other) const {
+Result Member::Equals(State& state, const Node& other) const {
   const auto& o = other.as<Member>();
 
   Result result;
@@ -594,7 +594,7 @@ Result Member::Equals(State& state, const Type& other) const {
   return result;
 }
 
-Result StructUnion::Equals(State& state, const Type& other) const {
+Result StructUnion::Equals(State& state, const Node& other) const {
   const auto& o = other.as<StructUnion>();
 
   Result result;
@@ -623,7 +623,7 @@ Result StructUnion::Equals(State& state, const Type& other) const {
   return result;
 }
 
-Result Enumeration::Equals(State&, const Type& other) const {
+Result Enumeration::Equals(State&, const Node& other) const {
   const auto& o = other.as<Enumeration>();
 
   Result result;
@@ -678,7 +678,7 @@ Result Enumeration::Equals(State&, const Type& other) const {
   return result;
 }
 
-Result Function::Equals(State& state, const Type& other) const {
+Result Function::Equals(State& state, const Node& other) const {
   const auto& o = other.as<Function>();
 
   Result result;
@@ -733,7 +733,7 @@ Result Function::Equals(State& state, const Type& other) const {
   return result;
 }
 
-Result ElfSymbol::Equals(State& state, const Type& other) const {
+Result ElfSymbol::Equals(State& state, const Node& other) const {
   const auto& o = other.as<ElfSymbol>();
 
   // ELF symbols have a lot of different attributes that can impact ABI
@@ -811,7 +811,7 @@ Result ElfSymbol::Equals(State& state, const Type& other) const {
   return result;
 }
 
-Result Symbols::Equals(State& state, const Type& other) const {
+Result Symbols::Equals(State& state, const Node& other) const {
   const auto& o = other.as<Symbols>();
 
   Result result;
@@ -855,7 +855,7 @@ Result Symbols::Equals(State& state, const Type& other) const {
   return result;
 }
 
-std::optional<Id> Type::ResolveQualifier(Qualifiers&) const {
+std::optional<Id> Node::ResolveQualifier(Qualifiers&) const {
   return {};
 }
 
@@ -876,7 +876,7 @@ std::optional<Id> Qualified::ResolveQualifier(Qualifiers& qualifiers) const {
   return {GetQualifiedTypeId()};
 }
 
-std::optional<Id> Type::ResolveTypedef(std::vector<std::string>&) const {
+std::optional<Id> Node::ResolveTypedef(std::vector<std::string>&) const {
   return {};
 }
 
@@ -886,7 +886,7 @@ std::optional<Id> Typedef::ResolveTypedef(
   return {GetReferredTypeId()};
 }
 
-std::string Type::MatchingKey(const Graph&) const { return {}; }
+std::string Node::MatchingKey(const Graph&) const { return {}; }
 
 std::string BaseClass::MatchingKey(const Graph& graph) const {
   return graph.Get(type_id_).MatchingKey(graph);

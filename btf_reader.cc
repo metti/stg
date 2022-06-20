@@ -243,7 +243,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
   if (verbose_)
     std::cout << '[' << btf_index << "] ";
   // delay allocation of type id as some BTF nodes are skipped
-  auto define = [&](std::unique_ptr<Type> type) {
+  auto define = [&](std::unique_ptr<Node> type) {
     graph_.Set(GetIdRaw(btf_index), std::move(type));
   };
 

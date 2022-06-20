@@ -112,7 +112,7 @@ class Abigail {
   Id GetNode(const std::string& type_id);
   Id GetEdge(xmlNodePtr element);
   Id GetVariadic();
-  std::unique_ptr<Type> MakeFunctionType(xmlNodePtr function);
+  std::unique_ptr<Node> MakeFunctionType(xmlNodePtr function);
 
   void ProcessCorpusGroup(xmlNodePtr group);
   void ProcessCorpus(xmlNodePtr corpus);
