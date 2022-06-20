@@ -345,19 +345,19 @@ class Integer : public Node {
   Integer(const std::string& name, Encoding encoding, uint32_t bitsize,
           uint32_t bytesize)
       : name_(name),
+        encoding_(encoding),
         bitsize_(bitsize),
-        bytesize_(bytesize),
-        encoding_(encoding) {}
+        bytesize_(bytesize) {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 
  private:
   const std::string name_;
+  const Encoding encoding_;
   // bitsize_ gives the semantics of the field. bytesize_ gives the
   // storage size, and is equal to bitsize_ / 8 rounded up.
   const uint32_t bitsize_;
   const uint32_t bytesize_;
-  const Encoding encoding_;
 };
 
 class Array : public Node {
