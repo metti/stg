@@ -293,8 +293,6 @@ class PointerReference : public Node {
   };
   PointerReference(Kind kind, Id pointee_type_id)
       : kind_(kind), pointee_type_id_(pointee_type_id) {}
-  Kind GetKind() const { return kind_; }
-  Id GetPointeeTypeId() const { return pointee_type_id_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 
@@ -310,8 +308,6 @@ class Typedef : public Node {
   Typedef(const std::string& name, Id referred_type_id)
       : name_(name),
         referred_type_id_(referred_type_id) {}
-  const std::string& GetName() const { return name_; }
-  Id GetReferredTypeId() const { return referred_type_id_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveTypedef(
@@ -327,8 +323,6 @@ class Qualified : public Node {
   Qualified(Qualifier qualifier, Id qualified_type_id)
       : qualifier_(qualifier),
         qualified_type_id_(qualified_type_id) {}
-  Qualifier GetQualifier() const { return qualifier_; }
-  Id GetQualifiedTypeId() const { return qualified_type_id_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
@@ -354,18 +348,13 @@ class Integer : public Node {
         bitsize_(bitsize),
         bytesize_(bytesize),
         encoding_(encoding) {}
-  const std::string& GetName() const { return name_; }
-  Encoding GetEncoding() const { return encoding_; }
-
-  // GetBitSize() gives the semantics of the field. GetByteSize() gives the
-  // storage size, and is equal to GetBitSize() / 8 rounded up.
-  uint32_t GetBitSize() const { return bitsize_; }
-  uint32_t GetByteSize() const { return bytesize_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 
  private:
   const std::string name_;
+  // bitsize_ gives the semantics of the field. bytesize_ gives the
+  // storage size, and is equal to bitsize_ / 8 rounded up.
   const uint32_t bitsize_;
   const uint32_t bytesize_;
   const Encoding encoding_;
@@ -377,8 +366,6 @@ class Array : public Node {
         uint64_t number_of_elements)
       : element_type_id_(element_type_id),
         number_of_elements_(number_of_elements) {}
-  Id GetElementTypeId() const { return element_type_id_; }
-  uint64_t GetNumberOfElements() const { return number_of_elements_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
@@ -413,10 +400,6 @@ class Member : public Node {
         type_id_(type_id),
         offset_(offset),
         bitsize_(bitsize) {}
-  const std::string& GetName() const { return name_; }
-  Id GetMemberType() const { return type_id_; }
-  uint64_t GetOffset() const { return offset_; }
-  uint64_t GetBitSize() const { return bitsize_; }
   std::string GetKindDescription() const final;
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
@@ -447,9 +430,6 @@ class StructUnion : public Node {
       : kind_(kind),
         name_(name),
         definition_({bytesize, base_classes, members}) {}
-  Kind GetKind() const { return kind_; }
-  const std::string& GetName() const { return name_; }
-  const std::optional<Definition>& GetDefinition() const { return definition_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::string MatchingKey(const Graph& graph) const final;
@@ -475,8 +455,6 @@ class Enumeration : public Node {
               const Enumerators& enumerators)
       : name_(name),
         definition_({bytesize, enumerators}) {}
-  const std::string& GetName() const { return name_; }
-  const std::optional<Definition>& GetDefinition() const { return definition_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 
@@ -492,8 +470,6 @@ class Function : public Node {
            const std::vector<Parameter>& parameters)
       : return_type_id_(return_type_id),
         parameters_(parameters) {}
-  Id GetReturnTypeId() const { return return_type_id_; }
-  const std::vector<Parameter>& GetParameters() const { return parameters_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
@@ -528,7 +504,6 @@ class ElfSymbol : public Node {
         crc_(crc),
         type_id_(type_id),
         full_name_(full_name) {}
-  std::optional<Id> GetTypeId() const { return type_id_; }
   std::string GetKindDescription() const final;
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
