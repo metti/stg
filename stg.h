@@ -272,14 +272,12 @@ std::pair<bool, std::optional<Comparison>> Compare(
 
 class Void : public Node {
  public:
-  Void() {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 };
 
 class Variadic : public Node {
  public:
-  Variadic() {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 };
