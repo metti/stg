@@ -208,7 +208,7 @@ std::vector<Parameter> Structs::BuildParams(const struct btf_param* params,
       std::cout << "\t'" << (name.empty() ? ANON : name)
                 << "' type_id=" << type << '\n';
     }
-    Parameter parameter{.name_ = name, .type_id_ = GetParameterId(type)};
+    Parameter parameter{.name = name, .type_id = GetParameterId(type)};
     result.push_back(std::move(parameter));
   }
   return result;

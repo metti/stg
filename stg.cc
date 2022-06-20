@@ -406,7 +406,7 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
     else
       sep = true;
     // do not emit parameter name as it's not part of the type
-    os << GetDescription(graph, names, p.type_id_);
+    os << GetDescription(graph, names, p.type_id);
   }
   os << ')';
   return GetDescription(graph, names, return_type_id_)
@@ -681,12 +681,12 @@ Result Function::Equals(State& state, const Node& other) const {
   for (size_t i = 0; i < min; ++i) {
     const auto& p1 = parameters1.at(i);
     const auto& p2 = parameters2.at(i);
-    const auto sub_diff = Compare(state, p1.type_id_, p2.type_id_);
+    const auto sub_diff = Compare(state, p1.type_id, p2.type_id);
     result.MaybeAddEdgeDiff(
         [&](std::ostream& os) {
           os << "parameter " << i + 1;
-          const auto& n1 = p1.name_;
-          const auto& n2 = p2.name_;
+          const auto& n1 = p1.name;
+          const auto& n2 = p2.name;
           if (n1 == n2 && !n1.empty()) {
             os << " (" << std::quoted(n1, '\'') << ")";
           } else if (n1 != n2) {
@@ -710,10 +710,10 @@ Result Function::Equals(State& state, const Node& other) const {
     const auto& parameter = parameters.at(i);
     std::ostringstream os;
     os << "parameter " << i + 1;
-    if (!parameter.name_.empty())
-      os << " (" << std::quoted(parameter.name_, '\'') << ")";
+    if (!parameter.name.empty())
+      os << " (" << std::quoted(parameter.name, '\'') << ")";
     os << " of";
-    const auto parameter_type = parameter.type_id_;
+    const auto parameter_type = parameter.type_id;
     auto diff =
         added ? Added(state, parameter_type) : Removed(state, parameter_type);
     result.AddEdgeDiff(os.str(), diff);

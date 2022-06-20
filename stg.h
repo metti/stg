@@ -65,8 +65,8 @@ class Graph {
 // A Parameter refers to a variable declared in the function declaration, used
 // in the context of Function.
 struct Parameter {
-  std::string name_;
-  Id type_id_;
+  const std::string name;
+  const Id type_id;
 };
 
 enum class Qualifier { CONST, VOLATILE, RESTRICT };

@@ -268,13 +268,13 @@ std::unique_ptr<Node> Abigail::MakeFunctionType(xmlNodePtr function) {
       const auto is_variadic = ReadAttribute<bool>(child, "is-variadic", false);
       if (is_variadic) {
         const auto type = GetVariadic();
-        Parameter parameter{.name_ = std::string(), .type_id_ = type};
+        Parameter parameter{.name = std::string(), .type_id = type};
         parameters.push_back(std::move(parameter));
       } else {
         const auto name = GetAttribute(child, "name");
         const auto type = GetEdge(child);
-        Parameter parameter{.name_ = name ? *name : std::string(),
-                            .type_id_ = type};
+        Parameter parameter{.name = name ? *name : std::string(),
+                            .type_id = type};
         parameters.push_back(std::move(parameter));
       }
     } else if (child_name == "return") {
@@ -292,7 +292,7 @@ std::unique_ptr<Node> Abigail::MakeFunctionType(xmlNodePtr function) {
     for (const auto& p : parameters) {
       if (comma)
         std::cerr << ", ";
-      std::cerr << p.type_id_;
+      std::cerr << p.type_id;
       comma = true;
     }
     std::cerr << ") -> " << *return_type << "\n";
