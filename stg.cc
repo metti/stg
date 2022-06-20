@@ -315,7 +315,7 @@ Name Variadic::MakeDescription(const Graph&, NameCache&) const {
 Name PointerReference::MakeDescription(const Graph& graph,
                                        NameCache& names) const {
   std::string sign;
-  switch (kind_) {
+  switch (kind) {
     case PointerReference::Kind::POINTER:
       sign = "*";
       break;
@@ -326,31 +326,31 @@ Name PointerReference::MakeDescription(const Graph& graph,
       sign = "&&";
       break;
   }
-  return GetDescription(graph, names, pointee_type_id_)
+  return GetDescription(graph, names, pointee_type_id)
       .Add(Side::LEFT, Precedence::POINTER, sign);
 }
 
 Name Typedef::MakeDescription(const Graph&, NameCache&) const {
-  return Name{name_};
+  return Name{name};
 }
 
 Name Qualified::MakeDescription(const Graph& graph, NameCache& names) const {
   Qualifiers qualifiers;
-  qualifiers.insert(qualifier_);
-  Id under = qualified_type_id_;
+  qualifiers.insert(qualifier);
+  Id under = qualified_type_id;
   while (const auto maybe = graph.Get(under).ResolveQualifier(qualifiers))
     under = *maybe;
   return GetDescription(graph, names, under).Qualify(qualifiers);
 }
 
 Name Integer::MakeDescription(const Graph&, NameCache&) const {
-  return Name{name_};
+  return Name{name};
 }
 
 Name Array::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
-  os << '[' << number_of_elements_ << ']';
-  return GetDescription(graph, names, element_type_id_)
+  os << '[' << number_of_elements << ']';
+  return GetDescription(graph, names, element_type_id)
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
@@ -359,23 +359,23 @@ Name BaseClass::MakeDescription(const Graph& graph, NameCache&) const {
 }
 
 Name Member::MakeDescription(const Graph& graph, NameCache& names) const {
-  auto description = GetDescription(graph, names, type_id_);
-  if (!name_.empty())
-    description = description.Add(Side::LEFT, Precedence::ATOMIC, name_);
-  if (bitsize_)
+  auto description = GetDescription(graph, names, type_id);
+  if (!name.empty())
+    description = description.Add(Side::LEFT, Precedence::ATOMIC, name);
+  if (bitsize)
     description = description.Add(
-        Side::RIGHT, Precedence::ATOMIC, " : " + std::to_string(bitsize_));
+        Side::RIGHT, Precedence::ATOMIC, " : " + std::to_string(bitsize));
   return description;
 }
 
 Name StructUnion::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
-  os << kind_ << ' ';
-  if (!name_.empty()) {
-    os << name_;
-  } else if (definition_) {
+  os << kind << ' ';
+  if (!name.empty()) {
+    os << name;
+  } else if (definition) {
     os << "{ ";
-    for (const auto& member : definition_->members)
+    for (const auto& member : definition->members)
       os << GetDescription(graph, names, member) << "; ";
     os << '}';
   }
@@ -385,11 +385,11 @@ Name StructUnion::MakeDescription(const Graph& graph, NameCache& names) const {
 Name Enumeration::MakeDescription(const Graph&, NameCache&) const {
   std::ostringstream os;
   os << "enum ";
-  if (!name_.empty()) {
-    os << name_;
-  } else if (definition_) {
+  if (!name.empty()) {
+    os << name;
+  } else if (definition) {
     os << "{ ";
-    for (const auto& e : definition_->enumerators)
+    for (const auto& e : definition->enumerators)
       os << e.first << " = " << e.second << ", ";
     os << '}';
   }
@@ -400,7 +400,7 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
   os << '(';
   bool sep = false;
-  for (const auto& p : parameters_) {
+  for (const auto& p : parameters) {
     if (sep)
       os << ", ";
     else
@@ -409,14 +409,14 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
     os << GetDescription(graph, names, p.type_id);
   }
   os << ')';
-  return GetDescription(graph, names, return_type_id_)
+  return GetDescription(graph, names, return_type_id)
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
 Name ElfSymbol::MakeDescription(const Graph&, NameCache&) const {
-  if (!full_name_ || *full_name_ == symbol_name_)
-    return Name{symbol_name_};
-  return Name{*full_name_ + " {" + symbol_name_ + "}"};
+  if (!full_name || *full_name == symbol_name)
+    return Name{symbol_name};
+  return Name{*full_name + " {" + symbol_name + "}"};
 }
 
 Name Symbols::MakeDescription(const Graph&, NameCache&) const {
@@ -441,12 +441,11 @@ Result PointerReference::Equals(State& state, const Node& other) const {
   const auto& o = other.as<PointerReference>();
 
   Result result;
-  if (kind_ != o.kind_)
+  if (kind != o.kind)
     return result.MarkIncomparable();
-  const auto ref_diff =
-      Compare(state, pointee_type_id_, o.pointee_type_id_);
+  const auto ref_diff = Compare(state, pointee_type_id, o.pointee_type_id);
   const auto text =
-      kind_ == PointerReference::Kind::POINTER ? "pointed-to" : "referred-to";
+      kind == PointerReference::Kind::POINTER ? "pointed-to" : "referred-to";
   result.MaybeAddEdgeDiff(text, ref_diff);
   return result;
 }
@@ -465,10 +464,10 @@ Result Integer::Equals(State&, const Node& other) const {
   const auto& o = other.as<Integer>();
 
   Result result;
-  result.MaybeAddNodeDiff("encoding", encoding_, o.encoding_);
-  result.MaybeAddNodeDiff("bit size", bitsize_, o.bitsize_);
-  if (bitsize_ != bytesize_ * 8 && o.bitsize_ != o.bytesize_ * 8)
-    result.MaybeAddNodeDiff("byte size", bytesize_, o.bytesize_);
+  result.MaybeAddNodeDiff("encoding", encoding, o.encoding);
+  result.MaybeAddNodeDiff("bit size", bitsize, o.bitsize);
+  if (bitsize != bytesize * 8 && o.bitsize != o.bytesize * 8)
+    result.MaybeAddNodeDiff("byte size", bytesize, o.bytesize);
   return result;
 }
 
@@ -477,9 +476,9 @@ Result Array::Equals(State& state, const Node& other) const {
 
   Result result;
   result.MaybeAddNodeDiff("number of elements",
-                          number_of_elements_, o.number_of_elements_);
+                          number_of_elements, o.number_of_elements);
   const auto element_type_diff =
-      Compare(state, element_type_id_, o.element_type_id_);
+      Compare(state, element_type_id, o.element_type_id);
   result.MaybeAddEdgeDiff("element", element_type_diff);
   return result;
 }
@@ -571,9 +570,9 @@ Result BaseClass::Equals(State& state, const Node& other) const {
   const auto& o = other.as<BaseClass>();
 
   Result result;
-  result.MaybeAddNodeDiff("inheritance", inheritance_, o.inheritance_);
-  result.MaybeAddNodeDiff("offset", offset_, o.offset_);
-  const auto sub_diff = Compare(state, type_id_, o.type_id_);
+  result.MaybeAddNodeDiff("inheritance", inheritance, o.inheritance);
+  result.MaybeAddNodeDiff("offset", offset, o.offset);
+  const auto sub_diff = Compare(state, type_id, o.type_id);
   result.MaybeAddEdgeDiff("", sub_diff);
   return result;
 }
@@ -582,9 +581,9 @@ Result Member::Equals(State& state, const Node& other) const {
   const auto& o = other.as<Member>();
 
   Result result;
-  result.MaybeAddNodeDiff("offset", offset_, o.offset_);
-  result.MaybeAddNodeDiff("size", bitsize_, o.bitsize_);
-  const auto sub_diff = Compare(state, type_id_, o.type_id_);
+  result.MaybeAddNodeDiff("offset", offset, o.offset);
+  result.MaybeAddNodeDiff("size", bitsize, o.bitsize);
+  const auto sub_diff = Compare(state, type_id, o.type_id);
   result.MaybeAddEdgeDiff("", sub_diff);
   return result;
 }
@@ -596,12 +595,12 @@ Result StructUnion::Equals(State& state, const Node& other) const {
   // Compare two anonymous types recursively, not holding diffs.
   // Compare two identically named types recursively, holding diffs.
   // Everything else treated as distinct. No recursion.
-  if (kind_ != o.kind_ || name_ != o.name_)
+  if (kind != o.kind || name != o.name)
     return result.MarkIncomparable();
-  result.diff_.holds_changes = !name_.empty();
+  result.diff_.holds_changes = !name.empty();
 
-  const auto& definition1 = definition_;
-  const auto& definition2 = o.definition_;
+  const auto& definition1 = definition;
+  const auto& definition2 = o.definition;
   if (!CompareDefined(definition1.has_value(), definition2.has_value(), result))
     return result;
 
@@ -621,12 +620,12 @@ Result Enumeration::Equals(State&, const Node& other) const {
   // Compare two anonymous types recursively, not holding diffs.
   // Compare two identically named types recursively, holding diffs.
   // Everything else treated as distinct. No recursion.
-  if (name_ != o.name_)
+  if (name != o.name)
     return result.MarkIncomparable();
-  result.diff_.holds_changes = !name_.empty();
+  result.diff_.holds_changes = !name.empty();
 
-  const auto& definition1 = definition_;
-  const auto& definition2 = o.definition_;
+  const auto& definition1 = definition;
+  const auto& definition2 = o.definition;
   if (!CompareDefined(definition1.has_value(), definition2.has_value(), result))
     return result;
   result.MaybeAddNodeDiff(
@@ -672,11 +671,11 @@ Result Function::Equals(State& state, const Node& other) const {
 
   Result result;
   const auto return_type_diff
-      = Compare(state, return_type_id_, o.return_type_id_);
+      = Compare(state, return_type_id, o.return_type_id);
   result.MaybeAddEdgeDiff("return", return_type_diff);
 
-  const auto& parameters1 = parameters_;
-  const auto& parameters2 = o.parameters_;
+  const auto& parameters1 = parameters;
+  const auto& parameters2 = o.parameters;
   size_t min = std::min(parameters1.size(), parameters2.size());
   for (size_t i = 0; i < min; ++i) {
     const auto& p1 = parameters1.at(i);
@@ -705,7 +704,7 @@ Result Function::Equals(State& state, const Node& other) const {
 
   bool added = parameters1.size() < parameters2.size();
   const auto& which = added ? o : *this;
-  const auto& parameters = which.parameters_;
+  const auto& parameters = which.parameters;
   for (size_t i = min; i < parameters.size(); ++i) {
     const auto& parameter = parameters.at(i);
     std::ostringstream os;
@@ -774,25 +773,25 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   // Symbol namespaces - not yet supported by symtab_reader
 
   Result result;
-  result.MaybeAddNodeDiff("name", symbol_name_, o.symbol_name_);
+  result.MaybeAddNodeDiff("name", symbol_name, o.symbol_name);
 
-  result.MaybeAddNodeDiff("version", version_, o.version_);
+  result.MaybeAddNodeDiff("version", version, o.version);
   result.MaybeAddNodeDiff(
-      "default version", is_default_version_, o.is_default_version_);
+      "default version", is_default_version, o.is_default_version);
 
-  result.MaybeAddNodeDiff("defined", is_defined_, o.is_defined_);
-  result.MaybeAddNodeDiff("symbol type", symbol_type_, o.symbol_type_);
-  result.MaybeAddNodeDiff("binding", binding_, o.binding_);
-  result.MaybeAddNodeDiff("visibility", visibility_, o.visibility_);
-  result.MaybeAddNodeDiff("CRC", crc_, o.crc_);
+  result.MaybeAddNodeDiff("defined", is_defined, o.is_defined);
+  result.MaybeAddNodeDiff("symbol type", symbol_type, o.symbol_type);
+  result.MaybeAddNodeDiff("binding", binding, o.binding);
+  result.MaybeAddNodeDiff("visibility", visibility, o.visibility);
+  result.MaybeAddNodeDiff("CRC", crc, o.crc);
 
-  if (type_id_ && o.type_id_) {
-    const auto type_diff = Compare(state, *type_id_, *o.type_id_);
+  if (type_id && o.type_id) {
+    const auto type_diff = Compare(state, *type_id, *o.type_id);
     result.MaybeAddEdgeDiff("", type_diff);
-  } else if (type_id_) {
-    result.AddEdgeDiff("", Removed(state, *type_id_));
-  } else if (o.type_id_) {
-    result.AddEdgeDiff("", Added(state, *o.type_id_));
+  } else if (type_id) {
+    result.AddEdgeDiff("", Removed(state, *type_id));
+  } else if (o.type_id) {
+    result.AddEdgeDiff("", Added(state, *o.type_id));
   } else {
     // both types missing, we have nothing to say
   }
@@ -811,8 +810,8 @@ Result Symbols::Equals(State& state, const Node& other) const {
   std::vector<Id> added;
   std::vector<std::pair<Id, Id>> in_both;
 
-  const auto& symbols1 = symbols_;
-  const auto& symbols2 = o.symbols_;
+  const auto& symbols1 = symbols;
+  const auto& symbols2 = o.symbols;
   auto it1 = symbols1.begin();
   auto it2 = symbols2.begin();
   const auto end1 = symbols1.end();
@@ -861,8 +860,8 @@ std::optional<Id> Function::ResolveQualifier(Qualifiers& qualifiers) const {
 }
 
 std::optional<Id> Qualified::ResolveQualifier(Qualifiers& qualifiers) const {
-  qualifiers.insert(qualifier_);
-  return {qualified_type_id_};
+  qualifiers.insert(qualifier);
+  return {qualified_type_id};
 }
 
 std::optional<Id> Node::ResolveTypedef(std::vector<std::string>&) const {
@@ -871,27 +870,27 @@ std::optional<Id> Node::ResolveTypedef(std::vector<std::string>&) const {
 
 std::optional<Id> Typedef::ResolveTypedef(
     std::vector<std::string>& typedefs) const {
-  typedefs.push_back(name_);
-  return {referred_type_id_};
+  typedefs.push_back(name);
+  return {referred_type_id};
 }
 
 std::string Node::MatchingKey(const Graph&) const { return {}; }
 
 std::string BaseClass::MatchingKey(const Graph& graph) const {
-  return graph.Get(type_id_).MatchingKey(graph);
+  return graph.Get(type_id).MatchingKey(graph);
 }
 
 std::string Member::MatchingKey(const Graph& graph) const {
-  if (!name_.empty())
-    return name_;
-  return graph.Get(type_id_).MatchingKey(graph);
+  if (!name.empty())
+    return name;
+  return graph.Get(type_id).MatchingKey(graph);
 }
 
 std::string StructUnion::MatchingKey(const Graph& graph) const {
-  if (!name_.empty())
-    return name_;
-  if (definition_) {
-    const auto& members = definition_->members;
+  if (!name.empty())
+    return name;
+  if (definition) {
+    const auto& members = definition->members;
     for (const auto& member : members) {
       const auto recursive = graph.Get(member).MatchingKey(graph);
       if (!recursive.empty())
@@ -903,8 +902,8 @@ std::string StructUnion::MatchingKey(const Graph& graph) const {
 
 std::vector<std::pair<std::string, size_t>> Enumeration::GetEnumNames() const {
   std::vector<std::pair<std::string, size_t>> names;
-  if (definition_) {
-    const auto& enums = definition_->enumerators;
+  if (definition) {
+    const auto& enums = definition->enumerators;
     const auto size = enums.size();
     names.reserve(size);
     for (size_t ix = 0; ix < size; ++ix) {
