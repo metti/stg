@@ -249,8 +249,8 @@ std::pair<bool, std::optional<Comparison>> Compare(
         ++it2;
       }
     }
-    const auto comp = Compare(state, unqualified1, unqualified2);
-    result.MaybeAddEdgeDiff("underlying", comp);
+    const auto type_diff = Compare(state, unqualified1, unqualified2);
+    result.MaybeAddEdgeDiff("underlying", type_diff);
   } else {
     std::vector<std::string> typedefs1;
     std::vector<std::string> typedefs2;
