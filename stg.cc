@@ -367,6 +367,12 @@ Name Member::MakeDescription(const Graph& graph, NameCache& names) const {
   return description;
 }
 
+Name Method::MakeDescription(const Graph&, NameCache&) const {
+  if (mangled_name == name)
+    return Name{name};
+  return Name{name + " {" + mangled_name + "}"};
+}
+
 Name StructUnion::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
   os << kind << ' ';
@@ -427,6 +433,8 @@ std::string Node::GetKindDescription() const { return "type"; }
 std::string BaseClass::GetKindDescription() const { return "base class"; }
 
 std::string Member::GetKindDescription() const { return "member"; }
+
+std::string Method::GetKindDescription() const { return "method"; }
 
 std::string ElfSymbol::GetKindDescription() const { return "symbol"; }
 
@@ -536,16 +544,18 @@ static MatchedPairs PairUp(const KeyIndexPairs& keys1,
       ++it2;
     }
   }
-  Reorder(pairs);
   return pairs;
 }
 
 static void CompareNodes(Result& result, State& state,
                          const std::vector<Id>& nodes1,
-                         const std::vector<Id>& nodes2) {
-  const auto& keys1 = MatchingKeys(state.graph, nodes1);
-  const auto& keys2 = MatchingKeys(state.graph, nodes2);
-  const auto& pairs = PairUp(keys1, keys2);
+                         const std::vector<Id>& nodes2,
+                         const bool reorder) {
+  const auto keys1 = MatchingKeys(state.graph, nodes1);
+  const auto keys2 = MatchingKeys(state.graph, nodes2);
+  auto pairs = PairUp(keys1, keys2);
+  if (reorder)
+    Reorder(pairs);
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
       // removed
@@ -584,6 +594,16 @@ Result Member::Equals(State& state, const Node& other) const {
   return result;
 }
 
+Result Method::Equals(State& state, const Node& other) const {
+  const auto& o = other.as<Method>();
+
+  Result result;
+  result.MaybeAddNodeDiff("kind", kind, o.kind);
+  result.MaybeAddNodeDiff("vtable offset", vtable_offset, o.vtable_offset);
+  result.MaybeAddEdgeDiff("", Compare(state, type_id, o.type_id));
+  return result;
+}
+
 Result StructUnion::Equals(State& state, const Node& other) const {
   const auto& o = other.as<StructUnion>();
 
@@ -603,8 +623,10 @@ Result StructUnion::Equals(State& state, const Node& other) const {
   result.MaybeAddNodeDiff(
       "byte size", definition1->bytesize, definition2->bytesize);
   CompareNodes(
-      result, state, definition1->base_classes, definition2->base_classes);
-  CompareNodes(result, state, definition1->members, definition2->members);
+     result, state, definition1->base_classes, definition2->base_classes, true);
+  CompareNodes(
+     result, state, definition1->methods, definition2->methods, false);
+  CompareNodes(result, state, definition1->members, definition2->members, true);
 
   return result;
 }
@@ -631,7 +653,8 @@ Result Enumeration::Equals(State&, const Node& other) const {
   const auto enums2 = definition2->enumerators;
   const auto names1 = GetEnumNames();
   const auto names2 = o.GetEnumNames();
-  const auto pairs = PairUp(names1, names2);
+  auto pairs = PairUp(names1, names2);
+  Reorder(pairs);
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
       // removed
@@ -879,6 +902,10 @@ std::string Member::MatchingKey(const Graph& graph) const {
   return graph.Get(type_id).MatchingKey(graph);
 }
 
+std::string Method::MatchingKey(const Graph&) const {
+  return name + ',' + mangled_name;
+}
+
 std::string StructUnion::MatchingKey(const Graph& graph) const {
   if (!name.empty())
     return name;
@@ -914,6 +941,18 @@ std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance) {
       os << "non-virtual";
       break;
     case BaseClass::Inheritance::VIRTUAL:
+      os << "virtual";
+      break;
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, Method::Kind kind) {
+  switch (kind) {
+    case Method::Kind::NON_VIRTUAL:
+      os << "non-virtual";
+      break;
+    case Method::Kind::VIRTUAL:
       os << "virtual";
       break;
   }

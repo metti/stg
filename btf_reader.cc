@@ -340,7 +340,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       const auto* btf_members = memory.Pull<struct btf_member>(vlen);
       const auto members = BuildMembers(kflag, btf_members, vlen);
       define(Make<StructUnion>(struct_union_kind, name, t->size,
-                               std::vector<Id>(), members));
+                               std::vector<Id>(), std::vector<Id>(), members));
       break;
     }
     case BTF_KIND_ENUM: {

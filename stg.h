@@ -385,18 +385,38 @@ struct Member : Node {
   const uint64_t bitsize;
 };
 
+struct Method : Node {
+  enum class Kind { NON_VIRTUAL, VIRTUAL };
+  Method(const std::string& mangled_name, const std::string& name, Kind kind,
+         const std::optional<uint64_t> vtable_offset, Id type_id)
+      : mangled_name(mangled_name), name(name), kind(kind),
+        vtable_offset(vtable_offset), type_id(type_id) {}
+  std::string GetKindDescription() const final;
+  Name MakeDescription(const Graph& graph, NameCache& names) const final;
+  Result Equals(State& state, const Node& other) const final;
+  std::string MatchingKey(const Graph& graph) const final;
+
+  const std::string mangled_name;
+  const std::string name;
+  const Kind kind;
+  const std::optional<uint64_t> vtable_offset;
+  const Id type_id;
+};
+
 struct StructUnion : Node {
   enum class Kind { CLASS, STRUCT, UNION };
   struct Definition {
     const uint64_t bytesize;
     const std::vector<Id> base_classes;
+    const std::vector<Id> methods;
     const std::vector<Id> members;
   };
   StructUnion(Kind kind, const std::string& name) : kind(kind), name(name) {}
   StructUnion(Kind kind, const std::string& name, uint64_t bytesize,
               const std::vector<Id>& base_classes,
-              const std::vector<Id>& members)
-      : kind(kind), name(name), definition({bytesize, base_classes, members}) {}
+              const std::vector<Id>& methods, const std::vector<Id>& members)
+      : kind(kind), name(name),
+        definition({bytesize, base_classes, methods, members}) {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::string MatchingKey(const Graph& graph) const final;

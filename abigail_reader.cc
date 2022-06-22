@@ -442,7 +442,7 @@ void Abigail::ProcessNamespace(xmlNodePtr scope) {
   ProcessScope(scope);
 }
 
-void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
+Id Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
   const auto name = scope_name_ + GetAttributeOrDie(decl, "name");
   const auto mangled_name = GetAttribute(decl, "mangled-name");
   const auto symbol_id = GetAttribute(decl, "elf-symbol-id");
@@ -459,6 +459,7 @@ void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
     if (!inserted && it->second.first != type)
       Die() << "conflicting types for '" << *symbol_id << "'";
   }
+  return type;
 }
 
 void Abigail::ProcessFunctionType(Id id, xmlNodePtr function) {
@@ -605,6 +606,7 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
   const auto bytes = (bits + 7) / 8;
 
   std::vector<Id> base_classes;
+  std::vector<Id> methods;
   std::vector<Id> members;
   for (xmlNodePtr child = xmlFirstElementChild(struct_union); child;
        child = xmlNextElementSibling(child)) {
@@ -615,15 +617,18 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
       ProcessMemberType(child);
     } else if (child_name == "base-class") {
       base_classes.push_back(ProcessBaseClass(child));
+    } else if (child_name == "member-function") {
+      methods.push_back(ProcessMemberFunction(child));
     } else {
       Die() << "unrecognised " << kind << "-decl child element '" << child_name
             << "'";
     }
   }
 
-  graph_.Set(id,
-             Make<StructUnion>(kind, full_name, bytes, base_classes, members));
-  if (verbose_) std::cerr << id << " " << kind << " " << full_name << "\n";
+  graph_.Set(id, Make<StructUnion>(kind, full_name, bytes, base_classes,
+                                   methods, members));
+  if (verbose_)
+    std::cerr << id << " " << kind << " " << full_name << "\n";
 }
 
 void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
@@ -682,6 +687,19 @@ Id Abigail::ProcessDataMember(bool is_struct, xmlNodePtr data_member) {
 
   // Note: libabigail does not model member size, yet
   return graph_.Add(Make<Member>(name, type, offset, 0));
+}
+
+Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
+  xmlNodePtr decl = GetOnlyChild("member-function", method);
+  CheckElementName("function-decl", decl);
+  const auto mangled_name = GetAttributeOrDie(decl, "mangled-name");
+  const auto name = GetAttributeOrDie(decl, "name");
+  const auto type = ProcessDecl(false, decl);
+  const auto vtable_offset = ReadAttribute<uint64_t>(method, "vtable-offset");
+  const auto kind = vtable_offset ? Method::Kind::VIRTUAL
+                                  : Method::Kind::NON_VIRTUAL;
+  return graph_.Add(
+      Make<Method>(mangled_name, name, kind, vtable_offset, type));
 }
 
 void Abigail::ProcessMemberType(xmlNodePtr member_type) {

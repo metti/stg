@@ -125,7 +125,7 @@ class Abigail {
   void ProcessInstr(xmlNodePtr instr);
   void ProcessNamespace(xmlNodePtr scope);
 
-  void ProcessDecl(bool is_variable, xmlNodePtr decl);
+  Id ProcessDecl(bool is_variable, xmlNodePtr decl);
 
   void ProcessFunctionType(Id id, xmlNodePtr function);
   void ProcessTypedef(Id id, xmlNodePtr type_definition);
@@ -138,6 +138,7 @@ class Abigail {
 
   Id ProcessBaseClass(xmlNodePtr base_class);
   Id ProcessDataMember(bool is_struct, xmlNodePtr data_member);
+  Id ProcessMemberFunction(xmlNodePtr method);
   void ProcessMemberType(xmlNodePtr member_type);
 
   Id BuildSymbol(const SymbolInfo& info,
