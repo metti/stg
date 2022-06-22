@@ -612,7 +612,8 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
        child = xmlNextElementSibling(child)) {
     const auto child_name = GetElementName(child);
     if (child_name == "data-member") {
-      members.push_back(ProcessDataMember(is_struct, child));
+      if (const auto member = ProcessDataMember(is_struct, child))
+        members.push_back(*member);
     } else if (child_name == "member-type") {
       ProcessMemberType(child);
     } else if (child_name == "base-class") {
@@ -676,17 +677,23 @@ Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {
   return graph_.Add(Make<BaseClass>(type, offset, inheritance));
 }
 
-Id Abigail::ProcessDataMember(bool is_struct, xmlNodePtr data_member) {
+std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
+                                             xmlNodePtr data_member) {
+  xmlNodePtr decl = GetOnlyChild("data-member", data_member);
+  CheckElementName("var-decl", decl);
+  if (ReadAttribute<bool>(data_member, "static", false)) {
+    ProcessDecl(true, decl);
+    return {};
+  }
+
   size_t offset = is_struct
               ? ReadAttributeOrDie<size_t>(data_member, "layout-offset-in-bits")
               : 0;
-  xmlNodePtr decl = GetOnlyChild("data-member", data_member);
-  CheckElementName("var-decl", decl);
   const auto name = GetAttributeOrDie(decl, "name");
   const auto type = GetEdge(decl);
 
   // Note: libabigail does not model member size, yet
-  return graph_.Add(Make<Member>(name, type, offset, 0));
+  return {graph_.Add(Make<Member>(name, type, offset, 0))};
 }
 
 Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
@@ -696,8 +703,11 @@ Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
   const auto name = GetAttributeOrDie(decl, "name");
   const auto type = ProcessDecl(false, decl);
   const auto vtable_offset = ReadAttribute<uint64_t>(method, "vtable-offset");
-  const auto kind = vtable_offset ? Method::Kind::VIRTUAL
-                                  : Method::Kind::NON_VIRTUAL;
+  const auto kind = vtable_offset
+                    ? Method::Kind::VIRTUAL
+                    : ReadAttribute<bool>(method, "static", false)
+                       ? Method::Kind::STATIC
+                       : Method::Kind::NON_VIRTUAL;
   return graph_.Add(
       Make<Method>(mangled_name, name, kind, vtable_offset, type));
 }

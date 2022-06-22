@@ -952,6 +952,9 @@ std::ostream& operator<<(std::ostream& os, Method::Kind kind) {
     case Method::Kind::NON_VIRTUAL:
       os << "non-virtual";
       break;
+    case Method::Kind::STATIC:
+      os << "static";
+      break;
     case Method::Kind::VIRTUAL:
       os << "virtual";
       break;

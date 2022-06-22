@@ -386,7 +386,7 @@ struct Member : Node {
 };
 
 struct Method : Node {
-  enum class Kind { NON_VIRTUAL, VIRTUAL };
+  enum class Kind { NON_VIRTUAL, STATIC, VIRTUAL };
   Method(const std::string& mangled_name, const std::string& name, Kind kind,
          const std::optional<uint64_t> vtable_offset, Id type_id)
       : mangled_name(mangled_name), name(name), kind(kind),
