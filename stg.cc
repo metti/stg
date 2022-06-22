@@ -258,10 +258,9 @@ std::pair<bool, std::optional<Comparison>> Compare(
     const Id resolved2 = ResolveTypedefs(graph, unqualified2, typedefs2);
     if (unqualified1 != resolved1 || unqualified2 != resolved2) {
       // 3.2 Typedef difference.
-      const auto comp = Compare(state, resolved1, resolved2);
       result.diff_.holds_changes = !typedefs1.empty() && !typedefs2.empty()
                                    && typedefs1[0] == typedefs2[0];
-      result.MaybeAddEdgeDiff("resolved", comp);
+      result.MaybeAddEdgeDiff("resolved", Compare(state, resolved1, resolved2));
     } else {
       const auto& type1 = graph.Get(unqualified1);
       const auto& type2 = graph.Get(unqualified2);
@@ -443,10 +442,10 @@ Result PointerReference::Equals(State& state, const Node& other) const {
   Result result;
   if (kind != o.kind)
     return result.MarkIncomparable();
-  const auto ref_diff = Compare(state, pointee_type_id, o.pointee_type_id);
+  const auto type_diff = Compare(state, pointee_type_id, o.pointee_type_id);
   const auto text =
       kind == PointerReference::Kind::POINTER ? "pointed-to" : "referred-to";
-  result.MaybeAddEdgeDiff(text, ref_diff);
+  result.MaybeAddEdgeDiff(text, type_diff);
   return result;
 }
 
@@ -477,9 +476,8 @@ Result Array::Equals(State& state, const Node& other) const {
   Result result;
   result.MaybeAddNodeDiff("number of elements",
                           number_of_elements, o.number_of_elements);
-  const auto element_type_diff =
-      Compare(state, element_type_id, o.element_type_id);
-  result.MaybeAddEdgeDiff("element", element_type_diff);
+  const auto type_diff = Compare(state, element_type_id, o.element_type_id);
+  result.MaybeAddEdgeDiff("element", type_diff);
   return result;
 }
 
@@ -572,8 +570,7 @@ Result BaseClass::Equals(State& state, const Node& other) const {
   Result result;
   result.MaybeAddNodeDiff("inheritance", inheritance, o.inheritance);
   result.MaybeAddNodeDiff("offset", offset, o.offset);
-  const auto sub_diff = Compare(state, type_id, o.type_id);
-  result.MaybeAddEdgeDiff("", sub_diff);
+  result.MaybeAddEdgeDiff("", Compare(state, type_id, o.type_id));
   return result;
 }
 
@@ -583,8 +580,7 @@ Result Member::Equals(State& state, const Node& other) const {
   Result result;
   result.MaybeAddNodeDiff("offset", offset, o.offset);
   result.MaybeAddNodeDiff("size", bitsize, o.bitsize);
-  const auto sub_diff = Compare(state, type_id, o.type_id);
-  result.MaybeAddEdgeDiff("", sub_diff);
+  result.MaybeAddEdgeDiff("", Compare(state, type_id, o.type_id));
   return result;
 }
 
@@ -670,9 +666,8 @@ Result Function::Equals(State& state, const Node& other) const {
   const auto& o = other.as<Function>();
 
   Result result;
-  const auto return_type_diff
-      = Compare(state, return_type_id, o.return_type_id);
-  result.MaybeAddEdgeDiff("return", return_type_diff);
+  const auto type_diff = Compare(state, return_type_id, o.return_type_id);
+  result.MaybeAddEdgeDiff("return", type_diff);
 
   const auto& parameters1 = parameters;
   const auto& parameters2 = o.parameters;
@@ -680,7 +675,6 @@ Result Function::Equals(State& state, const Node& other) const {
   for (size_t i = 0; i < min; ++i) {
     const auto& p1 = parameters1.at(i);
     const auto& p2 = parameters2.at(i);
-    const auto sub_diff = Compare(state, p1.type_id, p2.type_id);
     result.MaybeAddEdgeDiff(
         [&](std::ostream& os) {
           os << "parameter " << i + 1;
@@ -699,7 +693,7 @@ Result Function::Equals(State& state, const Node& other) const {
             os << ")";
           }
         },
-        sub_diff);
+        Compare(state, p1.type_id, p2.type_id));
   }
 
   bool added = parameters1.size() < parameters2.size();
@@ -786,8 +780,7 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   result.MaybeAddNodeDiff("CRC", crc, o.crc);
 
   if (type_id && o.type_id) {
-    const auto type_diff = Compare(state, *type_id, *o.type_id);
-    result.MaybeAddEdgeDiff("", type_diff);
+    result.MaybeAddEdgeDiff("", Compare(state, *type_id, *o.type_id));
   } else if (type_id) {
     result.AddEdgeDiff("", Removed(state, *type_id));
   } else if (o.type_id) {
