@@ -444,7 +444,6 @@ void Abigail::ProcessNamespace(xmlNodePtr scope) {
 
 Id Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
   const auto name = scope_name_ + GetAttributeOrDie(decl, "name");
-  const auto mangled_name = GetAttribute(decl, "mangled-name");
   const auto symbol_id = GetAttribute(decl, "elf-symbol-id");
   const auto type = is_variable ? GetEdge(decl)
                                 : graph_.Add(MakeFunctionType(decl));
