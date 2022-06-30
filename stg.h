@@ -403,6 +403,8 @@ struct Method : Node {
   const Id type_id;
 };
 
+std::ostream& operator<<(std::ostream& os, Method::Kind kind);
+
 struct StructUnion : Node {
   enum class Kind { CLASS, STRUCT, UNION };
   struct Definition {
