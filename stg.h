@@ -17,6 +17,7 @@
 //
 // Author: Maria Teguiani
 // Author: Giuliano Procida
+// Author: Ignes Simeonova
 
 #ifndef STG_STG_H_
 #define STG_STG_H_

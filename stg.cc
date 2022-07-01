@@ -17,6 +17,7 @@
 //
 // Author: Maria Teguiani
 // Author: Giuliano Procida
+// Author: Ignes Simeonova
 
 #include "stg.h"
 

@@ -16,6 +16,7 @@
 // limitations under the License.
 //
 // Author: Giuliano Procida
+// Author: Ignes Simeonova
 
 #ifndef STG_ABIGAIL_READER_H_
 #define STG_ABIGAIL_READER_H_

@@ -16,6 +16,7 @@
 // limitations under the License.
 //
 // Author: Giuliano Procida
+// Author: Ignes Simeonova
 
 #include "abigail_reader.h"
 
