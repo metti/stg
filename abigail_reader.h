@@ -74,10 +74,29 @@ namespace abixml {
 // post-processing phase.
 //
 // 4. XML anonymous types also have unhelpful names, these are ignored.
-class Abigail {
+
+class Typing {
  public:
-  explicit Abigail(Graph& graph, bool verbose = false);
-  Id ProcessRoot(xmlNodePtr root);
+  Typing(Graph& graph, bool verbose);
+  Id GetNode(const std::string& type_id);
+  Id GetEdge(xmlNodePtr element);
+  Id GetVariadic();
+
+ private:
+  Graph& graph_;
+  const bool verbose_;
+  // The STG IR uses a distinct node type for the variadic parameter type; if
+  // allocated, this is its STG node id.
+  std::optional<Id> variadic_;
+  // Map from libabigail type ids to STG node ids; except for the type of
+  // variadic parameters.
+  std::unordered_map<std::string, Id> type_ids_;
+};
+
+class Corpus {
+ public:
+  Corpus(Graph& graph, bool verbose, Typing& typing);
+  std::map<std::string, Id> ProcessCorpus(xmlNodePtr corpus);
 
  private:
   struct SymbolInfo {
@@ -88,15 +107,8 @@ class Abigail {
   };
 
   Graph& graph_;
-
   const bool verbose_;
-
-  // The STG IR uses a distinct node type for the variadic parameter type; if
-  // allocated, this is its STG node id.
-  std::optional<Id> variadic_;
-  // Map from libabigail type ids to STG node ids; except for the type of
-  // variadic parameters.
-  std::unordered_map<std::string, Id> type_ids_;
+  Typing& typing_;
 
   // symbol id to symbol information
   std::unordered_map<std::string, SymbolInfo> symbol_info_map_;
@@ -110,13 +122,8 @@ class Abigail {
   // Full name of the current scope.
   std::string scope_name_;
 
-  Id GetNode(const std::string& type_id);
-  Id GetEdge(xmlNodePtr element);
-  Id GetVariadic();
   std::unique_ptr<Node> MakeFunctionType(xmlNodePtr function);
 
-  void ProcessCorpusGroup(xmlNodePtr group);
-  void ProcessCorpus(xmlNodePtr corpus);
   void ProcessSymbols(xmlNodePtr symbols);
   void ProcessSymbol(xmlNodePtr symbol);
 
@@ -145,7 +152,17 @@ class Abigail {
   Id BuildSymbol(const SymbolInfo& info,
                  std::optional<Id> type_id,
                  const std::optional<std::string>& name);
-  Id BuildSymbols();
+  std::map<std::string, Id> BuildSymbols();
+};
+
+class Abigail {
+ public:
+  explicit Abigail(Graph& graph, bool verbose = false);
+  Id ProcessRoot(xmlNodePtr root);
+
+ private:
+  Graph& graph_;
+  const bool verbose_;
 };
 
 Id Read(Graph& graph, const std::string& path, bool verbose = false);

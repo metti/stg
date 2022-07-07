@@ -234,21 +234,21 @@ class PushScopeName {
 
 }  // namespace
 
-Abigail::Abigail(Graph& graph, bool verbose)
+Typing::Typing(Graph& graph, bool verbose)
     : graph_(graph), verbose_(verbose) { }
 
-Id Abigail::GetNode(const std::string& type_id) {
+Id Typing::GetNode(const std::string& type_id) {
   const auto [it, inserted] = type_ids_.insert({type_id, Id(0)});
   if (inserted)
     it->second = graph_.Allocate();
   return it->second;
 }
 
-Id Abigail::GetEdge(xmlNodePtr element) {
+Id Typing::GetEdge(xmlNodePtr element) {
   return GetNode(GetAttributeOrDie(element, "type-id"));
 }
 
-Id Abigail::GetVariadic() {
+Id Typing::GetVariadic() {
   if (!variadic_) {
     variadic_ = {graph_.Add(Make<Variadic>())};
     if (verbose_)
@@ -257,7 +257,10 @@ Id Abigail::GetVariadic() {
   return *variadic_;
 }
 
-std::unique_ptr<Node> Abigail::MakeFunctionType(xmlNodePtr function) {
+Corpus::Corpus(Graph& graph, bool verbose, Typing& typing)
+    : graph_(graph), verbose_(verbose), typing_(typing) { }
+
+std::unique_ptr<Node> Corpus::MakeFunctionType(xmlNodePtr function) {
   std::vector<Parameter> parameters;
   std::optional<Id> return_type;
   for (auto child = xmlFirstElementChild(function); child;
@@ -268,18 +271,18 @@ std::unique_ptr<Node> Abigail::MakeFunctionType(xmlNodePtr function) {
     if (child_name == "parameter") {
       const auto is_variadic = ReadAttribute<bool>(child, "is-variadic", false);
       if (is_variadic) {
-        const auto type = GetVariadic();
+        const auto type = typing_.GetVariadic();
         Parameter parameter{.name = std::string(), .type_id = type};
         parameters.push_back(std::move(parameter));
       } else {
         const auto name = GetAttribute(child, "name");
-        const auto type = GetEdge(child);
+        const auto type = typing_.GetEdge(child);
         Parameter parameter{.name = name ? *name : std::string(),
                             .type_id = type};
         parameters.push_back(std::move(parameter));
       }
     } else if (child_name == "return") {
-      return_type = {GetEdge(child)};
+      return_type = {typing_.GetEdge(child)};
     } else {
       Die() << "unrecognised " << FromLibxml(function->name)
             << " child element '" << child_name << "'";
@@ -301,27 +304,7 @@ std::unique_ptr<Node> Abigail::MakeFunctionType(xmlNodePtr function) {
   return Make<Function>(*return_type, parameters);
 }
 
-Id Abigail::ProcessRoot(xmlNodePtr root) {
-  const auto name = GetElementName(root);
-  if (name == "abi-corpus-group") {
-    ProcessCorpusGroup(root);
-  } else if (name == "abi-corpus") {
-    ProcessCorpus(root);
-  } else {
-    Die() << "unrecognised root element '" << name << "'";
-  }
-  return BuildSymbols();
-}
-
-void Abigail::ProcessCorpusGroup(xmlNodePtr group) {
-  for (auto corpus = xmlFirstElementChild(group); corpus;
-       corpus = xmlNextElementSibling(corpus)) {
-    CheckElementName("abi-corpus", corpus);
-    ProcessCorpus(corpus);
-  }
-}
-
-void Abigail::ProcessCorpus(xmlNodePtr corpus) {
+std::map<std::string, Id> Corpus::ProcessCorpus(xmlNodePtr corpus) {
   for (auto element = xmlFirstElementChild(corpus); element;
        element = xmlNextElementSibling(element)) {
     const auto name = GetElementName(element);
@@ -335,9 +318,10 @@ void Abigail::ProcessCorpus(xmlNodePtr corpus) {
       Die() << "unrecognised abi-corpus child element '" << name << "'";
     }
   }
+  return BuildSymbols();
 }
 
-void Abigail::ProcessSymbols(xmlNodePtr symbols) {
+void Corpus::ProcessSymbols(xmlNodePtr symbols) {
   for (auto element = xmlFirstElementChild(symbols); element;
        element = xmlNextElementSibling(element)) {
     CheckElementName("elf-symbol", element);
@@ -345,7 +329,7 @@ void Abigail::ProcessSymbols(xmlNodePtr symbols) {
   }
 }
 
-void Abigail::ProcessSymbol(xmlNodePtr symbol) {
+void Corpus::ProcessSymbol(xmlNodePtr symbol) {
   // Symbol processing is done in two parts. In this first part, we parse just
   // enough XML attributes to generate a symbol id and determine any aliases.
   // Symbol ids in this format can be found in elf-symbol alias attributes and
@@ -378,8 +362,8 @@ void Abigail::ProcessSymbol(xmlNodePtr symbol) {
   }
 }
 
-bool Abigail::ProcessUserDefinedType(const std::string& name, Id id,
-                                     xmlNodePtr decl) {
+bool Corpus::ProcessUserDefinedType(const std::string& name, Id id,
+                                    xmlNodePtr decl) {
   if (name == "typedef-decl") {
     ProcessTypedef(id, decl);
   } else if (name == "class-decl") {
@@ -394,14 +378,14 @@ bool Abigail::ProcessUserDefinedType(const std::string& name, Id id,
   return true;
 }
 
-void Abigail::ProcessScope(xmlNodePtr scope) {
+void Corpus::ProcessScope(xmlNodePtr scope) {
   for (auto element = xmlFirstElementChild(scope); element;
        element = xmlNextElementSibling(element)) {
     const auto name = GetElementName(element);
     const auto type_id = GetAttribute(element, "id");
     // all type elements have "id", all non-types do not
     if (type_id) {
-      const auto id = GetNode(*type_id);
+      const auto id = typing_.GetNode(*type_id);
       if (graph_.Is(id)) {
         std::cerr << "duplicate definition of type '" << *type_id << "'\n";
         continue;
@@ -435,18 +419,18 @@ void Abigail::ProcessScope(xmlNodePtr scope) {
   }
 }
 
-void Abigail::ProcessInstr(xmlNodePtr instr) { ProcessScope(instr); }
+void Corpus::ProcessInstr(xmlNodePtr instr) { ProcessScope(instr); }
 
-void Abigail::ProcessNamespace(xmlNodePtr scope) {
+void Corpus::ProcessNamespace(xmlNodePtr scope) {
   const auto name = GetAttributeOrDie(scope, "name");
   PushScopeName push_scope_name(scope_name_, name);
   ProcessScope(scope);
 }
 
-Id Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
+Id Corpus::ProcessDecl(bool is_variable, xmlNodePtr decl) {
   const auto name = scope_name_ + GetAttributeOrDie(decl, "name");
   const auto symbol_id = GetAttribute(decl, "elf-symbol-id");
-  const auto type = is_variable ? GetEdge(decl)
+  const auto type = is_variable ? typing_.GetEdge(decl)
                                 : graph_.Add(MakeFunctionType(decl));
   if (verbose_ && !is_variable)
     std::cerr << type << " function type for function " << name << "\n";
@@ -462,20 +446,20 @@ Id Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
   return type;
 }
 
-void Abigail::ProcessFunctionType(Id id, xmlNodePtr function) {
+void Corpus::ProcessFunctionType(Id id, xmlNodePtr function) {
   graph_.Set(id, MakeFunctionType(function));
 }
 
-void Abigail::ProcessTypedef(Id id, xmlNodePtr type_definition) {
+void Corpus::ProcessTypedef(Id id, xmlNodePtr type_definition) {
   const auto name = scope_name_ + GetAttributeOrDie(type_definition, "name");
-  const auto type = GetEdge(type_definition);
+  const auto type = typing_.GetEdge(type_definition);
   graph_.Set(id, Make<Typedef>(name, type));
   if (verbose_)
     std::cerr << id << " typedef " << name << " of " << type << "\n";
 }
 
-void Abigail::ProcessPointer(Id id, bool is_pointer, xmlNodePtr pointer) {
-  const auto type = GetEdge(pointer);
+void Corpus::ProcessPointer(Id id, bool is_pointer, xmlNodePtr pointer) {
+  const auto type = typing_.GetEdge(pointer);
   const auto kind = is_pointer ? PointerReference::Kind::POINTER
                                : ReadAttribute<PointerReference::Kind>(
                                      pointer, "kind", &ParseReferenceKind);
@@ -484,7 +468,7 @@ void Abigail::ProcessPointer(Id id, bool is_pointer, xmlNodePtr pointer) {
     std::cerr << id << " " << kind << " to " << type << "\n";
 }
 
-void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
+void Corpus::ProcessQualified(Id id, xmlNodePtr qualified) {
   std::vector<Qualifier> qualifiers;
   // Do these in reverse order so we get CVR ordering.
   if (ReadAttribute<bool>(qualified, "restrict", false))
@@ -498,7 +482,7 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
   // the last qualifier which is set into place.
   if (verbose_)
     std::cerr << id << " qualified";
-  auto type = GetEdge(qualified);
+  auto type = typing_.GetEdge(qualified);
   auto count = qualifiers.size();
   for (auto qualifier : qualifiers) {
     --count;
@@ -514,7 +498,7 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
     std::cerr << " of " << id << "\n";
 }
 
-void Abigail::ProcessArray(Id id, xmlNodePtr array) {
+void Corpus::ProcessArray(Id id, xmlNodePtr array) {
   std::vector<size_t> dimensions;
   for (auto child = xmlFirstElementChild(array); child;
        child = xmlNextElementSibling(child)) {
@@ -535,7 +519,7 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
   // Use the same approach as for qualifiers.
   if (verbose_)
     std::cerr << id << " array";
-  auto type = GetEdge(array);
+  auto type = typing_.GetEdge(array);
   auto count = dimensions.size();
   for (auto it = dimensions.crbegin(); it != dimensions.crend(); ++it) {
     --count;
@@ -552,7 +536,7 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
     std::cerr << " of " << id << "\n";
 }
 
-void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
+void Corpus::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
   const auto name = scope_name_ + GetAttributeOrDie(type_decl, "name");
   const auto bits = ReadAttribute<size_t>(type_decl, "size-in-bits", 0);
   const auto bytes = (bits + 7) / 8;
@@ -578,8 +562,8 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
     std::cerr << id << " " << name << "\n";
 }
 
-void Abigail::ProcessStructUnion(Id id, bool is_struct,
-                                 xmlNodePtr struct_union) {
+void Corpus::ProcessStructUnion(Id id, bool is_struct,
+                                xmlNodePtr struct_union) {
   // TODO(b/236675648)
   // Libabigail is reporting wrong information for is-declaration-only so it is
   // not reliable. We are looking at the children of the element instead.
@@ -637,7 +621,7 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
     std::cerr << id << " " << kind << " " << full_name << "\n";
 }
 
-void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
+void Corpus::ProcessEnum(Id id, xmlNodePtr enumeration) {
   bool forward = ReadAttribute<bool>(enumeration, "is-declaration-only", false);
   const auto name = ReadAttribute<bool>(enumeration, "is-anonymous", false)
                     ? std::string()
@@ -652,7 +636,7 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
   xmlNodePtr underlying = xmlFirstElementChild(enumeration);
   Check(underlying) << "enum-decl has no child elements";
   CheckElementName("underlying-type", underlying);
-  const auto type = GetEdge(underlying);
+  const auto type = typing_.GetEdge(underlying);
   // TODO: decision on underlying type vs size
   (void)type;
 
@@ -672,8 +656,8 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
     std::cerr << id << " enum " << name << "\n";
 }
 
-Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {
-  const auto& type = GetEdge(base_class);
+Id Corpus::ProcessBaseClass(xmlNodePtr base_class) {
+  const auto& type = typing_.GetEdge(base_class);
   const auto offset =
       ReadAttributeOrDie<size_t>(base_class, "layout-offset-in-bits");
   const auto inheritance = ReadAttribute<bool>(base_class, "is-virtual", false)
@@ -682,8 +666,8 @@ Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {
   return graph_.Add(Make<BaseClass>(type, offset, inheritance));
 }
 
-std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
-                                             xmlNodePtr data_member) {
+std::optional<Id> Corpus::ProcessDataMember(bool is_struct,
+                                            xmlNodePtr data_member) {
   xmlNodePtr decl = GetOnlyChild("data-member", data_member);
   CheckElementName("var-decl", decl);
   if (ReadAttribute<bool>(data_member, "static", false)) {
@@ -695,13 +679,13 @@ std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
               ? ReadAttributeOrDie<size_t>(data_member, "layout-offset-in-bits")
               : 0;
   const auto name = GetAttributeOrDie(decl, "name");
-  const auto type = GetEdge(decl);
+  const auto type = typing_.GetEdge(decl);
 
   // Note: libabigail does not model member size, yet
   return {graph_.Add(Make<Member>(name, type, offset, 0))};
 }
 
-Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
+Id Corpus::ProcessMemberFunction(xmlNodePtr method) {
   xmlNodePtr decl = GetOnlyChild("member-function", method);
   CheckElementName("function-decl", decl);
   const auto mangled_name = GetAttributeOrDie(decl, "mangled-name");
@@ -717,10 +701,10 @@ Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
       Make<Method>(mangled_name, name, kind, vtable_offset, type));
 }
 
-void Abigail::ProcessMemberType(xmlNodePtr member_type) {
+void Corpus::ProcessMemberType(xmlNodePtr member_type) {
   xmlNodePtr decl = GetOnlyChild("member-type", member_type);
   const auto type_id = GetAttributeOrDie(decl, "id");
-  const auto id = GetNode(type_id);
+  const auto id = typing_.GetNode(type_id);
   if (graph_.Is(id)) {
     std::cerr << "duplicate definition of type '" << type_id << "'\n";
     return;
@@ -730,9 +714,9 @@ void Abigail::ProcessMemberType(xmlNodePtr member_type) {
     Die() << "unrecognised member-type child element '" << name << "'";
 }
 
-Id Abigail::BuildSymbol(const SymbolInfo& info,
-                        std::optional<Id> type_id,
-                        const std::optional<std::string>& name) {
+Id Corpus::BuildSymbol(const SymbolInfo& info,
+                       std::optional<Id> type_id,
+                       const std::optional<std::string>& name) {
   const xmlNodePtr symbol = info.node;
   const bool is_defined = ReadAttributeOrDie<bool>(symbol, "is-defined");
   const auto crc = ReadAttribute<CRC>(symbol, "crc");
@@ -747,7 +731,7 @@ Id Abigail::BuildSymbol(const SymbolInfo& info,
       is_defined, type, binding, visibility, crc, type_id, name));
 }
 
-Id Abigail::BuildSymbols() {
+std::map<std::string, Id> Corpus::BuildSymbols() {
   // Libabigail's model is (approximately):
   //
   //   (alias)* -> main symbol <- some decl -> type
@@ -756,11 +740,11 @@ Id Abigail::BuildSymbols() {
   //
   //   symbol / alias -> type
   //
+  std::map<std::string, Id> symbols;
   for (const auto& [alias, main] : alias_to_main_)
     Check(!alias_to_main_.count(main))
         << "found main symbol and alias with id " << main;
   // Build final symbol table, tying symbols to their types.
-  std::map<std::string, Id> symbols;
   for (const auto& [id, symbol_info] : symbol_info_map_) {
     const auto main = alias_to_main_.find(id);
     const auto lookup = main != alias_to_main_.end() ? main->second : id;
@@ -773,6 +757,27 @@ Id Abigail::BuildSymbols() {
       name = {type_id_and_name.second};
     }
     symbols.insert({id, BuildSymbol(symbol_info, type_id, name)});
+  }
+  return symbols;
+}
+
+Abigail::Abigail(Graph& graph, bool verbose)
+    : graph_(graph), verbose_(verbose) { }
+
+Id Abigail::ProcessRoot(xmlNodePtr root) {
+  Typing typing(graph_, verbose_);
+  std::map<std::string, Id> symbols;
+  const auto name = GetElementName(root);
+  if (name == "abi-corpus-group") {
+    for (auto child = xmlFirstElementChild(root); child;
+         child = xmlNextElementSibling(child)) {
+      CheckElementName("abi-corpus", child);
+      symbols.merge(Corpus(graph_, verbose_, typing).ProcessCorpus(child));
+    }
+  } else if (name == "abi-corpus") {
+    symbols.merge(Corpus(graph_, verbose_, typing).ProcessCorpus(root));
+  } else {
+    Die() << "unrecognised root element '" << name << "'";
   }
   return graph_.Add(Make<Symbols>(symbols));
 }
