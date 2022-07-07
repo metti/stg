@@ -394,7 +394,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                              std::nullopt,
                              GetId(t->type),
                              std::nullopt));
-      bool inserted = btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
+      bool inserted = btf_symbols_.insert(
+          {{std::string(), name}, GetIdRaw(btf_index)}).second;
       Check(inserted) << "duplicate symbol " << name;
       break;
     }
@@ -429,7 +430,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                              std::nullopt,
                              GetId(t->type),
                              std::nullopt));
-      bool inserted = btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
+      bool inserted = btf_symbols_.insert(
+          {{std::string(), name}, GetIdRaw(btf_index)}).second;
       Check(inserted) << "duplicate symbol " << name;
       break;
     }

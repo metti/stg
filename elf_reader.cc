@@ -31,7 +31,7 @@ namespace elf {
 Id Read(Graph& graph, const std::string& path, bool verbose) {
   if (verbose)
     std::cerr << "Parsing ELF: " << path << "\n";
-  std::map<std::string, Id> symbols;
+  std::map<SymbolKey, Id> symbols;
   return graph.Add(Make<Symbols>(symbols));
 }
 

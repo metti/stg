@@ -766,16 +766,25 @@ Abigail::Abigail(Graph& graph, bool verbose)
 
 Id Abigail::ProcessRoot(xmlNodePtr root) {
   Typing typing(graph_, verbose_);
-  std::map<std::string, Id> symbols;
+  std::map<SymbolKey, Id> symbols;
+  auto merge = [&](const std::string& path,
+                   const std::map<std::string, Id>& corpus_symbols) {
+    for (const auto& [name, id] : corpus_symbols) {
+      const SymbolKey key{path, name};
+      Check(symbols.insert({key, id}).second)
+          << "found duplicate symbol '" << key << "'";
+    }
+  };
   const auto name = GetElementName(root);
   if (name == "abi-corpus-group") {
     for (auto child = xmlFirstElementChild(root); child;
          child = xmlNextElementSibling(child)) {
       CheckElementName("abi-corpus", child);
-      symbols.merge(Corpus(graph_, verbose_, typing).ProcessCorpus(child));
+      const auto path = ReadAttribute(child, "path", std::string());
+      merge(path, Corpus(graph_, verbose_, typing).ProcessCorpus(child));
     }
   } else if (name == "abi-corpus") {
-    symbols.merge(Corpus(graph_, verbose_, typing).ProcessCorpus(root));
+    merge(std::string(), Corpus(graph_, verbose_, typing).ProcessCorpus(root));
   } else {
     Die() << "unrecognised root element '" << name << "'";
   }
