@@ -412,13 +412,14 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       break;
     }
     case BTF_KIND_VAR: {
-      // NOTE: not yet encountered in the wild
+      // NOTE: global variables are not yet emitted by pahole -J
       const auto* variable = memory.Pull<struct btf_var>();
       const auto name = GetName(t->name_off);
       const auto linkage = VariableLinkage(variable->linkage);
       if (verbose_) {
         // NOTE: The odd comma is to match bpftool dump.
-        std::cout << "VAR type_id=" << t->type
+        std::cout << "VAR '" << name << "'"
+                  << " type_id=" << t->type
                   << ", linkage=" << linkage
                   << '\n';
       }
