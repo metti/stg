@@ -276,7 +276,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                             : is_signed ? Integer::Encoding::SIGNED_INTEGER
                                         : Integer::Encoding::UNSIGNED_INTEGER;
       if (offset)
-        std::cerr << "ignoring BTF INT non-zero offset " << offset << '\n';
+        Die() << "BTF INT non-zero offset " << offset << '\n';
       define(Make<Integer>(name, encoding, bits, t->size));
       break;
     }
