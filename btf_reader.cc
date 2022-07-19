@@ -276,7 +276,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                             : is_signed ? Integer::Encoding::SIGNED_INTEGER
                                         : Integer::Encoding::UNSIGNED_INTEGER;
       if (offset)
-        std::cerr << "ignoring BTF INT non-zero offset " << offset << '\n';
+        Die() << "BTF INT non-zero offset " << offset << '\n';
       define(Make<Integer>(name, encoding, bits, t->size));
       break;
     }
@@ -394,7 +394,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                              std::nullopt,
                              GetId(t->type),
                              std::nullopt));
-      bool inserted = btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
+      bool inserted = btf_symbols_.insert(
+          {{std::string(), name}, GetIdRaw(btf_index)}).second;
       Check(inserted) << "duplicate symbol " << name;
       break;
     }
@@ -411,13 +412,14 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       break;
     }
     case BTF_KIND_VAR: {
-      // NOTE: not yet encountered in the wild
+      // NOTE: global variables are not yet emitted by pahole -J
       const auto* variable = memory.Pull<struct btf_var>();
       const auto name = GetName(t->name_off);
       const auto linkage = VariableLinkage(variable->linkage);
       if (verbose_) {
         // NOTE: The odd comma is to match bpftool dump.
-        std::cout << "VAR type_id=" << t->type
+        std::cout << "VAR '" << name << "'"
+                  << " type_id=" << t->type
                   << ", linkage=" << linkage
                   << '\n';
       }
@@ -429,7 +431,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                              std::nullopt,
                              GetId(t->type),
                              std::nullopt));
-      bool inserted = btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
+      bool inserted = btf_symbols_.insert(
+          {{std::string(), name}, GetIdRaw(btf_index)}).second;
       Check(inserted) << "duplicate symbol " << name;
       break;
     }
