@@ -19,7 +19,7 @@
 
 #include "error.h"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 
 namespace Test {
 
