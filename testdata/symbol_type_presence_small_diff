@@ -1,0 +1,6 @@
+symbol 'a' changed
+  type 'struct A *' was removed
+
+symbol 'b' changed
+  type 'struct B *' was added
+
