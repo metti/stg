@@ -124,12 +124,13 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
 
   // Write reports.
   stg::NameCache names;
-  stg::Reporting reporting{graph, state.outcomes, names};
   for (const auto& [format, filename] : outputs) {
     std::ofstream output(filename);
     if (comparison) {
       Time report("report diffs");
-      Report(reporting, *comparison, format, output, kMaxCrcOnlyChanges);
+      stg::ReportingOptions options{format, kMaxCrcOnlyChanges};
+      stg::Reporting reporting{graph, state.outcomes, options, names};
+      Report(reporting, *comparison, output);
       output << std::flush;
     }
     if (!output)

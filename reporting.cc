@@ -281,16 +281,15 @@ void ReportViz(Reporting& reporting, const Comparison& comparison,
 }
 
 void Report(Reporting& reporting, const Comparison& comparison,
-            OutputFormat format, std::ostream& output,
-            size_t max_crc_only_changes) {
-  switch (format) {
+            std::ostream& output) {
+  switch (reporting.options.format) {
     case OutputFormat::PLAIN: {
       ReportPlain(reporting, comparison, output);
       break;
     }
     case OutputFormat::FLAT:
     case OutputFormat::SMALL: {
-      bool full = format == OutputFormat::FLAT;
+      bool full = reporting.options.format == OutputFormat::FLAT;
       ReportFlat(reporting, comparison, full, output);
       break;
     }
@@ -301,7 +300,8 @@ void Report(Reporting& reporting, const Comparison& comparison,
       std::string line;
       while (std::getline(report, line))
         report_lines.push_back(line);
-      report_lines = stg::PostProcess(report_lines, max_crc_only_changes);
+      report_lines = stg::PostProcess(report_lines,
+                                      reporting.options.max_crc_only_changes);
       for (const auto& line : report_lines) {
         output << line << '\n';
       }
