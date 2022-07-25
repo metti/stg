@@ -84,11 +84,55 @@ TEST_CASE("compare options") {
     if (comparison) {
       stg::NameCache names;
       stg::Reporting reporting{graph, state.outcomes, names};
-      Report(reporting, *comparison, stg::OutputFormat::SMALL, output);
+      Report(reporting, *comparison, stg::OutputFormat::SMALL, output, 0);
     }
 
     // Check comparison outcome and report output.
     CHECK(equals == test_case.expected_equals);
+    std::ifstream expected_output_file(
+        filename_to_path(test_case.expected_output));
+    std::ostringstream expected_output;
+    expected_output << expected_output_file.rdbuf();
+    CHECK(output.str() == expected_output.str());
+  }
+}
+
+struct ShortReportTestCase {
+  const std::string name;
+  const std::string xml0;
+  const std::string xml1;
+  const std::string expected_output;
+};
+
+TEST_CASE("short report") {
+  const auto test_case = GENERATE(
+      ShortReportTestCase(
+          {"crc changes", "crc_0.xml", "crc_1.xml", "crc_changes_short_diff"}),
+      ShortReportTestCase({"only crc changes", "crc_only_0.xml",
+                           "crc_only_1.xml", "crc_only_changes_short_diff"}),
+      ShortReportTestCase({"offset changes", "offset_0.xml", "offset_1.xml",
+                           "offset_changes_short_diff"}));
+
+  SECTION(test_case.name) {
+    // Read inputs.
+    stg::Graph graph;
+    const auto id0 = stg::abixml::Read(graph, filename_to_path(test_case.xml0));
+    const auto id1 = stg::abixml::Read(graph, filename_to_path(test_case.xml1));
+
+    // Compute differences.
+    stg::State state{graph, {}};
+    const auto& [equals, comparison] = stg::Compare(state, id0, id1);
+
+    // Write SHORT reports.
+    std::stringstream output;
+    if (comparison) {
+      stg::NameCache names;
+      stg::Reporting reporting{graph, state.outcomes, names};
+      Report(reporting, *comparison, stg::OutputFormat::SHORT, output, 2);
+    }
+
+    // Check comparison outcome and report output.
+    CHECK(equals == false);
     std::ifstream expected_output_file(
         filename_to_path(test_case.expected_output));
     std::ostringstream expected_output;

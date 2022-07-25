@@ -21,11 +21,14 @@
 
 #include <cstddef>
 #include <deque>
+#include <sstream>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "error.h"
+#include "post_processing.h"
 
 namespace stg {
 
@@ -278,7 +281,8 @@ void ReportViz(Reporting& reporting, const Comparison& comparison,
 }
 
 void Report(Reporting& reporting, const Comparison& comparison,
-            OutputFormat format, std::ostream& output) {
+            OutputFormat format, std::ostream& output,
+            size_t max_crc_only_changes) {
   switch (format) {
     case OutputFormat::PLAIN: {
       ReportPlain(reporting, comparison, output);
@@ -288,7 +292,20 @@ void Report(Reporting& reporting, const Comparison& comparison,
     case OutputFormat::SMALL: {
       bool full = format == OutputFormat::FLAT;
       ReportFlat(reporting, comparison, full, output);
-          break;
+      break;
+    }
+    case OutputFormat::SHORT: {
+      std::stringstream report;
+      ReportFlat(reporting, comparison, false, report);
+      std::vector<std::string> report_lines;
+      std::string line;
+      while (std::getline(report, line))
+        report_lines.push_back(line);
+      report_lines = stg::PostProcess(report_lines, max_crc_only_changes);
+      for (const auto& line : report_lines) {
+        output << line << '\n';
+      }
+      break;
     }
     case OutputFormat::VIZ: {
       ReportViz(reporting, comparison, output);

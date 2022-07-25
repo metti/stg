@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020-2022 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -15,29 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Giuliano Procida
+// Author: Siddharth Nayyar
 
-#ifndef STG_REPORTING_H_
-#define STG_REPORTING_H_
+#ifndef STG_POST_PROCESSING_H_
+#define STG_POST_PROCESSING_H_
 
-#include <ostream>
-
-#include "stg.h"
+#include <string>
 
 namespace stg {
 
-struct Reporting {
-  const Graph& graph;
-  const Outcomes& outcomes;
-  NameCache& names;
-};
-
-enum class OutputFormat { PLAIN, FLAT, SMALL, SHORT, VIZ };
-
-void Report(Reporting& reporting, const Comparison& comparison,
-            OutputFormat format, std::ostream& output,
-            size_t max_crc_only_changes);
+std::vector<std::string> PostProcess(const std::vector<std::string>& report,
+                                     size_t max_crc_only_changes);
 
 }  // namespace stg
 
-#endif  // STG_REPORTING_H_
+#endif  // STG_POST_PROCESSING_H_

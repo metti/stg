@@ -48,6 +48,7 @@
 namespace {
 
 const int kAbiChange = 4;
+const size_t kMaxCrcOnlyChanges = 3;
 const stg::CompareOptions kAllCompareOptionsEnabled{true, true};
 
 class Time {
@@ -128,7 +129,7 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
     std::ofstream output(filename);
     if (comparison) {
       Time report("report diffs");
-      Report(reporting, *comparison, format, output);
+      Report(reporting, *comparison, format, output, kMaxCrcOnlyChanges);
       output << std::flush;
     }
     if (!output)
@@ -181,7 +182,7 @@ int main(int argc, char* argv[]) {
               << " [{-c|--compare-options} "
                  "{ignore_symbol_type_presence_changes|"
                  "ignore_type_declaration_status_changes|all}]\n"
-              << " [{-f|--format} {plain|flat|small|viz}]\n"
+              << " [{-f|--format} {plain|flat|small|short|viz}]\n"
               << " [{-o|--output} {filename|-}] ...\n"
               << "   implicit defaults: --abi --format plain\n"
               << "   format and output can appear multiple times\n"
@@ -222,6 +223,8 @@ int main(int argc, char* argv[]) {
           opt_output_format = stg::OutputFormat::FLAT;
         else if (strcmp(argument, "small") == 0)
           opt_output_format = stg::OutputFormat::SMALL;
+        else if (strcmp(argument, "short") == 0)
+          opt_output_format = stg::OutputFormat::SHORT;
         else if (strcmp(argument, "viz") == 0)
           opt_output_format = stg::OutputFormat::VIZ;
         else
