@@ -26,6 +26,7 @@
 
 #include <gelf.h>
 
+#include <cstring>
 #include <string>
 #include <string_view>
 

@@ -21,6 +21,7 @@
 #define STG_POST_PROCESSING_H_
 
 #include <string>
+#include <vector>
 
 namespace stg {
 
