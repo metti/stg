@@ -490,10 +490,11 @@ Result Array::Equals(State& state, const Node& other) const {
   return result;
 }
 
-static bool CompareDefined(bool defined1, bool defined2, Result& result) {
+static bool CompareDefined(bool defined1, bool defined2, Result& result,
+                           bool ignore_diff) {
   if (defined1 && defined2)
     return true;
-  if (defined1 != defined2) {
+  if (!ignore_diff && defined1 != defined2) {
     std::ostringstream os;
     os << "was " << (defined1 ? "fully defined" : "only declared")
        << ", is now " << (defined2 ? "fully defined" : "only declared");
@@ -618,7 +619,8 @@ Result StructUnion::Equals(State& state, const Node& other) const {
 
   const auto& definition1 = definition;
   const auto& definition2 = o.definition;
-  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result))
+  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
+                      state.options.ignore_type_declaration_status_changes))
     return result;
 
   result.MaybeAddNodeDiff(
@@ -632,7 +634,7 @@ Result StructUnion::Equals(State& state, const Node& other) const {
   return result;
 }
 
-Result Enumeration::Equals(State&, const Node& other) const {
+Result Enumeration::Equals(State& state, const Node& other) const {
   const auto& o = other.as<Enumeration>();
 
   Result result;
@@ -645,7 +647,8 @@ Result Enumeration::Equals(State&, const Node& other) const {
 
   const auto& definition1 = definition;
   const auto& definition2 = o.definition;
-  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result))
+  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
+                      state.options.ignore_type_declaration_status_changes))
     return result;
   result.MaybeAddNodeDiff(
       "byte size", definition1->bytesize, definition2->bytesize);
@@ -806,9 +809,11 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   if (type_id && o.type_id) {
     result.MaybeAddEdgeDiff("", Compare(state, *type_id, *o.type_id));
   } else if (type_id) {
-    result.AddEdgeDiff("", Removed(state, *type_id));
+    if (!state.options.ignore_symbol_type_presence_changes)
+      result.AddEdgeDiff("", Removed(state, *type_id));
   } else if (o.type_id) {
-    result.AddEdgeDiff("", Added(state, *o.type_id));
+    if (!state.options.ignore_symbol_type_presence_changes)
+      result.AddEdgeDiff("", Added(state, *o.type_id));
   } else {
     // both types missing, we have nothing to say
   }
