@@ -26,7 +26,7 @@
 
 #include <gelf.h>
 
-#include <cstring>
+#include <functional>
 #include <string>
 #include <string_view>
 
@@ -51,27 +51,44 @@ ElfLoader::~ElfLoader() {
     close(fd_);
 }
 
-Elf_Scn* ElfLoader::GetBtfSection() const {
-  size_t shdr_strtab_index;
-  if (elf_getshdrstrndx(elf_, &shdr_strtab_index) < 0)
-    Die() << "Could not get ELF section header string table index";
-
+std::vector<Elf_Scn*> ElfLoader::GetSectionsIf(
+    std::function<bool(const GElf_Shdr&)> predicate) const {
+  std::vector<Elf_Scn*> result;
   Elf_Scn* section = nullptr;
   GElf_Shdr header;
   while ((section = elf_nextscn(elf_, section)) != nullptr) {
-    Check(gelf_getshdr(section, &header)) << "Could not get ELF section header";
-    const char* name = elf_strptr(elf_, shdr_strtab_index, header.sh_name);
-    if (strcmp(name, ".BTF") == 0)
-      break;
+    Check(gelf_getshdr(section, &header) != nullptr)
+        << path_ << ": could not get ELF section header";
+    if (predicate(header))
+      result.push_back(section);
   }
-  return section;
+  return result;
+}
+
+std::vector<Elf_Scn*> ElfLoader::GetSectionsByName(
+    const std::string& name) const {
+  size_t shdr_strtab_index;
+  Check(elf_getshdrstrndx(elf_, &shdr_strtab_index) == 0)
+      << path_ << ": could not get ELF section header string table index";
+  return GetSectionsIf([&](const GElf_Shdr& header) {
+    return elf_strptr(elf_, shdr_strtab_index, header.sh_name) == name;
+  });
+}
+
+Elf_Scn* ElfLoader::GetSectionByName(const std::string& name) const {
+  const auto sections = GetSectionsByName(name);
+  Check(!sections.empty())
+      << path_ << ": no section found with name '" << name << "'";
+  Check(sections.size() == 1)
+      << path_ << ": multiple sections found with name '" << name << "'";
+  return sections[0];
 }
 
 std::string_view ElfLoader::GetBtfRawData() const {
-  Elf_Scn* btf_section = GetBtfSection();
-  Check(btf_section != nullptr) << "No .BTF section found in " << path_;
+  Elf_Scn* btf_section = GetSectionByName(".BTF");
+  Check(btf_section != nullptr) << path_ << ": .BTF section is invalid";
   Elf_Data* elf_data = elf_rawdata(btf_section, 0);
-  Check(elf_data != nullptr) << "The .BTF section is invalid";
+  Check(elf_data != nullptr) << path_ << ": .BTF section data is invalid";
   const char* btf_start = static_cast<char*>(elf_data->d_buf);
   const size_t btf_size = elf_data->d_size;
   return std::string_view(btf_start, btf_size);

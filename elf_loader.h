@@ -20,11 +20,11 @@
 #ifndef STG_ELF_LOADER_H_
 #define STG_ELF_LOADER_H_
 
+#include <gelf.h>
+
+#include <functional>
 #include <string>
 #include <string_view>
-
-struct Elf;
-struct Elf_Scn;
 
 namespace stg {
 namespace elf {
@@ -39,9 +39,12 @@ class ElfLoader final {
   std::string_view GetBtfRawData() const;
 
  private:
-  Elf_Scn* GetBtfSection() const;
+  std::vector<Elf_Scn*> GetSectionsIf(
+      std::function<bool(const GElf_Shdr&)> predicate) const;
+  std::vector<Elf_Scn*> GetSectionsByName(const std::string& name) const;
+  Elf_Scn* GetSectionByName(const std::string& name) const;
 
-  std::string path_;
+  const std::string path_;
   int fd_;
   Elf* elf_;
 };
