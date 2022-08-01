@@ -1,0 +1,16 @@
+2 symbol(s) removed
+  'b'
+  'f'
+
+2 symbol(s) added
+  'c'
+  'g'
+
+symbol 'a' changed
+  type changed from 'struct A[5]' to 'struct A[10]'
+    number of elements changed from 5 to 10
+
+type 'struct A' changed
+  byte size changed from 4 to 8
+  member 'int y' was added
+
