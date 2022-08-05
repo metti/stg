@@ -32,6 +32,7 @@ namespace elf {
 class ElfLoader final {
  public:
   explicit ElfLoader(const std::string& path);
+  ElfLoader(char* data, size_t size);
   ElfLoader(const ElfLoader&) = delete;
   ElfLoader& operator=(const ElfLoader&) = delete;
   ~ElfLoader();

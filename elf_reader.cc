@@ -45,5 +45,12 @@ Id Read(Graph& graph, const std::string& path, bool verbose) {
   return Read(graph, elf::ElfLoader(path));
 }
 
+Id Read(Graph& graph, char* data, size_t size, bool verbose) {
+  if (verbose)
+    std::cout << "Parsing ELF from memory\n";
+
+  return Read(graph, elf::ElfLoader(data, size));
+}
+
 }  // namespace elf
 }  // namespace stg

@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include <gelf.h>
+#include <libelf.h>
 
 #include <functional>
 #include <string>
@@ -37,11 +38,18 @@ namespace elf {
 
 ElfLoader::ElfLoader(const std::string& path)
     : path_(path), fd_(-1), elf_(nullptr) {
-  Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
   fd_ = open(path.c_str(), O_RDONLY);
   Check(fd_ >= 0) << "Could not open " << path;
+  Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
   elf_ = elf_begin(fd_, ELF_C_READ, nullptr);
   Check(elf_ != nullptr) << "ELF data not found in " << path;
+}
+
+ElfLoader::ElfLoader(char* data, size_t size)
+    : path_("(memory)"), fd_(-1), elf_(nullptr) {
+  Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
+  elf_ = elf_memory(data, size);
+  Check(elf_ != nullptr) << "Cannot initialize libelf with provided memory";
 }
 
 ElfLoader::~ElfLoader() {
