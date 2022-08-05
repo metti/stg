@@ -23,16 +23,26 @@
 #include <map>
 #include <string>
 
+#include "elf_loader.h"
 #include "stg.h"
 
 namespace stg {
 namespace elf {
 
+namespace {
+
+Id Read(Graph& graph, elf::ElfLoader&&) {
+  std::map<SymbolKey, Id> symbols_map;
+  return graph.Add(Make<Symbols>(symbols_map));
+}
+
+}  // namespace
+
 Id Read(Graph& graph, const std::string& path, bool verbose) {
   if (verbose)
-    std::cerr << "Parsing ELF: " << path << "\n";
-  std::map<SymbolKey, Id> symbols;
-  return graph.Add(Make<Symbols>(symbols));
+    std::cout << "Parsing ELF: " << path << '\n';
+
+  return Read(graph, elf::ElfLoader(path));
 }
 
 }  // namespace elf

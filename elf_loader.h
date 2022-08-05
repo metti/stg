@@ -31,7 +31,7 @@ namespace elf {
 
 class ElfLoader final {
  public:
-  ElfLoader(const std::string& path);
+  explicit ElfLoader(const std::string& path);
   ElfLoader(const ElfLoader&) = delete;
   ElfLoader& operator=(const ElfLoader&) = delete;
   ~ElfLoader();
