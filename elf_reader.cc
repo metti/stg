@@ -31,7 +31,11 @@ namespace elf {
 
 namespace {
 
-Id Read(Graph& graph, elf::ElfLoader&&) {
+Id Read(Graph& graph, elf::ElfLoader&& elf, bool verbose) {
+  const auto symbols = elf.GetElfSymbols();
+  if (verbose)
+    std::cout << "Parsed " << symbols.size() << " symbols\n";
+
   std::map<SymbolKey, Id> symbols_map;
   return graph.Add(Make<Symbols>(symbols_map));
 }
@@ -42,14 +46,14 @@ Id Read(Graph& graph, const std::string& path, bool verbose) {
   if (verbose)
     std::cout << "Parsing ELF: " << path << '\n';
 
-  return Read(graph, elf::ElfLoader(path));
+  return Read(graph, elf::ElfLoader(path, verbose), verbose);
 }
 
 Id Read(Graph& graph, char* data, size_t size, bool verbose) {
   if (verbose)
     std::cout << "Parsing ELF from memory\n";
 
-  return Read(graph, elf::ElfLoader(data, size));
+  return Read(graph, elf::ElfLoader(data, size, verbose), verbose);
 }
 
 }  // namespace elf

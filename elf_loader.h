@@ -25,27 +25,68 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <vector>
+
+#include "stg.h"
 
 namespace stg {
 namespace elf {
 
+struct SymbolTableEntry {
+  enum class SymbolType {
+    NOTYPE = 0,
+    OBJECT,
+    FUNCTION,
+    SECTION,
+    FILE,
+    COMMON,
+    TLS,
+    GNU_IFUNC
+  };
+
+  enum class ValueType {
+    UNDEFINED = 0,
+    ABSOLUTE,
+    COMMON,
+    RELATIVE_TO_SECTION,
+  };
+
+  using Binding = ElfSymbol::Binding;
+  using Visibility = ElfSymbol::Visibility;
+
+  std::string name;
+  uint64_t value;
+  uint64_t size;
+  SymbolType symbol_type;
+  Binding binding;
+  Visibility visibility;
+  ValueType value_type;
+};
+
 class ElfLoader final {
  public:
-  explicit ElfLoader(const std::string& path);
-  ElfLoader(char* data, size_t size);
+  explicit ElfLoader(const std::string& path, bool verbose = false);
+  ElfLoader(char* data, size_t size, bool verbose = false);
   ElfLoader(const ElfLoader&) = delete;
   ElfLoader& operator=(const ElfLoader&) = delete;
   ~ElfLoader();
 
   std::string_view GetBtfRawData() const;
+  std::vector<SymbolTableEntry> GetElfSymbols() const;
 
  private:
   std::vector<Elf_Scn*> GetSectionsIf(
       std::function<bool(const GElf_Shdr&)> predicate) const;
   std::vector<Elf_Scn*> GetSectionsByName(const std::string& name) const;
   Elf_Scn* GetSectionByName(const std::string& name) const;
+  Elf_Scn* GetSectionByType(Elf64_Word type) const;
+  Elf_Scn* GetSymbolTableSection() const;
+
+  std::string GetSymbolName(const GElf_Shdr& symbol_table_header,
+                            const GElf_Sym& symbol) const;
 
   const std::string path_;
+  const bool verbose_;
   int fd_;
   Elf* elf_;
 };
