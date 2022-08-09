@@ -89,6 +89,7 @@ class ElfLoader final {
     Elf_Data* data;
   };
   SectionInfo GetSectionInfo(Elf_Scn* section) const;
+  size_t GetNumberOfEntries(const GElf_Shdr& section_header) const;
 
   std::string_view GetString(uint32_t section, size_t offset) const;
 

@@ -125,6 +125,23 @@ std::string PrintElfHeaderType(unsigned char elf_header_type) {
   }
 }
 
+std::string PrintElfSectionType(Elf64_Word elf_section_type) {
+  switch (elf_section_type) {
+    case SHT_SYMTAB:
+      return "symtab";
+    case SHT_DYNSYM:
+      return "dynsym";
+    case SHT_GNU_verdef:
+      return "GNU_verdef";
+    case SHT_GNU_verneed:
+      return "GNU_verneed";
+    case SHT_GNU_versym:
+      return "GNU_versym";
+    default:
+      return "unknown (type = " + std::to_string(elf_section_type) + ')';
+  }
+}
+
 }  // namespace
 
 ElfLoader::ElfLoader(const std::string& path, bool verbose)
@@ -201,6 +218,13 @@ ElfLoader::SectionInfo ElfLoader::GetSectionInfo(Elf_Scn* section) const {
   return {section_header, data};
 }
 
+size_t ElfLoader::GetNumberOfEntries(const GElf_Shdr& section_header) const {
+  Check(section_header.sh_entsize != 0)
+      << "zero table entity size is unexpected for section "
+      << PrintElfSectionType(section_header.sh_type);
+  return section_header.sh_size / section_header.sh_entsize;
+}
+
 std::string_view ElfLoader::GetBtfRawData() const {
   Elf_Scn* btf_section = GetSectionByName(".BTF");
   Check(btf_section != nullptr) << ".BTF section is invalid";
@@ -244,11 +268,7 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
 
   const auto [symbol_table_header, symbol_table_data] =
       GetSectionInfo(symbol_table_section);
-
-  Check(symbol_table_header.sh_entsize != 0)
-      << "zero symbol table entity size is unexpected";
-  const size_t number_of_symbols =
-      symbol_table_header.sh_size / symbol_table_header.sh_entsize;
+  const size_t number_of_symbols = GetNumberOfEntries(symbol_table_header);
 
   std::vector<SymbolTableEntry> result;
   result.reserve(number_of_symbols);
