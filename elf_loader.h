@@ -85,7 +85,6 @@ class ElfLoader final {
   std::string GetSymbolName(const GElf_Shdr& symbol_table_header,
                             const GElf_Sym& symbol) const;
 
-  const std::string path_;
   const bool verbose_;
   int fd_;
   Elf* elf_;

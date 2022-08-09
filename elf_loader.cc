@@ -126,7 +126,7 @@ std::string PrintElfHeaderType(unsigned char elf_header_type) {
 }  // namespace
 
 ElfLoader::ElfLoader(const std::string& path, bool verbose)
-    : path_(path), verbose_(verbose), fd_(-1), elf_(nullptr) {
+    : verbose_(verbose), fd_(-1), elf_(nullptr) {
   fd_ = open(path.c_str(), O_RDONLY);
   Check(fd_ >= 0) << "Could not open " << path;
   Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
@@ -135,7 +135,7 @@ ElfLoader::ElfLoader(const std::string& path, bool verbose)
 }
 
 ElfLoader::ElfLoader(char* data, size_t size, bool verbose)
-    : path_("(memory)"), verbose_(verbose), fd_(-1), elf_(nullptr) {
+    : verbose_(verbose), fd_(-1), elf_(nullptr) {
   Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
   elf_ = elf_memory(data, size);
   Check(elf_ != nullptr) << "Cannot initialize libelf with provided memory";
@@ -155,7 +155,7 @@ std::vector<Elf_Scn*> ElfLoader::GetSectionsIf(
   GElf_Shdr header;
   while ((section = elf_nextscn(elf_, section)) != nullptr) {
     Check(gelf_getshdr(section, &header) != nullptr)
-        << path_ << ": could not get ELF section header";
+        << "could not get ELF section header";
     if (predicate(header))
       result.push_back(section);
   }
@@ -166,7 +166,7 @@ std::vector<Elf_Scn*> ElfLoader::GetSectionsByName(
     const std::string& name) const {
   size_t shdr_strtab_index;
   Check(elf_getshdrstrndx(elf_, &shdr_strtab_index) == 0)
-      << path_ << ": could not get ELF section header string table index";
+      << "could not get ELF section header string table index";
   return GetSectionsIf([&](const GElf_Shdr& header) {
     return elf_strptr(elf_, shdr_strtab_index, header.sh_name) == name;
   });
@@ -174,10 +174,9 @@ std::vector<Elf_Scn*> ElfLoader::GetSectionsByName(
 
 Elf_Scn* ElfLoader::GetSectionByName(const std::string& name) const {
   const auto sections = GetSectionsByName(name);
-  Check(!sections.empty())
-      << path_ << ": no section found with name '" << name << "'";
+  Check(!sections.empty()) << "no section found with name '" << name << "'";
   Check(sections.size() == 1)
-      << path_ << ": multiple sections found with name '" << name << "'";
+      << "multiple sections found with name '" << name << "'";
   return sections[0];
 }
 
@@ -185,18 +184,16 @@ Elf_Scn* ElfLoader::GetSectionByType(Elf64_Word type) const {
   auto sections = GetSectionsIf([&](const GElf_Shdr& header) {
     return header.sh_type == type;
   });
-  Check(!sections.empty())
-      << path_ << ": no section found with type " << type;
-  Check(sections.size() == 1)
-      << path_ << ": multiple sections found with type " << type;
+  Check(!sections.empty()) << "no section found with type " << type;
+  Check(sections.size() == 1) << "multiple sections found with type " << type;
   return sections[0];
 }
 
 std::string_view ElfLoader::GetBtfRawData() const {
   Elf_Scn* btf_section = GetSectionByName(".BTF");
-  Check(btf_section != nullptr) << path_ << ": .BTF section is invalid";
+  Check(btf_section != nullptr) << ".BTF section is invalid";
   Elf_Data* elf_data = elf_rawdata(btf_section, 0);
-  Check(elf_data != nullptr) << path_ << ": .BTF section data is invalid";
+  Check(elf_data != nullptr) << ".BTF section data is invalid";
   const char* btf_start = static_cast<char*>(elf_data->d_buf);
   const size_t btf_size = elf_data->d_size;
   return std::string_view(btf_start, btf_size);
@@ -205,7 +202,7 @@ std::string_view ElfLoader::GetBtfRawData() const {
 Elf_Scn* ElfLoader::GetSymbolTableSection() const {
   GElf_Ehdr elf_header;
   Check(gelf_getehdr(elf_, &elf_header) != nullptr)
-      << path_ << ": could not get ELF header";
+      << "could not get ELF header";
 
   if (verbose_)
     std::cout << "ELF type: " << PrintElfHeaderType(elf_header.e_type) << '\n';
@@ -216,8 +213,8 @@ Elf_Scn* ElfLoader::GetSymbolTableSection() const {
   else if (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)
     return GetSectionByType(SHT_DYNSYM);
   else
-    Die() << path_ << ": unsupported ELF type: '"
-          << PrintElfHeaderType(elf_header.e_type) << "'";
+    Die() << "unsupported ELF type: '" << PrintElfHeaderType(elf_header.e_type)
+          << "'";
 }
 
 std::string ElfLoader::GetSymbolName(const GElf_Shdr& symbol_table_header,
@@ -225,7 +222,7 @@ std::string ElfLoader::GetSymbolName(const GElf_Shdr& symbol_table_header,
   const auto name =
       elf_strptr(elf_, symbol_table_header.sh_link, symbol.st_name);
 
-  Check(name != nullptr) << path_ << ": symbol name was not found (section: "
+  Check(name != nullptr) << "symbol name was not found (section: "
                          << symbol_table_header.sh_link
                          << ", name index: " << symbol.st_name << ")";
   return name;
@@ -234,16 +231,15 @@ std::string ElfLoader::GetSymbolName(const GElf_Shdr& symbol_table_header,
 std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
   Elf_Scn* symbol_table_section = GetSymbolTableSection();
   Check(symbol_table_section != nullptr)
-      << path_ << ": failed to find symbol table section";
+      << "failed to find symbol table section";
 
   GElf_Shdr symbol_table_header;
   Check(gelf_getshdr(symbol_table_section, &symbol_table_header) != nullptr)
-      << path_ << ": failed to read symbol table header";
+      << "failed to read symbol table header";
   Check(symbol_table_header.sh_entsize != 0)
-      << path_ << ": zero symbol table entity size is unexpected";
+      << "zero symbol table entity size is unexpected";
   Elf_Data* symbol_table_data = elf_getdata(symbol_table_section, 0);
-  Check(symbol_table_data != nullptr)
-      << path_ << ": symbol table data is invalid";
+  Check(symbol_table_data != nullptr) << "symbol table data is invalid";
 
   const size_t number_of_symbols =
       symbol_table_header.sh_size / symbol_table_header.sh_entsize;
@@ -254,7 +250,7 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
   for (size_t i = 0; i < number_of_symbols; ++i) {
     GElf_Sym symbol;
     Check(gelf_getsym(symbol_table_data, i, &symbol) != nullptr)
-        << path_ << ": symbol (i = " << i << ") was not found";
+        << "symbol (i = " << i << ") was not found";
 
     const std::string name = GetSymbolName(symbol_table_header, symbol);
     result.push_back(SymbolTableEntry{
