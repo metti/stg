@@ -56,7 +56,7 @@ struct SymbolTableEntry {
   using Binding = ElfSymbol::Binding;
   using Visibility = ElfSymbol::Visibility;
 
-  std::string name;
+  std::string_view name;
   uint64_t value;
   uint64_t size;
   SymbolType symbol_type;

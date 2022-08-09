@@ -251,7 +251,7 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
 
     const auto name = GetString(symbol_table_header.sh_link, symbol.st_name);
     result.push_back(SymbolTableEntry{
-        .name = std::string(name),
+        .name = name,
         .value = symbol.st_value,
         .size = symbol.st_size,
         .symbol_type = ParseSymbolType(GELF_ST_TYPE(symbol.st_info)),
