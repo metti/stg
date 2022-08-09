@@ -217,14 +217,11 @@ Elf_Scn* ElfLoader::GetSymbolTableSection() const {
           << "'";
 }
 
-std::string ElfLoader::GetSymbolName(const GElf_Shdr& symbol_table_header,
-                                     const GElf_Sym& symbol) const {
-  const auto name =
-      elf_strptr(elf_, symbol_table_header.sh_link, symbol.st_name);
+std::string_view ElfLoader::GetString(uint32_t section, size_t offset) const {
+  const auto name = elf_strptr(elf_, section, offset);
 
-  Check(name != nullptr) << "symbol name was not found (section: "
-                         << symbol_table_header.sh_link
-                         << ", name index: " << symbol.st_name << ")";
+  Check(name != nullptr) << "string was not found (section: " << section
+                         << ", offset: " << offset << ")";
   return name;
 }
 
@@ -252,9 +249,9 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
     Check(gelf_getsym(symbol_table_data, i, &symbol) != nullptr)
         << "symbol (i = " << i << ") was not found";
 
-    const std::string name = GetSymbolName(symbol_table_header, symbol);
+    const auto name = GetString(symbol_table_header.sh_link, symbol.st_name);
     result.push_back(SymbolTableEntry{
-        .name = name,
+        .name = std::string(name),
         .value = symbol.st_value,
         .size = symbol.st_size,
         .symbol_type = ParseSymbolType(GELF_ST_TYPE(symbol.st_info)),

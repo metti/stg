@@ -22,6 +22,8 @@
 
 #include <gelf.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -82,8 +84,7 @@ class ElfLoader final {
   Elf_Scn* GetSectionByType(Elf64_Word type) const;
   Elf_Scn* GetSymbolTableSection() const;
 
-  std::string GetSymbolName(const GElf_Shdr& symbol_table_header,
-                            const GElf_Sym& symbol) const;
+  std::string_view GetString(uint32_t section, size_t offset) const;
 
   const bool verbose_;
   int fd_;
