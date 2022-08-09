@@ -24,9 +24,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <elf.h>
 #include <gelf.h>
 #include <libelf.h>
 
+#include <cstddef>
 #include <functional>
 #include <iostream>
 #include <string>
@@ -189,6 +191,16 @@ Elf_Scn* ElfLoader::GetSectionByType(Elf64_Word type) const {
   return sections[0];
 }
 
+ElfLoader::SectionInfo ElfLoader::GetSectionInfo(Elf_Scn* section) const {
+  size_t index = elf_ndxscn(section);
+  GElf_Shdr section_header;
+  Check(gelf_getshdr(section, &section_header) != nullptr)
+      << "failed to read section (index = " << index << ") header";
+  Elf_Data* data = elf_getdata(section, 0);
+  Check(data != nullptr) << "section (index = " << index << ") data is invalid";
+  return {section_header, data};
+}
+
 std::string_view ElfLoader::GetBtfRawData() const {
   Elf_Scn* btf_section = GetSectionByName(".BTF");
   Check(btf_section != nullptr) << ".BTF section is invalid";
@@ -230,14 +242,11 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
   Check(symbol_table_section != nullptr)
       << "failed to find symbol table section";
 
-  GElf_Shdr symbol_table_header;
-  Check(gelf_getshdr(symbol_table_section, &symbol_table_header) != nullptr)
-      << "failed to read symbol table header";
+  const auto [symbol_table_header, symbol_table_data] =
+      GetSectionInfo(symbol_table_section);
+
   Check(symbol_table_header.sh_entsize != 0)
       << "zero symbol table entity size is unexpected";
-  Elf_Data* symbol_table_data = elf_getdata(symbol_table_section, 0);
-  Check(symbol_table_data != nullptr) << "symbol table data is invalid";
-
   const size_t number_of_symbols =
       symbol_table_header.sh_size / symbol_table_header.sh_entsize;
 

@@ -84,6 +84,12 @@ class ElfLoader final {
   Elf_Scn* GetSectionByType(Elf64_Word type) const;
   Elf_Scn* GetSymbolTableSection() const;
 
+  struct SectionInfo {
+    GElf_Shdr header;
+    Elf_Data* data;
+  };
+  SectionInfo GetSectionInfo(Elf_Scn* section) const;
+
   std::string_view GetString(uint32_t section, size_t offset) const;
 
   const bool verbose_;
