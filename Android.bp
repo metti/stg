@@ -67,39 +67,23 @@ cc_library_host_static {
 }
 
 cc_library_host_static {
-    name: "abigail_reader",
+    name: "input",
     defaults: ["defaults"],
-    srcs: ["abigail_reader.cc"],
+    srcs: [
+        "abigail_reader.cc",
+        "btf_reader.cc",
+        "elf_loader.cc",
+        "elf_reader.cc",
+    ],
 }
 
 cc_library_host_static {
-    name: "btf_reader",
+    name: "output",
     defaults: ["defaults"],
-    srcs: ["btf_reader.cc"],
-}
-
-cc_library_host_static {
-    name: "elf_loader",
-    defaults: ["defaults"],
-    srcs: ["elf_loader.cc"],
-}
-
-cc_library_host_static {
-    name: "elf_reader",
-    defaults: ["defaults"],
-    srcs: ["elf_reader.cc"],
-}
-
-cc_library_host_static {
-    name: "post_processing",
-    defaults: ["defaults"],
-    srcs: ["post_processing.cc"],
-}
-
-cc_library_host_static {
-    name: "reporting",
-    defaults: ["defaults"],
-    srcs: ["reporting.cc"],
+    srcs: [
+        "post_processing.cc",
+        "reporting.cc",
+    ],
 }
 
 cc_binary_host {
@@ -107,12 +91,8 @@ cc_binary_host {
     defaults: ["defaults"],
     srcs: ["stgdiff.cc"],
     static_libs: [
-        "abigail_reader",
-        "btf_reader",
-        "elf_loader",
-        "elf_reader",
-        "post_processing",
-        "reporting",
+        "input",
+        "output",
         "stg",
     ],
 }
@@ -124,10 +104,7 @@ cc_binary_host {
         "stginfo.cc",
     ],
     static_libs: [
-        "abigail_reader",
-        "btf_reader",
-        "elf_loader",
-        "elf_reader",
+        "input",
         "stg",
     ],
 }
