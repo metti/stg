@@ -24,6 +24,8 @@
 #include <regex>  // NOLINT
 #include <sstream>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace stg {
@@ -138,10 +140,52 @@ std::vector<std::string> SummariseOffsetChanges(
   return new_report;
 }
 
+std::vector<std::string> GroupRemovedAddedSymbols(
+    const std::vector<std::string>& report) {
+  const std::regex symbol_re("^symbol ('.*') was (added|removed)$");
+  const std::regex empty_re("^$");
+
+  std::vector<std::string> new_report;
+  std::unordered_map<std::string, std::vector<std::string>> pending;
+
+  auto emit_pending = [&]() {
+    for (const auto& which : {"removed", "added"}) {
+      auto& pending_symbols = pending[which];
+      if (!pending_symbols.empty()) {
+        std::ostringstream os;
+        os << pending_symbols.size() << " symbol(s) " << which;
+        new_report.push_back(os.str());
+        for (const auto& symbol : std::exchange(pending_symbols, {}))
+          new_report.push_back("  " + symbol);
+        new_report.push_back({});
+      }
+    }
+  };
+
+  for (size_t ix = 0; ix < report.size(); ++ix) {
+    std::smatch match;
+    if (ix + 1 < report.size() &&
+        std::regex_match(report[ix], match, symbol_re) &&
+        std::regex_match(report[ix + 1], empty_re)) {
+      pending[match[2].str()].push_back(match[1].str());
+      // consumed 2 lines in total => 1 extra line (there is always an empty
+      // line after symbol added/removed line)
+      ++ix;
+    } else {
+      emit_pending();
+      new_report.push_back(report[ix]);
+    }
+  }
+
+  emit_pending();
+  return new_report;
+}
+
 std::vector<std::string> PostProcess(const std::vector<std::string>& report,
                                      size_t max_crc_only_changes) {
   std::vector<std::string> new_report;
   new_report = SummariseCRCChanges(report, max_crc_only_changes);
+  new_report = GroupRemovedAddedSymbols(new_report);
   new_report = SummariseOffsetChanges(new_report);
   return new_report;
 }

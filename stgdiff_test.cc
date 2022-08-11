@@ -112,7 +112,14 @@ TEST_CASE("short report") {
       ShortReportTestCase({"only crc changes", "crc_only_0.xml",
                            "crc_only_1.xml", "crc_only_changes_short_diff"}),
       ShortReportTestCase({"offset changes", "offset_0.xml", "offset_1.xml",
-                           "offset_changes_short_diff"}));
+                           "offset_changes_short_diff"}),
+      ShortReportTestCase(
+          {"symbols added and removed", "added_removed_symbols_0.xml",
+           "added_removed_symbols_1.xml", "added_removed_symbols_short_diff"}),
+      ShortReportTestCase({"symbols added and removed only",
+                           "added_removed_symbols_only_0.xml",
+                           "added_removed_symbols_only_1.xml",
+                           "added_removed_symbols_only_short_diff"}));
 
   SECTION(test_case.name) {
     // Read inputs.
