@@ -425,8 +425,12 @@ std::string ElfSymbol::ExtraDescription() const {
   return name == symbol_name ? std::string() : " {" + symbol_name + "}";
 }
 
-Name ElfSymbol::MakeDescription(const Graph&, NameCache&) const {
-  return Name{full_name ? *full_name : symbol_name};
+Name ElfSymbol::MakeDescription(const Graph& graph, NameCache& names) const {
+  const auto& name = full_name ? *full_name : symbol_name;
+  return type_id
+      ? GetDescription(graph, names, *type_id).Add(
+          Side::LEFT, Precedence::ATOMIC, name)
+      : Name{name};
 }
 
 Name Symbols::MakeDescription(const Graph&, NameCache&) const {
