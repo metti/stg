@@ -151,7 +151,8 @@ std::string GetResolvedDescription(
   const Id resolved = ResolveTypedefs(graph, id, typedefs);
   for (auto td : typedefs)
     os << std::quoted(td, '\'') << " = ";
-  os << '\'' << GetDescription(graph, names, resolved) << '\'';
+  os << '\'' << GetDescription(graph, names, resolved) << '\''
+     << graph.Get(resolved).ExtraDescription();
   return os.str();
 }
 
@@ -419,14 +420,25 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
-Name ElfSymbol::MakeDescription(const Graph&, NameCache&) const {
-  if (!full_name || *full_name == symbol_name)
-    return Name{symbol_name};
-  return Name{*full_name + " {" + symbol_name + "}"};
+std::string ElfSymbol::ExtraDescription() const {
+  const auto& name = full_name ? *full_name : symbol_name;
+  return name == symbol_name ? std::string() : " {" + symbol_name + "}";
+}
+
+Name ElfSymbol::MakeDescription(const Graph& graph, NameCache& names) const {
+  const auto& name = full_name ? *full_name : symbol_name;
+  return type_id
+      ? GetDescription(graph, names, *type_id).Add(
+          Side::LEFT, Precedence::ATOMIC, name)
+      : Name{name};
 }
 
 Name Symbols::MakeDescription(const Graph&, NameCache&) const {
   return Name{"symbols"};
+}
+
+std::string Node::ExtraDescription() const {
+  return {};
 }
 
 std::string Node::GetKindDescription() const { return "type"; }
