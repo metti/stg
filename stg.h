@@ -471,9 +471,9 @@ struct ElfSymbol : Node {
   enum class SymbolType { OBJECT, FUNCTION, COMMON, TLS };
   enum class Binding { GLOBAL, LOCAL, WEAK, GNU_UNIQUE };
   enum class Visibility { DEFAULT, PROTECTED, HIDDEN, INTERNAL };
+  struct VersionInfo { bool is_default; std::string name; };
   ElfSymbol(const std::string& symbol_name,
-            const std::string& version,
-            bool is_default_version,
+            std::optional<VersionInfo> version_info,
             bool is_defined,
             SymbolType symbol_type,
             Binding binding,
@@ -482,8 +482,7 @@ struct ElfSymbol : Node {
             std::optional<Id> type_id,
             const std::optional<std::string>& full_name)
       : symbol_name(symbol_name),
-        version(version),
-        is_default_version(is_default_version),
+        version_info(version_info),
         is_defined(is_defined),
         symbol_type(symbol_type),
         binding(binding),
@@ -497,8 +496,7 @@ struct ElfSymbol : Node {
   Result Equals(State& state, const Node& other) const final;
 
   const std::string symbol_name;
-  const std::string version;
-  const bool is_default_version;
+  const std::optional<VersionInfo> version_info;
   const bool is_defined;
   const SymbolType symbol_type;
   const Binding binding;

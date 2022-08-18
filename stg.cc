@@ -808,9 +808,15 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   Result result;
   result.MaybeAddNodeDiff("name", symbol_name, o.symbol_name);
 
-  result.MaybeAddNodeDiff("version", version, o.version);
-  result.MaybeAddNodeDiff(
-      "default version", is_default_version, o.is_default_version);
+  if (version_info && o.version_info) {
+    result.MaybeAddNodeDiff("version", version_info->name,
+                            o.version_info->name);
+    result.MaybeAddNodeDiff("default version", version_info->is_default,
+                            o.version_info->is_default);
+  } else {
+    result.MaybeAddNodeDiff("has version", version_info.has_value(),
+                            o.version_info.has_value());
+  }
 
   result.MaybeAddNodeDiff("defined", is_defined, o.is_defined);
   result.MaybeAddNodeDiff("symbol type", symbol_type, o.symbol_type);
