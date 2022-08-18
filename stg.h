@@ -510,6 +510,8 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType);
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding);
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility);
 
+std::string PrintVersionInfo(const ElfSymbol::VersionInfo& version_info);
+
 struct SymbolKey {
   const std::string path;
   const std::string name;

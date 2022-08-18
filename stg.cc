@@ -422,7 +422,11 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
 
 std::string ElfSymbol::ExtraDescription() const {
   const auto& name = full_name ? *full_name : symbol_name;
-  return name == symbol_name ? std::string() : " {" + symbol_name + "}";
+  std::string versioned = symbol_name;
+  if (version_info) {
+    versioned += PrintVersionInfo(*version_info);
+  }
+  return name == versioned ? std::string() : " {" + versioned + '}';
 }
 
 Name ElfSymbol::MakeDescription(const Graph& graph, NameCache& names) const {
@@ -1072,6 +1076,11 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility visibility) {
       break;
   }
   return os;
+}
+
+std::string PrintVersionInfo(const ElfSymbol::VersionInfo& version_info) {
+  return '@' + std::string(version_info.is_default ? "@" : "") +
+         version_info.name;
 }
 
 std::ostream& operator<<(std::ostream& os, const SymbolKey& key) {
