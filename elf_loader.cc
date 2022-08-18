@@ -285,7 +285,8 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
         .size = symbol.st_size,
         .symbol_type = ParseSymbolType(GELF_ST_TYPE(symbol.st_info)),
         .binding = ParseSymbolBinding(GELF_ST_BIND(symbol.st_info)),
-        .visibility = ParseSymbolVisibility(GELF_ST_VISIBILITY(symbol.st_info)),
+        .visibility =
+            ParseSymbolVisibility(GELF_ST_VISIBILITY(symbol.st_other)),
         .value_type = ParseSymbolValueType(symbol.st_shndx),
     });
   }
