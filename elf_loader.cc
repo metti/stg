@@ -108,7 +108,7 @@ SymbolTableEntry::ValueType ParseSymbolValueType(Elf64_Section section_index) {
   }
 }
 
-std::string PrintElfHeaderType(unsigned char elf_header_type) {
+std::string ElfHeaderTypeToString(unsigned char elf_header_type) {
   switch (elf_header_type) {
     case ET_NONE:
       return "none";
@@ -125,7 +125,7 @@ std::string PrintElfHeaderType(unsigned char elf_header_type) {
   }
 }
 
-std::string PrintElfSectionType(Elf64_Word elf_section_type) {
+std::string ElfSectionTypeToString(Elf64_Word elf_section_type) {
   switch (elf_section_type) {
     case SHT_SYMTAB:
       return "symtab";
@@ -221,7 +221,7 @@ ElfLoader::SectionInfo ElfLoader::GetSectionInfo(Elf_Scn* section) const {
 size_t ElfLoader::GetNumberOfEntries(const GElf_Shdr& section_header) const {
   Check(section_header.sh_entsize != 0)
       << "zero table entity size is unexpected for section "
-      << PrintElfSectionType(section_header.sh_type);
+      << ElfSectionTypeToString(section_header.sh_type);
   return section_header.sh_size / section_header.sh_entsize;
 }
 
@@ -241,7 +241,8 @@ Elf_Scn* ElfLoader::GetSymbolTableSection() const {
       << "could not get ELF header";
 
   if (verbose_)
-    std::cout << "ELF type: " << PrintElfHeaderType(elf_header.e_type) << '\n';
+    std::cout << "ELF type: " << ElfHeaderTypeToString(elf_header.e_type)
+              << '\n';
   // TODO: check if vmlinux symbol table type matches ELF type
   // same way as other binaries
   if (elf_header.e_type == ET_REL)
@@ -249,8 +250,8 @@ Elf_Scn* ElfLoader::GetSymbolTableSection() const {
   else if (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)
     return GetSectionByType(SHT_DYNSYM);
   else
-    Die() << "unsupported ELF type: '" << PrintElfHeaderType(elf_header.e_type)
-          << "'";
+    Die() << "unsupported ELF type: '"
+          << ElfHeaderTypeToString(elf_header.e_type) << "'";
 }
 
 std::string_view ElfLoader::GetString(uint32_t section, size_t offset) const {

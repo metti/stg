@@ -347,7 +347,7 @@ void Corpus::ProcessSymbol(xmlNodePtr symbol) {
   std::optional<ElfSymbol::VersionInfo> version_info;
   if (!version.empty()) {
     version_info = ElfSymbol::VersionInfo{is_default_version, version};
-    elf_symbol_id += PrintVersionInfo(*version_info);
+    elf_symbol_id += VersionInfoToString(*version_info);
   }
 
   const SymbolInfo info{name, version_info, symbol};
