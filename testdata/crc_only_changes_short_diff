@@ -1,4 +1,4 @@
-symbol 'int a' changed
+symbol 'int a' {a@version} changed
   CRC changed from 0xb5b0e8c9 to 0xb7c5b6f1
 
 symbol 'int b' changed

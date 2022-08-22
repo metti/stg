@@ -1,5 +1,5 @@
 5 symbol(s) removed
-  'int a'
+  'int a' {a@version}
   'int b'
   'int c'
   'int d'

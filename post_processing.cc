@@ -32,7 +32,7 @@ namespace stg {
 
 std::vector<std::string> SummariseCRCChanges(
     const std::vector<std::string>& report, size_t limit) {
-  const std::regex symbol_changed_re("^symbol '[^']*'.* changed$");
+  const std::regex symbol_changed_re("^symbol .* changed$");
   const std::regex crc_re("^  CRC changed from [^ ]* to [^ ]*$");
   const std::regex empty_re("^$");
   const std::regex section_re("^[^ \\n].*$");
@@ -142,7 +142,7 @@ std::vector<std::string> SummariseOffsetChanges(
 
 std::vector<std::string> GroupRemovedAddedSymbols(
     const std::vector<std::string>& report) {
-  const std::regex symbol_re("^symbol ('.*'.*) was (added|removed)$");
+  const std::regex symbol_re("^symbol (.*) was (added|removed)$");
   const std::regex empty_re("^$");
 
   std::vector<std::string> new_report;
