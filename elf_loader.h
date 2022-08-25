@@ -81,6 +81,7 @@ class ElfLoader final {
       std::function<bool(const GElf_Shdr&)> predicate) const;
   std::vector<Elf_Scn*> GetSectionsByName(const std::string& name) const;
   Elf_Scn* GetSectionByName(const std::string& name) const;
+  Elf_Scn* MaybeGetSectionByType(Elf64_Word type) const;
   Elf_Scn* GetSectionByType(Elf64_Word type) const;
   Elf_Scn* GetSymbolTableSection() const;
 

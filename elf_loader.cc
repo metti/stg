@@ -199,13 +199,20 @@ Elf_Scn* ElfLoader::GetSectionByName(const std::string& name) const {
   return sections[0];
 }
 
-Elf_Scn* ElfLoader::GetSectionByType(Elf64_Word type) const {
+Elf_Scn* ElfLoader::MaybeGetSectionByType(Elf64_Word type) const {
   auto sections = GetSectionsIf([&](const GElf_Shdr& header) {
     return header.sh_type == type;
   });
-  Check(!sections.empty()) << "no section found with type " << type;
+  if (sections.empty())
+    return nullptr;
   Check(sections.size() == 1) << "multiple sections found with type " << type;
   return sections[0];
+}
+
+Elf_Scn* ElfLoader::GetSectionByType(Elf64_Word type) const {
+  Elf_Scn* section = MaybeGetSectionByType(type);
+  Check(section != nullptr) << "no section found with type " << type;
+  return section;
 }
 
 ElfLoader::SectionInfo ElfLoader::GetSectionInfo(Elf_Scn* section) const {

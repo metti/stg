@@ -565,7 +565,7 @@ void Corpus::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
 
 void Corpus::ProcessStructUnion(Id id, bool is_struct,
                                 xmlNodePtr struct_union) {
-  // TODO(b/236675648)
+  // TODO
   // Libabigail is reporting wrong information for is-declaration-only so it is
   // not reliable. We are looking at the children of the element instead.
   // It can be removed once the bug is fixed.
