@@ -1027,7 +1027,7 @@ std::ostream& operator<<(std::ostream& os, Qualifier qualifier) {
 std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType type) {
   switch (type) {
     case ElfSymbol::SymbolType::OBJECT:
-      os << "object";
+      os << "variable";
       break;
     case ElfSymbol::SymbolType::FUNCTION:
       os << "function";
