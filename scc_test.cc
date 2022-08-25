@@ -40,16 +40,6 @@ using stg::SCC;
 // Nodes are [0, N), the sets are the out-edges.
 typedef std::vector<std::set<size_t>> Graph;
 
-std::ostream& operator<<(std::ostream& os, const Graph& g) {
-  for (size_t i = 0; i < g.size(); ++i) {
-    os << i << ':';
-    for (auto o : g[i])
-      os << ' ' << o;
-    os << '\n';
-  }
-  return os;
-}
-
 template <typename G>
 Graph invent(size_t n, G& gen) {
   Graph graph(n);
@@ -176,12 +166,6 @@ void process(const Graph& g) {
   // check strong connectivity
   auto g_scc_closure = scc_strong_connectivity(sccs);
   auto g_closure = symmetric_subset_of_reflexive_transitive_closure(g);
-  // catch isn't printing nicely
-  if (g_scc_closure != g_closure) {
-    std::cerr << "original:\n" << g
-              << "SCC finder:\n" << g_scc_closure
-              << "SCCs independently:\n" << g_closure;
-  }
   CHECK(g_scc_closure == g_closure);
 }
 

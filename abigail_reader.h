@@ -101,8 +101,7 @@ class Corpus {
  private:
   struct SymbolInfo {
     std::string name;
-    std::string version;
-    bool is_default_version;
+    std::optional<ElfSymbol::VersionInfo> version_info;
     xmlNodePtr node;
   };
 
