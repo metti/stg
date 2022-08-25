@@ -453,7 +453,11 @@ std::string Member::GetKindDescription() const { return "member"; }
 
 std::string Method::GetKindDescription() const { return "method"; }
 
-std::string ElfSymbol::GetKindDescription() const { return "symbol"; }
+std::string ElfSymbol::GetKindDescription() const {
+  std::ostringstream os;
+  os << symbol_type << " symbol";
+  return os.str();
+}
 
 std::string Symbols::GetKindDescription() const { return "symbols"; }
 
