@@ -117,9 +117,16 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, bool verbose) {
                IsPublicFunctionOrVariable);
   public_functions_and_variables.shrink_to_fit();
 
-  if (verbose)
+  if (verbose) {
     std::cout << "File has " << public_functions_and_variables.size()
-              << " public functions and variables\n";
+              << " public functions and variables:\n";
+    for (const auto& symbol : public_functions_and_variables) {
+      std::cout << "  " << symbol.binding << ' ' << symbol.symbol_type << " '"
+                << symbol.name << "'\n    visibility=" << symbol.visibility
+                << " size=" << symbol.size << " value=" << symbol.value << "["
+                << symbol.value_type << "]\n";
+    }
+  }
 
   std::map<SymbolKey, Id> symbols_map;
   for (const auto& symbol : public_functions_and_variables) {

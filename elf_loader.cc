@@ -166,6 +166,21 @@ std::ostream& operator<<(std::ostream& os, SymbolTableEntry::SymbolType type) {
   }
 }
 
+std::ostream& operator<<(std::ostream& os,
+                         const SymbolTableEntry::ValueType type) {
+  using ValueType = SymbolTableEntry::ValueType;
+  switch (type) {
+    case ValueType::UNDEFINED:
+      return os << "undefined";
+    case ValueType::ABSOLUTE:
+      return os << "absolute";
+    case ValueType::COMMON:
+      return os << "common";
+    case ValueType::RELATIVE_TO_SECTION:
+      return os << "relative";
+  }
+}
+
 ElfLoader::ElfLoader(const std::string& path, bool verbose)
     : verbose_(verbose), fd_(-1), elf_(nullptr) {
   fd_ = open(path.c_str(), O_RDONLY);
