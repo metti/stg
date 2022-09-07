@@ -167,12 +167,19 @@ std::vector<Elf_Scn*> GetSectionsByName(Elf* elf, const std::string& name) {
   });
 }
 
-Elf_Scn* GetSectionByName(Elf* elf, const std::string& name) {
+Elf_Scn* MaybeGetSectionByName(Elf* elf, const std::string& name) {
   const auto sections = GetSectionsByName(elf, name);
-  Check(!sections.empty()) << "no section found with name '" << name << "'";
+  if (sections.empty())
+    return nullptr;
   Check(sections.size() == 1)
       << "multiple sections found with name '" << name << "'";
   return sections[0];
+}
+
+Elf_Scn* GetSectionByName(Elf* elf, const std::string& name) {
+  Elf_Scn* section = MaybeGetSectionByName(elf, name);
+  Check(section != nullptr) << "no section found with name '" << name << "'";
+  return section;
 }
 
 Elf_Scn* MaybeGetSectionByType(Elf* elf, Elf64_Word type) {
