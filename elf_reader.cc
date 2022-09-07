@@ -24,6 +24,7 @@
 #include <iostream>
 #include <iterator>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -36,6 +37,37 @@ namespace elf {
 namespace {
 
 using SymbolTable = std::vector<SymbolTableEntry>;
+
+ElfSymbol::SymbolType ConvertSymbolType(
+    SymbolTableEntry::SymbolType symbol_type) {
+  switch (symbol_type) {
+    case SymbolTableEntry::SymbolType::OBJECT:
+      return ElfSymbol::SymbolType::OBJECT;
+    case SymbolTableEntry::SymbolType::FUNCTION:
+      return ElfSymbol::SymbolType::FUNCTION;
+    case SymbolTableEntry::SymbolType::COMMON:
+      return ElfSymbol::SymbolType::COMMON;
+    case SymbolTableEntry::SymbolType::TLS:
+      return ElfSymbol::SymbolType::TLS;
+    default:
+      Die() << "Unsupported ELF symbol type: " << symbol_type;
+  }
+}
+
+const ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) {
+  return ElfSymbol(
+      /* symbol_name = */ std::string(symbol.name),
+      /* version_info = */ std::nullopt,
+      /* is_defined = */ symbol.value_type !=
+          SymbolTableEntry::ValueType::UNDEFINED,
+      /* symbol_type = */ ConvertSymbolType(symbol.symbol_type),
+      /* binding = */ symbol.binding,
+      /* visibility = */ symbol.visibility,
+      /* crc = */ std::nullopt,       // TODO: fill CRC values
+      /* type_id = */ std::nullopt,   // TODO: fill type ids
+      /* full_name = */ std::nullopt  // TODO: fill full names
+  );
+}
 
 bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   const auto symbol_type = symbol.symbol_type;
@@ -90,7 +122,15 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, bool verbose) {
               << " public functions and variables\n";
 
   std::map<SymbolKey, Id> symbols_map;
-  return graph.Add(Make<Symbols>(symbols_map));
+  for (const auto& symbol : public_functions_and_variables) {
+    // TODO: add VersionInfoToString to SymbolKey name
+    // TODO: check for uniqueness of SymbolKey in map after support
+    // for version info
+    symbols_map.emplace(
+        SymbolKey{.path = {}, .name = std::string(symbol.name)},
+        graph.Add(Make<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol))));
+  }
+  return graph.Add(Make<Symbols>(std::move(symbols_map)));
 }
 
 }  // namespace

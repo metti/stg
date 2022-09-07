@@ -144,6 +144,28 @@ std::string ElfSectionTypeToString(Elf64_Word elf_section_type) {
 
 }  // namespace
 
+std::ostream& operator<<(std::ostream& os, SymbolTableEntry::SymbolType type) {
+  using SymbolType = SymbolTableEntry::SymbolType;
+  switch (type) {
+    case SymbolType::NOTYPE:
+      return os << "notype";
+    case SymbolType::OBJECT:
+      return os << "object";
+    case SymbolType::FUNCTION:
+      return os << "function";
+    case SymbolType::SECTION:
+      return os << "section";
+    case SymbolType::FILE:
+      return os << "file";
+    case SymbolType::COMMON:
+      return os << "common";
+    case SymbolType::TLS:
+      return os << "TLS";
+    case SymbolType::GNU_IFUNC:
+      return os << "indirect function";
+  }
+}
+
 ElfLoader::ElfLoader(const std::string& path, bool verbose)
     : verbose_(verbose), fd_(-1), elf_(nullptr) {
   fd_ = open(path.c_str(), O_RDONLY);
