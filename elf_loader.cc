@@ -224,7 +224,9 @@ std::vector<Elf_Scn*> ElfLoader::GetSectionsByName(
   Check(elf_getshdrstrndx(elf_, &shdr_strtab_index) == 0)
       << "could not get ELF section header string table index";
   return GetSectionsIf([&](const GElf_Shdr& header) {
-    return elf_strptr(elf_, shdr_strtab_index, header.sh_name) == name;
+    const auto* section_name =
+        elf_strptr(elf_, shdr_strtab_index, header.sh_name);
+    return section_name != nullptr && section_name == name;
   });
 }
 
