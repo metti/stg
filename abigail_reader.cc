@@ -581,10 +581,13 @@ void Corpus::ProcessStructUnion(Id id, bool is_struct,
                     ? std::string()
                     : GetAttributeOrDie(struct_union, "name");
   const auto full_name = name.empty() ? std::string() : scope_name_ + name;
-  PushScopeName push_scope_name(
-      scope_name_,
-      name.empty() ? (std::ostringstream() << "<unnamed " << kind << ">").str()
-                   : name);
+  std::ostringstream scope_name_os;
+  if (name.empty()) {
+    scope_name_os << "<unnamed " << kind << ">";
+  } else {
+    scope_name_os << name;
+  }
+  PushScopeName push_scope_name(scope_name_, scope_name_os.str());
   if (forward) {
     graph_.Set(id, Make<StructUnion>(kind, full_name));
     if (verbose_)
