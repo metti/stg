@@ -26,8 +26,11 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
+#include "crc.h"
 #include "elf_loader.h"
 #include "stg.h"
 
@@ -37,6 +40,7 @@ namespace elf {
 namespace {
 
 using SymbolTable = std::vector<SymbolTableEntry>;
+using CRCValuesMap = std::unordered_map<std::string, CRC>;
 
 ElfSymbol::SymbolType ConvertSymbolType(
     SymbolTableEntry::SymbolType symbol_type) {
@@ -54,7 +58,35 @@ ElfSymbol::SymbolType ConvertSymbolType(
   }
 }
 
-const ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) {
+CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols) {
+  constexpr std::string_view kCRCPrefix = "__crc_";
+
+  CRCValuesMap crc_values;
+
+  for (const auto& symbol : symbols) {
+    const std::string_view name = symbol.name;
+    if (name.substr(0, kCRCPrefix.size()) == kCRCPrefix) {
+      std::string_view name_suffix = name.substr(kCRCPrefix.size());
+      bool emplaced = crc_values.emplace(name_suffix, CRC{symbol.value}).second;
+      Check(emplaced) << "Multiple CRC values for symbol '" << name_suffix
+                      << '\'';
+    }
+  }
+
+  return crc_values;
+}
+
+template <typename M, typename K>
+std::optional<typename M::mapped_type> MaybeGet(const M& map, const K& key) {
+  const auto it = map.find(key);
+  if (it == map.end()) {
+    return {};
+  }
+  return {it->second};
+}
+
+const ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol,
+                                            const CRCValuesMap& crc_values) {
   return ElfSymbol(
       /* symbol_name = */ std::string(symbol.name),
       /* version_info = */ std::nullopt,
@@ -63,7 +95,7 @@ const ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) {
       /* symbol_type = */ ConvertSymbolType(symbol.symbol_type),
       /* binding = */ symbol.binding,
       /* visibility = */ symbol.visibility,
-      /* crc = */ std::nullopt,       // TODO: fill CRC values
+      /* crc = */ MaybeGet(crc_values, std::string(symbol.name)),
       /* type_id = */ std::nullopt,   // TODO: fill type ids
       /* full_name = */ std::nullopt  // TODO: fill full names
   );
@@ -122,6 +154,9 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, bool verbose) {
                IsPublicFunctionOrVariable);
   public_functions_and_variables.shrink_to_fit();
 
+  const CRCValuesMap crc_values =
+      elf.IsLinuxKernelBinary() ? GetCRCValuesMap(all_symbols) : CRCValuesMap{};
+
   if (verbose) {
     std::cout << "File has " << public_functions_and_variables.size()
               << " public functions and variables:\n";
@@ -138,9 +173,9 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, bool verbose) {
     // TODO: add VersionInfoToString to SymbolKey name
     // TODO: check for uniqueness of SymbolKey in map after support
     // for version info
-    symbols_map.emplace(
-        SymbolKey{.path = {}, .name = std::string(symbol.name)},
-        graph.Add(Make<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol))));
+    symbols_map.emplace(SymbolKey{.path = {}, .name = std::string(symbol.name)},
+                        graph.Add(Make<ElfSymbol>(
+                            SymbolTableEntryToElfSymbol(symbol, crc_values))));
   }
   return graph.Add(Make<Symbols>(std::move(symbols_map)));
 }
