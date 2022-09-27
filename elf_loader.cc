@@ -230,7 +230,8 @@ std::string_view GetString(Elf* elf, uint32_t section, size_t offset) {
   return name;
 }
 
-Elf_Scn* GetSymbolTableSection(Elf* elf, bool verbose) {
+Elf_Scn* GetSymbolTableSection(Elf* elf, bool is_linux_kernel_binary,
+                               bool verbose) {
   GElf_Ehdr elf_header;
   Check(gelf_getehdr(elf, &elf_header) != nullptr)
       << "could not get ELF header";
@@ -239,9 +240,10 @@ Elf_Scn* GetSymbolTableSection(Elf* elf, bool verbose) {
     std::cout << "ELF type: " << ElfHeaderTypeToString(elf_header.e_type)
               << '\n';
   }
-  // TODO: check if vmlinux symbol table type matches ELF type
-  // same way as other binaries
-  if (elf_header.e_type == ET_REL) {
+  // Relocatable ELF binaries, Linux kernel and modules have their exported
+  // symbols in .symtab, all other ELF types have their exported symbols in
+  // .dynsym.
+  if (elf_header.e_type == ET_REL || is_linux_kernel_binary) {
     return GetSectionByType(elf, SHT_SYMTAB);
   }
   if (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC) {
@@ -249,6 +251,23 @@ Elf_Scn* GetSymbolTableSection(Elf* elf, bool verbose) {
   }
   Die() << "unsupported ELF type: '" << ElfHeaderTypeToString(elf_header.e_type)
         << "'";
+}
+
+bool IsLinuxKernelBinary(Elf* elf) {
+  // The Linux kernel itself has many specific sections that are sufficient to
+  // classify a binary as kernel binary if present, `__ksymtab_strings` is one
+  // of them. It is present if a kernel binary (vmlinux or a module) exports
+  // symbols via the EXPORT_SYMBOL_* macros and it contains symbol names and
+  // namespaces which form part of the ABI.
+  //
+  // Kernel modules might not present a `__ksymtab_strings` section if they do
+  // not export symbols themselves via the ksymtab. Yet they can be identified
+  // by the presence of the `.modinfo` section. Since that is somewhat a generic
+  // name, also check for the presence of `.gnu.linkonce.this_module` to get
+  // solid signal as both of those sections are present in kernel modules.
+  return MaybeGetSectionByName(elf, "__ksymtab_strings") != nullptr ||
+         (MaybeGetSectionByName(elf, ".modinfo") != nullptr &&
+          MaybeGetSectionByName(elf, ".gnu.linkonce.this_module") != nullptr);
 }
 
 }  // namespace
@@ -297,6 +316,7 @@ ElfLoader::ElfLoader(const std::string& path, bool verbose)
   Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
   elf_ = elf_begin(fd_, ELF_C_READ, nullptr);
   Check(elf_ != nullptr) << "ELF data not found in " << path;
+  InitializeElfInformation();
 }
 
 ElfLoader::ElfLoader(char* data, size_t size, bool verbose)
@@ -304,6 +324,11 @@ ElfLoader::ElfLoader(char* data, size_t size, bool verbose)
   Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
   elf_ = elf_memory(data, size);
   Check(elf_ != nullptr) << "Cannot initialize libelf with provided memory";
+  InitializeElfInformation();
+}
+
+void ElfLoader::InitializeElfInformation() {
+  is_linux_kernel_binary_ = elf::IsLinuxKernelBinary(elf_);
 }
 
 ElfLoader::~ElfLoader() {
@@ -326,7 +351,8 @@ std::string_view ElfLoader::GetBtfRawData() const {
 }
 
 std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
-  Elf_Scn* symbol_table_section = GetSymbolTableSection(elf_, verbose_);
+  Elf_Scn* symbol_table_section =
+      GetSymbolTableSection(elf_, is_linux_kernel_binary_, verbose_);
   Check(symbol_table_section != nullptr)
       << "failed to find symbol table section";
 
@@ -357,6 +383,10 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
   }
 
   return result;
+}
+
+bool ElfLoader::IsLinuxKernelBinary() const {
+  return is_linux_kernel_binary_;
 }
 
 }  // namespace elf
