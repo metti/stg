@@ -243,12 +243,12 @@ Elf_Scn* GetSymbolTableSection(Elf* elf, bool verbose) {
   // same way as other binaries
   if (elf_header.e_type == ET_REL) {
     return GetSectionByType(elf, SHT_SYMTAB);
-  } else if (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC) {
-    return GetSectionByType(elf, SHT_DYNSYM);
-  } else {
-    Die() << "unsupported ELF type: '"
-          << ElfHeaderTypeToString(elf_header.e_type) << "'";
   }
+  if (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC) {
+    return GetSectionByType(elf, SHT_DYNSYM);
+  }
+  Die() << "unsupported ELF type: '" << ElfHeaderTypeToString(elf_header.e_type)
+        << "'";
 }
 
 }  // namespace
