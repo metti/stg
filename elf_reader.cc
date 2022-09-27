@@ -74,8 +74,9 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   // Reject symbols that are not functions or variables.
   if (symbol_type != SymbolTableEntry::SymbolType::FUNCTION &&
       symbol_type != SymbolTableEntry::SymbolType::OBJECT &&
-      symbol_type != SymbolTableEntry::SymbolType::TLS)
+      symbol_type != SymbolTableEntry::SymbolType::TLS) {
     return false;
+  }
 
   // Function or variable of ValueType::ABSOLUTE is not expected in any binary,
   // but GNU `ld` adds object of such type for every version name defined in
@@ -88,27 +89,31 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
 
   // Undefined symbol is dependency of the binary but is not part of ABI
   // provided by binary and should be rejected.
-  if (symbol.value_type == SymbolTableEntry::ValueType::UNDEFINED)
+  if (symbol.value_type == SymbolTableEntry::ValueType::UNDEFINED) {
     return false;
+  }
 
   // Local symbol is not visible outside the binary, so it is not public
   // and should be rejected.
-  if (symbol.binding == SymbolTableEntry::Binding::LOCAL)
+  if (symbol.binding == SymbolTableEntry::Binding::LOCAL) {
     return false;
+  }
 
   // "Hidden" and "internal" visibility values mean that symbol is not public
   // and should be rejected.
   if (symbol.visibility == SymbolTableEntry::Visibility::HIDDEN ||
-      symbol.visibility == SymbolTableEntry::Visibility::INTERNAL)
+      symbol.visibility == SymbolTableEntry::Visibility::INTERNAL) {
     return false;
+  }
 
   return true;
 }
 
 Id Read(Graph& graph, elf::ElfLoader&& elf, bool verbose) {
   const auto all_symbols = elf.GetElfSymbols();
-  if (verbose)
+  if (verbose) {
     std::cout << "Parsed " << all_symbols.size() << " symbols\n";
+  }
 
   std::vector<SymbolTableEntry> public_functions_and_variables;
   public_functions_and_variables.reserve(all_symbols.size());
@@ -143,15 +148,17 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, bool verbose) {
 }  // namespace
 
 Id Read(Graph& graph, const std::string& path, bool verbose) {
-  if (verbose)
+  if (verbose) {
     std::cout << "Parsing ELF: " << path << '\n';
+  }
 
   return Read(graph, elf::ElfLoader(path, verbose), verbose);
 }
 
 Id Read(Graph& graph, char* data, size_t size, bool verbose) {
-  if (verbose)
+  if (verbose) {
     std::cout << "Parsing ELF from memory\n";
+  }
 
   return Read(graph, elf::ElfLoader(data, size, verbose), verbose);
 }

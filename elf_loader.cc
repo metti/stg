@@ -150,8 +150,9 @@ std::vector<Elf_Scn*> GetSectionsIf(
   while ((section = elf_nextscn(elf, section)) != nullptr) {
     Check(gelf_getshdr(section, &header) != nullptr)
         << "could not get ELF section header";
-    if (predicate(header))
+    if (predicate(header)) {
       result.push_back(section);
+    }
   }
   return result;
 }
@@ -169,8 +170,9 @@ std::vector<Elf_Scn*> GetSectionsByName(Elf* elf, const std::string& name) {
 
 Elf_Scn* MaybeGetSectionByName(Elf* elf, const std::string& name) {
   const auto sections = GetSectionsByName(elf, name);
-  if (sections.empty())
+  if (sections.empty()) {
     return nullptr;
+  }
   Check(sections.size() == 1)
       << "multiple sections found with name '" << name << "'";
   return sections[0];
@@ -185,8 +187,9 @@ Elf_Scn* GetSectionByName(Elf* elf, const std::string& name) {
 Elf_Scn* MaybeGetSectionByType(Elf* elf, Elf64_Word type) {
   auto sections = GetSectionsIf(
       elf, [&](const GElf_Shdr& header) { return header.sh_type == type; });
-  if (sections.empty())
+  if (sections.empty()) {
     return nullptr;
+  }
   Check(sections.size() == 1) << "multiple sections found with type " << type;
   return sections[0];
 }
@@ -232,18 +235,20 @@ Elf_Scn* GetSymbolTableSection(Elf* elf, bool verbose) {
   Check(gelf_getehdr(elf, &elf_header) != nullptr)
       << "could not get ELF header";
 
-  if (verbose)
+  if (verbose) {
     std::cout << "ELF type: " << ElfHeaderTypeToString(elf_header.e_type)
               << '\n';
+  }
   // TODO: check if vmlinux symbol table type matches ELF type
   // same way as other binaries
-  if (elf_header.e_type == ET_REL)
+  if (elf_header.e_type == ET_REL) {
     return GetSectionByType(elf, SHT_SYMTAB);
-  else if (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)
+  } else if (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC) {
     return GetSectionByType(elf, SHT_DYNSYM);
-  else
+  } else {
     Die() << "unsupported ELF type: '"
           << ElfHeaderTypeToString(elf_header.e_type) << "'";
+  }
 }
 
 }  // namespace
@@ -302,10 +307,12 @@ ElfLoader::ElfLoader(char* data, size_t size, bool verbose)
 }
 
 ElfLoader::~ElfLoader() {
-  if (elf_)
+  if (elf_) {
     elf_end(elf_);
-  if (fd_ >= 0)
+  }
+  if (fd_ >= 0) {
     close(fd_);
+  }
 }
 
 std::string_view ElfLoader::GetBtfRawData() const {
