@@ -91,7 +91,7 @@ Name Name::Add(Side side, Precedence precedence,
   left << left_;
   if (bracket)
     left << '(';
-  else if (side == Side::LEFT)
+  else if (side == Side::LEFT && precedence == Precedence::ATOMIC)
     left << ' ';
 
   (side == Side::LEFT ? left : right) << text;
