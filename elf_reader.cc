@@ -96,6 +96,7 @@ const ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol,
       /* binding = */ symbol.binding,
       /* visibility = */ symbol.visibility,
       /* crc = */ MaybeGet(crc_values, std::string(symbol.name)),
+      /* ns = */ std::nullopt,        // TODO: Linux namespace
       /* type_id = */ std::nullopt,   // TODO: fill type ids
       /* full_name = */ std::nullopt  // TODO: fill full names
   );

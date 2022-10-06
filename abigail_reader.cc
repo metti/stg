@@ -724,6 +724,7 @@ Id Corpus::BuildSymbol(const SymbolInfo& info,
   const xmlNodePtr symbol = info.node;
   const bool is_defined = ReadAttributeOrDie<bool>(symbol, "is-defined");
   const auto crc = ReadAttribute<CRC>(symbol, "crc");
+  const auto ns = ReadAttribute<std::string>(symbol, "namespace");
   const auto type = ReadAttributeOrDie<ElfSymbol::SymbolType>(symbol, "type");
   const auto binding =
       ReadAttributeOrDie<ElfSymbol::Binding>(symbol, "binding");
@@ -732,7 +733,7 @@ Id Corpus::BuildSymbol(const SymbolInfo& info,
 
   return graph_.Add(Make<ElfSymbol>(
       info.name, info.version_info,
-      is_defined, type, binding, visibility, crc, type_id, name));
+      is_defined, type, binding, visibility, crc, ns, type_id, name));
 }
 
 std::map<std::string, Id> Corpus::BuildSymbols() {

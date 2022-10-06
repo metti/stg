@@ -811,7 +811,7 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   //
   // MODVERSIONS CRC - fundamental to ABI compatibility, if present
   //
-  // Symbol namespaces - not yet supported by symtab_reader
+  // Symbol namespace - fundamental to ABI compatibility, if present
 
   Result result;
   result.MaybeAddNodeDiff("name", symbol_name, o.symbol_name);
@@ -831,6 +831,7 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   result.MaybeAddNodeDiff("binding", binding, o.binding);
   result.MaybeAddNodeDiff("visibility", visibility, o.visibility);
   result.MaybeAddNodeDiff("CRC", crc, o.crc);
+  result.MaybeAddNodeDiff("namespace", ns, o.ns);
 
   if (type_id && o.type_id) {
     result.MaybeAddEdgeDiff("", Compare(state, *type_id, *o.type_id));

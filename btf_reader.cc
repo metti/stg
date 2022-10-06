@@ -392,6 +392,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                              ElfSymbol::Binding::GLOBAL,
                              ElfSymbol::Visibility::DEFAULT,
                              std::nullopt,
+                             std::nullopt,
                              GetId(t->type),
                              std::nullopt));
       bool inserted = btf_symbols_.insert(
@@ -428,6 +429,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                              ElfSymbol::SymbolType::OBJECT,
                              ElfSymbol::Binding::GLOBAL,
                              ElfSymbol::Visibility::DEFAULT,
+                             std::nullopt,
                              std::nullopt,
                              GetId(t->type),
                              std::nullopt));

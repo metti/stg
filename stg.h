@@ -479,6 +479,7 @@ struct ElfSymbol : Node {
             Binding binding,
             Visibility visibility,
             std::optional<CRC> crc,
+            std::optional<std::string> ns,
             std::optional<Id> type_id,
             const std::optional<std::string>& full_name)
       : symbol_name(symbol_name),
@@ -488,6 +489,7 @@ struct ElfSymbol : Node {
         binding(binding),
         visibility(visibility),
         crc(crc),
+        ns(ns),
         type_id(type_id),
         full_name(full_name) {}
   std::string GetKindDescription() const final;
@@ -502,6 +504,7 @@ struct ElfSymbol : Node {
   const Binding binding;
   const Visibility visibility;
   const std::optional<CRC> crc;
+  const std::optional<std::string> ns;
   const std::optional<Id> type_id;
   const std::optional<std::string> full_name;
 };
