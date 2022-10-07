@@ -975,112 +975,82 @@ std::vector<std::pair<std::string, size_t>> Enumeration::GetEnumNames() const {
 std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance) {
   switch (inheritance) {
     case BaseClass::Inheritance::NON_VIRTUAL:
-      os << "non-virtual";
-      break;
+      return os << "non-virtual";
     case BaseClass::Inheritance::VIRTUAL:
-      os << "virtual";
-      break;
+      return os << "virtual";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, Method::Kind kind) {
   switch (kind) {
     case Method::Kind::NON_VIRTUAL:
-      os << "non-virtual";
-      break;
+      return os << "non-virtual";
     case Method::Kind::STATIC:
-      os << "static";
-      break;
+      return os << "static";
     case Method::Kind::VIRTUAL:
-      os << "virtual";
-      break;
+      return os << "virtual";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind) {
   switch (kind) {
     case StructUnion::Kind::CLASS:
-      os << "class";
-      break;
+      return os << "class";
     case StructUnion::Kind::STRUCT:
-      os << "struct";
-      break;
+      return os << "struct";
     case StructUnion::Kind::UNION:
-      os << "union";
-      break;
+      return os << "union";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, Qualifier qualifier) {
   switch (qualifier) {
     case Qualifier::CONST:
-      os << "const";
-      break;
+      return os << "const";
     case Qualifier::VOLATILE:
-      os << "volatile";
-      break;
+      return os << "volatile";
     case Qualifier::RESTRICT:
-      os << "restrict";
-      break;
+      return os << "restrict";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType type) {
   switch (type) {
     case ElfSymbol::SymbolType::OBJECT:
-      os << "variable";
-      break;
+      return os << "variable";
     case ElfSymbol::SymbolType::FUNCTION:
-      os << "function";
-      break;
+      return os << "function";
     case ElfSymbol::SymbolType::COMMON:
-      os << "common";
-      break;
+      return os << "common";
     case ElfSymbol::SymbolType::TLS:
-      os << "TLS";
-      break;
+      return os << "TLS";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding binding) {
   switch (binding) {
     case ElfSymbol::Binding::GLOBAL:
-      os << "global";
-      break;
+      return os << "global";
     case ElfSymbol::Binding::LOCAL:
-      os << "local";
-      break;
+      return os << "local";
     case ElfSymbol::Binding::WEAK:
-      os << "weak";
-      break;
+      return os << "weak";
     case ElfSymbol::Binding::GNU_UNIQUE:
-      os << "GNU unique";
-      break;
+      return os << "GNU unique";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility visibility) {
   switch (visibility) {
     case ElfSymbol::Visibility::DEFAULT:
-      os << "default";
-      break;
+      return os << "default";
     case ElfSymbol::Visibility::PROTECTED:
-      os << "protected";
-      break;
+      return os << "protected";
     case ElfSymbol::Visibility::HIDDEN:
-      os << "hidden";
-      break;
+      return os << "hidden";
     case ElfSymbol::Visibility::INTERNAL:
-      os << "internal";
-      break;
+      return os << "internal";
   }
-  return os;
 }
 
 std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info) {
@@ -1091,8 +1061,7 @@ std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info) {
 std::ostream& operator<<(std::ostream& os, const SymbolKey& key) {
   if (!key.path.empty())
     os << key << ':';
-  os << key.name;
-  return os;
+  return os << key.name;
 }
 
 std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {
@@ -1103,16 +1072,12 @@ std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {
 std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind) {
   switch (kind) {
     case PointerReference::Kind::POINTER:
-      os << "pointer";
-      break;
+      return os << "pointer";
     case PointerReference::Kind::LVALUE_REFERENCE:
-      os << "lvalue reference";
-      break;
+      return os << "lvalue reference";
     case PointerReference::Kind::RVALUE_REFERENCE:
-      os << "rvalue reference";
-      break;
+      return os << "rvalue reference";
   }
-  return os;
 }
 
 }  // namespace stg
