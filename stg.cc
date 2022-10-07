@@ -72,15 +72,6 @@ Id ResolveTypedefs(
   return id;
 }
 
-static constexpr std::array<std::string_view, 6> kIntEncoding = {
-    "boolean",
-    "signed integer",
-    "unsigned integer",
-    "signed character",
-    "unsigned character",
-    "UTF",
-};
-
 Name Name::Add(Side side, Precedence precedence,
                const std::string& text) const {
   bool bracket = precedence < precedence_;
@@ -1065,8 +1056,20 @@ std::ostream& operator<<(std::ostream& os, const SymbolKey& key) {
 }
 
 std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {
-  auto ix = static_cast<size_t>(encoding);
-  return os << (ix < kIntEncoding.size() ? kIntEncoding[ix] : "(unknown)");
+  switch (encoding) {
+    case Integer::Encoding::BOOLEAN:
+      return os << "boolean";
+    case Integer::Encoding::SIGNED_INTEGER:
+      return os << "signed integer";
+    case Integer::Encoding::UNSIGNED_INTEGER:
+      return os << "unsigned integer";
+    case Integer::Encoding::SIGNED_CHARACTER:
+      return os << "signed character";
+    case Integer::Encoding::UNSIGNED_CHARACTER:
+      return os << "unsigned character";
+    case Integer::Encoding::UTF:
+      return os << "UTF";
+  }
 }
 
 std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind) {
