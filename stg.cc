@@ -398,13 +398,12 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
   os << '(';
   bool sep = false;
-  for (const auto& p : parameters) {
+  for (const Id p : parameters) {
     if (sep)
       os << ", ";
     else
       sep = true;
-    // do not emit parameter name as it's not part of the type
-    os << GetDescription(graph, names, p.type_id);
+    os << GetDescription(graph, names, p);
   }
   os << ')';
   return GetDescription(graph, names, return_type_id)
@@ -711,42 +710,23 @@ Result Function::Equals(State& state, const Node& other) const {
   const auto& parameters2 = o.parameters;
   size_t min = std::min(parameters1.size(), parameters2.size());
   for (size_t i = 0; i < min; ++i) {
-    const auto& p1 = parameters1.at(i);
-    const auto& p2 = parameters2.at(i);
+    const Id p1 = parameters1.at(i);
+    const Id p2 = parameters2.at(i);
     result.MaybeAddEdgeDiff(
         [&](std::ostream& os) {
           os << "parameter " << i + 1;
-          const auto& n1 = p1.name;
-          const auto& n2 = p2.name;
-          if (n1 == n2 && !n1.empty()) {
-            os << " (" << std::quoted(n1, '\'') << ")";
-          } else if (n1 != n2) {
-            os << " (";
-            if (!n1.empty())
-              os << "was " << std::quoted(n1, '\'');
-            if (!n1.empty() && !n2.empty())
-              os << ", ";
-            if (!n2.empty())
-              os << "now " << std::quoted(n2, '\'');
-            os << ")";
-          }
         },
-        Compare(state, p1.type_id, p2.type_id));
+        Compare(state, p1, p2));
   }
 
   bool added = parameters1.size() < parameters2.size();
   const auto& which = added ? o : *this;
   const auto& parameters = which.parameters;
   for (size_t i = min; i < parameters.size(); ++i) {
-    const auto& parameter = parameters.at(i);
+    const Id parameter = parameters.at(i);
     std::ostringstream os;
-    os << "parameter " << i + 1;
-    if (!parameter.name.empty())
-      os << " (" << std::quoted(parameter.name, '\'') << ")";
-    os << " of";
-    const auto parameter_type = parameter.type_id;
-    auto diff =
-        added ? Added(state, parameter_type) : Removed(state, parameter_type);
+    os << "parameter " << i + 1 << " of";
+    auto diff = added ? Added(state, parameter) : Removed(state, parameter);
     result.AddEdgeDiff(os.str(), diff);
   }
 

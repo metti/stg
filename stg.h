@@ -63,13 +63,6 @@ class Graph {
   std::vector<std::unique_ptr<Node>> nodes_;
 };
 
-// A Parameter refers to a variable declared in the function declaration, used
-// in the context of Function.
-struct Parameter {
-  const std::string name;
-  const Id type_id;
-};
-
 enum class Qualifier { CONST, VOLATILE, RESTRICT };
 using Qualifiers = std::set<Qualifier>;
 
@@ -457,14 +450,14 @@ struct Enumeration : Node {
 };
 
 struct Function : Node {
-  Function(Id return_type_id, const std::vector<Parameter>& parameters)
+  Function(Id return_type_id, const std::vector<Id>& parameters)
       : return_type_id(return_type_id), parameters(parameters) {}
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
   const Id return_type_id;
-  const std::vector<Parameter> parameters;
+  const std::vector<Id> parameters;
 };
 
 struct ElfSymbol : Node {
