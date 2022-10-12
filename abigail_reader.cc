@@ -683,7 +683,8 @@ std::optional<Id> Corpus::ProcessDataMember(bool is_struct,
 Id Corpus::ProcessMemberFunction(xmlNodePtr method) {
   xmlNodePtr decl = GetOnlyChild("member-function", method);
   CheckElementName("function-decl", decl);
-  const auto mangled_name = GetAttributeOrDie(decl, "mangled-name");
+  static const std::string missing = "{missing}";
+  const auto mangled_name = ReadAttribute(decl, "mangled-name", missing);
   const auto name = GetAttributeOrDie(decl, "name");
   const auto type = ProcessDecl(false, decl);
   const auto vtable_offset = ReadAttribute<uint64_t>(method, "vtable-offset");
