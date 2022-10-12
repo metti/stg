@@ -189,7 +189,7 @@ std::optional<T> ReadAttribute(xmlNodePtr element, const char* name) {
 }
 
 template <typename T>
-T ReadAttribute(xmlNodePtr element, const char* name, T default_value) {
+T ReadAttribute(xmlNodePtr element, const char* name, const T& default_value) {
   const auto value = GetAttribute(element, name);
   if (!value)
     return default_value;
