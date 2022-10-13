@@ -327,6 +327,8 @@ struct Primitive : Node {
     UNSIGNED_INTEGER,
     SIGNED_CHARACTER,
     UNSIGNED_CHARACTER,
+    REAL_NUMBER,
+    COMPLEX_NUMBER,
     UTF,
   };
   Primitive(const std::string& name, Encoding encoding, uint32_t bitsize,

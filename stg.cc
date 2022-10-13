@@ -1037,6 +1037,10 @@ std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding) {
       return os << "signed character";
     case Primitive::Encoding::UNSIGNED_CHARACTER:
       return os << "unsigned character";
+    case Primitive::Encoding::REAL_NUMBER:
+      return os << "real number";
+    case Primitive::Encoding::COMPLEX_NUMBER:
+      return os << "complex number";
     case Primitive::Encoding::UTF:
       return os << "UTF";
   }
