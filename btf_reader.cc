@@ -198,9 +198,9 @@ std::vector<std::pair<std::string, int64_t>> Structs::BuildEnums(
 }
 
 // vlen: vector length, the number of parameters
-std::vector<Parameter> Structs::BuildParams(const struct btf_param* params,
-                                            size_t vlen) {
-  std::vector<Parameter> result;
+std::vector<Id> Structs::BuildParams(const struct btf_param* params,
+                                     size_t vlen) {
+  std::vector<Id> result;
   result.reserve(vlen);
   for (size_t i = 0; i < vlen; ++i) {
     const auto name = GetName(params[i].name_off);
@@ -209,8 +209,7 @@ std::vector<Parameter> Structs::BuildParams(const struct btf_param* params,
       std::cout << "\t'" << (name.empty() ? ANON : name)
                 << "' type_id=" << type << '\n';
     }
-    Parameter parameter{.name = name, .type_id = GetParameterId(type)};
-    result.push_back(std::move(parameter));
+    result.push_back(GetParameterId(type));
   }
   return result;
 }
@@ -392,6 +391,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                              ElfSymbol::Binding::GLOBAL,
                              ElfSymbol::Visibility::DEFAULT,
                              std::nullopt,
+                             std::nullopt,
                              GetId(t->type),
                              std::nullopt));
       bool inserted = btf_symbols_.insert(
@@ -428,6 +428,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                              ElfSymbol::SymbolType::OBJECT,
                              ElfSymbol::Binding::GLOBAL,
                              ElfSymbol::Visibility::DEFAULT,
+                             std::nullopt,
                              std::nullopt,
                              GetId(t->type),
                              std::nullopt));

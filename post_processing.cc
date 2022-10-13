@@ -95,18 +95,20 @@ std::vector<std::string> SummariseOffsetChanges(
   std::vector<std::string> new_report;
 
   auto emit_pending = [&]() {
-    if (vars.empty())
+    if (vars.empty()) {
       return;
-    std::ostringstream line1, line2;
-    if (vars.size() == 1) {
-      line1 << std::string(indent, ' ') << "member " << vars.front()
-            << " changed";
-    } else {
-      line1 << std::string(indent, ' ') << vars.size() << " members ("
-            << vars.front() << " .. " << vars.back() << ") changed";
     }
-    line2 << std::string(indent, ' ') << "  offset changed by " << offset;
+    std::ostringstream line1;
+    line1 << std::string(indent, ' ');
+    if (vars.size() == 1) {
+      line1 << "member " << vars.front() << " changed";
+    } else {
+      line1 << vars.size() << " members (" << vars.front() << " .. "
+            << vars.back() << ") changed";
+    }
     new_report.push_back(line1.str());
+    std::ostringstream line2;
+    line2 << std::string(indent, ' ') << "  offset changed by " << offset;
     new_report.push_back(line2.str());
     vars.clear();
   };
