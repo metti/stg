@@ -482,6 +482,10 @@ Result Primitive::Equals(State&, const Node& other) const {
   const auto& o = other.as<Primitive>();
 
   Result result;
+  if (name != o.name) {
+    return result.MarkIncomparable();
+  }
+  result.diff_.holds_changes = !name.empty();
   result.MaybeAddNodeDiff("encoding", encoding, o.encoding);
   result.MaybeAddNodeDiff("bit size", bitsize, o.bitsize);
   if (bitsize != bytesize * 8 && o.bitsize != o.bytesize * 8)
