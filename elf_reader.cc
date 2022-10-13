@@ -169,12 +169,12 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, bool verbose) {
     }
   }
 
-  std::map<SymbolKey, Id> symbols_map;
+  std::map<std::string, Id> symbols_map;
   for (const auto& symbol : public_functions_and_variables) {
     // TODO: add VersionInfoToString to SymbolKey name
     // TODO: check for uniqueness of SymbolKey in map after support
     // for version info
-    symbols_map.emplace(SymbolKey{.path = {}, .name = std::string(symbol.name)},
+    symbols_map.emplace(std::string(symbol.name),
                         graph.Add(Make<ElfSymbol>(
                             SymbolTableEntryToElfSymbol(symbol, crc_values))));
   }

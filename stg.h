@@ -508,45 +508,13 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility);
 
 std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info);
 
-struct SymbolKey {
-  const std::string path;
-  const std::string name;
-  // auto operator<=>(const SymbolKey&) const = default
-  int compare(const SymbolKey& other) const {
-    int result = path.compare(other.path);
-    if (result)
-      return result;
-    return name.compare(other.name);
-  }
-  bool operator==(const SymbolKey& other) const {
-    return compare(other) == 0;
-  }
-  bool operator!=(const SymbolKey& other) const {
-    return compare(other) != 0;
-  }
-  bool operator<(const SymbolKey& other) const {
-    return compare(other) < 0;
-  }
-  bool operator>(const SymbolKey& other) const {
-    return compare(other) > 0;
-  }
-  bool operator<=(const SymbolKey& other) const {
-    return compare(other) <= 0;
-  }
-  bool operator>=(const SymbolKey& other) const {
-    return compare(other) >= 0;
-  }
-};
-
-std::ostream& operator<<(std::ostream& os, const SymbolKey& key);
-
 struct Symbols : Node {
-  Symbols(const std::map<SymbolKey, Id>& symbols) : symbols(symbols) {}
+  Symbols(const std::map<std::string, Id>& symbols) : symbols(symbols) {}
   std::string GetKindDescription() const final;
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 
-  const std::map<SymbolKey, Id> symbols;
+  const std::map<std::string, Id> symbols;
 };
 
 std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding);

@@ -826,9 +826,9 @@ Result Symbols::Equals(State& state, const Node& other) const {
   result.diff_.holds_changes = true;
 
   // Group diffs into removed, added and changed symbols for readability.
-  std::vector<std::pair<std::string, Id>> removed;
-  std::vector<std::pair<std::string, Id>> added;
-  std::vector<std::tuple<std::string, Id, Id>> in_both;
+  std::vector<Id> removed;
+  std::vector<Id> added;
+  std::vector<std::pair<Id, Id>> in_both;
 
   const auto& symbols1 = symbols;
   const auto& symbols2 = o.symbols;
@@ -839,30 +839,26 @@ Result Symbols::Equals(State& state, const Node& other) const {
   while (it1 != end1 || it2 != end2) {
     if (it2 == end2 || (it1 != end1 && it1->first < it2->first)) {
       // removed
-      removed.push_back({it1->first.path, it1->second});
+      removed.push_back(it1->second);
       ++it1;
     } else if (it1 == end1 || (it2 != end2 && it1->first > it2->first)) {
       // added
-      added.push_back({it2->first.path, it2->second});
+      added.push_back(it2->second);
       ++it2;
     } else {
       // in both
-      in_both.push_back({it1->first.path, it1->second, it2->second});
+      in_both.push_back({it1->second, it2->second});
       ++it1;
       ++it2;
     }
   }
 
-  auto quote = [](const std::string& path) {
-    return path.empty() || path == "vmlinux"
-        ? std::string() : '\'' + path + '\'';
-  };
-  for (const auto& [path, symbol1] : removed)
-    result.AddEdgeDiff(quote(path), Removed(state, symbol1));
-  for (const auto& [path, symbol2] : added)
-    result.AddEdgeDiff(quote(path), Added(state, symbol2));
-  for (const auto& [path, symbol1, symbol2] : in_both)
-    result.MaybeAddEdgeDiff(quote(path), Compare(state, symbol1, symbol2));
+  for (const auto symbol1 : removed)
+    result.AddEdgeDiff("", Removed(state, symbol1));
+  for (const auto symbol2 : added)
+    result.AddEdgeDiff("", Added(state, symbol2));
+  for (const auto& [symbol1, symbol2] : in_both)
+    result.MaybeAddEdgeDiff("", Compare(state, symbol1, symbol2));
 
   return result;
 }
@@ -1027,12 +1023,6 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility visibility) {
 std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info) {
   return '@' + std::string(version_info.is_default ? "@" : "") +
          version_info.name;
-}
-
-std::ostream& operator<<(std::ostream& os, const SymbolKey& key) {
-  if (!key.path.empty())
-    os << key << ':';
-  return os << key.name;
 }
 
 std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {

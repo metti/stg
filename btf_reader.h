@@ -60,7 +60,7 @@ class Structs {
   std::optional<Id> void_;
   std::optional<Id> variadic_;
   std::unordered_map<uint32_t, Id> btf_type_ids_;
-  std::map<SymbolKey, Id> btf_symbols_;
+  std::map<std::string, Id> btf_symbols_;
 
   Id GetVoid();
   Id GetVariadic();
