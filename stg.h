@@ -331,15 +331,15 @@ struct Primitive : Node {
     COMPLEX_NUMBER,
     UTF,
   };
-  Primitive(const std::string& name, Encoding encoding, uint32_t bitsize,
-            uint32_t bytesize)
+  Primitive(const std::string& name, std::optional<Encoding> encoding,
+            uint32_t bitsize, uint32_t bytesize)
       : name(name), encoding(encoding), bitsize(bitsize), bytesize(bytesize) {}
 
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 
   const std::string name;
-  const Encoding encoding;
+  const std::optional<Encoding> encoding;
   // bitsize gives the semantics of the field. bytesize gives the
   // storage size, and is equal to bitsize / 8 rounded up.
   const uint32_t bitsize;
