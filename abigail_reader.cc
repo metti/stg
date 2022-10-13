@@ -553,17 +553,17 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
   } else if (name == "bool") {
     // TODO: improve terrible INT representation
     graph_.Set(
-        id, Make<Integer>(name, Integer::Encoding::BOOLEAN, bits, bytes));
+        id, Make<Primitive>(name, Primitive::Encoding::BOOLEAN, bits, bytes));
   } else {
     // TODO: What about plain char's signedness?
     bool is_signed = name.find("unsigned") == name.npos;
     bool is_char = name.find("char") != name.npos;
-    Integer::Encoding encoding =
-        is_char ? is_signed ? Integer::Encoding::SIGNED_CHARACTER
-                            : Integer::Encoding::UNSIGNED_CHARACTER
-                : is_signed ? Integer::Encoding::SIGNED_INTEGER
-                            : Integer::Encoding::UNSIGNED_INTEGER;
-    graph_.Set(id, Make<Integer>(name, encoding, bits, bytes));
+    Primitive::Encoding encoding =
+        is_char ? is_signed ? Primitive::Encoding::SIGNED_CHARACTER
+                            : Primitive::Encoding::UNSIGNED_CHARACTER
+                : is_signed ? Primitive::Encoding::SIGNED_INTEGER
+                            : Primitive::Encoding::UNSIGNED_INTEGER;
+    graph_.Set(id, Make<Primitive>(name, encoding, bits, bytes));
   }
   if (verbose_)
     std::cerr << id << " " << name << "\n";

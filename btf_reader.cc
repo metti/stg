@@ -268,15 +268,15 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                                       : "(none)")
                   << '\n';
       }
-      Integer::Encoding encoding =
-          is_bool ? Integer::Encoding::BOOLEAN
-                  : is_char ? is_signed ? Integer::Encoding::SIGNED_CHARACTER
-                                        : Integer::Encoding::UNSIGNED_CHARACTER
-                            : is_signed ? Integer::Encoding::SIGNED_INTEGER
-                                        : Integer::Encoding::UNSIGNED_INTEGER;
+      Primitive::Encoding encoding =
+          is_bool ? Primitive::Encoding::BOOLEAN
+                : is_char ? is_signed ? Primitive::Encoding::SIGNED_CHARACTER
+                                      : Primitive::Encoding::UNSIGNED_CHARACTER
+                          : is_signed ? Primitive::Encoding::SIGNED_INTEGER
+                                      : Primitive::Encoding::UNSIGNED_INTEGER;
       if (offset)
         Die() << "BTF INT non-zero offset " << offset << '\n';
-      define(Make<Integer>(name, encoding, bits, t->size));
+      define(Make<Primitive>(name, encoding, bits, t->size));
       break;
     }
     case BTF_KIND_PTR: {

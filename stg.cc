@@ -335,7 +335,7 @@ Name Qualified::MakeDescription(const Graph& graph, NameCache& names) const {
   return GetDescription(graph, names, under).Qualify(qualifiers);
 }
 
-Name Integer::MakeDescription(const Graph&, NameCache&) const {
+Name Primitive::MakeDescription(const Graph&, NameCache&) const {
   return Name{name};
 }
 
@@ -478,8 +478,8 @@ Result Qualified::Equals(State&, const Node&) const {
   Die() << "internal error: Qualified::Equals";
 }
 
-Result Integer::Equals(State&, const Node& other) const {
-  const auto& o = other.as<Integer>();
+Result Primitive::Equals(State&, const Node& other) const {
+  const auto& o = other.as<Primitive>();
 
   Result result;
   result.MaybeAddNodeDiff("encoding", encoding, o.encoding);
@@ -1025,19 +1025,19 @@ std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info) {
          version_info.name;
 }
 
-std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {
+std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding) {
   switch (encoding) {
-    case Integer::Encoding::BOOLEAN:
+    case Primitive::Encoding::BOOLEAN:
       return os << "boolean";
-    case Integer::Encoding::SIGNED_INTEGER:
+    case Primitive::Encoding::SIGNED_INTEGER:
       return os << "signed integer";
-    case Integer::Encoding::UNSIGNED_INTEGER:
+    case Primitive::Encoding::UNSIGNED_INTEGER:
       return os << "unsigned integer";
-    case Integer::Encoding::SIGNED_CHARACTER:
+    case Primitive::Encoding::SIGNED_CHARACTER:
       return os << "signed character";
-    case Integer::Encoding::UNSIGNED_CHARACTER:
+    case Primitive::Encoding::UNSIGNED_CHARACTER:
       return os << "unsigned character";
-    case Integer::Encoding::UTF:
+    case Primitive::Encoding::UTF:
       return os << "UTF";
   }
 }

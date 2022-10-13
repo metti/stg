@@ -320,7 +320,7 @@ struct Qualified : Node {
   const Id qualified_type_id;
 };
 
-struct Integer : Node {
+struct Primitive : Node {
   enum class Encoding {
     BOOLEAN,
     SIGNED_INTEGER,
@@ -329,8 +329,8 @@ struct Integer : Node {
     UNSIGNED_CHARACTER,
     UTF,
   };
-  Integer(const std::string& name, Encoding encoding, uint32_t bitsize,
-          uint32_t bytesize)
+  Primitive(const std::string& name, Encoding encoding, uint32_t bitsize,
+            uint32_t bytesize)
       : name(name), encoding(encoding), bitsize(bitsize), bytesize(bytesize) {}
 
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
@@ -517,7 +517,7 @@ struct Symbols : Node {
   const std::map<std::string, Id> symbols;
 };
 
-std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding);
+std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding);
 
 }  // namespace stg
 
