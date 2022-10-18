@@ -80,7 +80,7 @@ class Name {
   Name(const std::string& left, Precedence precedence, const std::string& right)
       : left_(left), precedence_(precedence), right_(right) {}
   Name Add(Side side, Precedence precedence, const std::string& text) const;
-  Name Qualify(const Qualifiers& qualifiers) const;
+  Name Qualify(Qualifier qualifier) const;
   std::ostream& Print(std::ostream& os) const;
 
  private:

@@ -95,26 +95,37 @@ Name Name::Add(Side side, Precedence precedence,
   return Name{left.str(), precedence, right.str()};
 }
 
-Name Name::Qualify(const Qualifiers& qualifiers) const {
-  // this covers the case when bad qualifiers have been dropped
-  if (qualifiers.empty())
-    return *this;
-  // add qualifiers to the left or right of the type stem
+Name Name::Qualify(Qualifier qualifier) const {
   std::ostringstream os;
-  if (precedence_ == Precedence::NIL) {
-    for (const auto& qualifier : qualifiers)
-      os << qualifier << ' ';
-    os << left_;
-  } else if (precedence_ == Precedence::POINTER) {
-    os << left_;
-    for (const auto& qualifier : qualifiers)
-      os << ' ' << qualifier;
-  } else {
-    // qualifiers do not apply to arrays, functions or names
-    Die() << "qualifiers found for inappropriate node";
+  // Qualifiers attach without affecting precedence but the precedence
+  // determines the relative position of the qualifier.
+  switch (precedence_) {
+    case Precedence::NIL: {
+      // Add qualifier to the left of the type stem.
+      //
+      // This gives the more popular format (const int rather than int const)
+      // and is safe because NIL precedence types are always leaf syntax.
+      os << qualifier << ' ' << left_;
+      return Name{os.str(), precedence_, right_};
+    }
+    case Precedence::POINTER: {
+      // Add qualifier to the right of the sigil.
+      //
+      // TODO: consider dropping ' ' here.
+      os << left_ << ' ' << qualifier;
+      return Name{os.str(), precedence_, right_};
+    }
+    case Precedence::ARRAY_FUNCTION: {
+      // Qualifiers should not normally apply to arrays or functions.
+      os << '{' << qualifier << ">}" << right_;
+      return Name{left_, precedence_, os.str()};
+    }
+    case Precedence::ATOMIC: {
+      // Qualifiers should not normally apply to names.
+      os << left_ << "{<" << qualifier << '}';
+      return Name{os.str(), precedence_, right_};
+    }
   }
-  // qualifiers attach without affecting precedence
-  return Name{os.str(), precedence_, right_};
 }
 
 std::ostream& Name::Print(std::ostream& os) const {
@@ -327,12 +338,7 @@ Name Typedef::MakeDescription(const Graph&, NameCache&) const {
 }
 
 Name Qualified::MakeDescription(const Graph& graph, NameCache& names) const {
-  Qualifiers qualifiers;
-  qualifiers.insert(qualifier);
-  Id under = qualified_type_id;
-  while (const auto maybe = graph.Get(under).ResolveQualifier(qualifiers))
-    under = *maybe;
-  return GetDescription(graph, names, under).Qualify(qualifiers);
+  return GetDescription(graph, names, qualified_type_id).Qualify(qualifier);
 }
 
 Name Primitive::MakeDescription(const Graph&, NameCache&) const {
