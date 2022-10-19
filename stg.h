@@ -466,7 +466,14 @@ struct ElfSymbol : Node {
   enum class SymbolType { OBJECT, FUNCTION, COMMON, TLS };
   enum class Binding { GLOBAL, LOCAL, WEAK, GNU_UNIQUE };
   enum class Visibility { DEFAULT, PROTECTED, HIDDEN, INTERNAL };
-  struct VersionInfo { bool is_default; std::string name; };
+  struct VersionInfo {
+    // TODO: auto operator<=>(const VersionInfo&) const = default;
+    bool operator==(const VersionInfo& other) const {
+      return is_default == other.is_default && name == other.name;
+    }
+    bool is_default;
+    std::string name;
+  };
   ElfSymbol(const std::string& symbol_name,
             std::optional<VersionInfo> version_info,
             bool is_defined,
