@@ -30,6 +30,7 @@
 #include <functional>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -259,7 +260,7 @@ Id Abigail::GetVariadic() {
   return *variadic_;
 }
 
-std::unique_ptr<Node> Abigail::MakeFunctionType(xmlNodePtr function) {
+Function Abigail::MakeFunctionType(xmlNodePtr function) {
   std::vector<Id> parameters;
   std::optional<Id> return_type;
   for (auto child = xmlFirstElementChild(function); child;

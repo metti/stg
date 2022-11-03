@@ -44,9 +44,9 @@ namespace stg {
 
 struct Node;
 
-template <typename Kind, typename... Args>
-    std::unique_ptr<Node> Make(Args&&... args) {
-  return std::make_unique<Kind>(std::forward<Args>(args)...);
+template <typename Node, typename... Args>
+Node Make(Args&&... args) {
+  return Node(std::forward<Args>(args)...);
 }
 
 // Concrete graph type.
@@ -66,16 +66,17 @@ class Graph {
     return Id(ix);
   }
 
-  void Set(Id id, std::unique_ptr<Node> node) {
-    Check(node != nullptr) << "node value not set";
+  template <typename Node>
+  void Set(Id id, Node node) {
     auto& reference = nodes_[id.ix_];
     Check(reference == nullptr) << "node value already set";
-    reference = std::move(node);
+    reference = std::make_unique<Node>(node);
   }
 
-  Id Add(std::unique_ptr<Node> node) {
+  template <typename Node>
+  Id Add(Node node) {
     auto id = Allocate();
-    Set(id, std::move(node));
+    Set<Node>(id, node);
     return id;
   }
 
