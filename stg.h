@@ -52,12 +52,32 @@ template <typename Kind, typename... Args>
 // Concrete graph type.
 class Graph {
  public:
-  const Node& Get(Id id) const;
+  const Node& Get(Id id) const {
+    return *nodes_[id.ix_].get();
+  }
 
-  bool Is(Id) const;
-  Id Allocate();
-  void Set(Id id, std::unique_ptr<Node> node);
-  Id Add(std::unique_ptr<Node> node);
+  bool Is(Id id) const {
+    return nodes_[id.ix_] != nullptr;
+  }
+
+  Id Allocate() {
+    const auto ix = nodes_.size();
+    nodes_.push_back(nullptr);
+    return Id(ix);
+  }
+
+  void Set(Id id, std::unique_ptr<Node> node) {
+    Check(node != nullptr) << "node value not set";
+    auto& reference = nodes_[id.ix_];
+    Check(reference == nullptr) << "node value already set";
+    reference = std::move(node);
+  }
+
+  Id Add(std::unique_ptr<Node> node) {
+    auto id = Allocate();
+    Set(id, std::move(node));
+    return id;
+  }
 
  private:
   std::vector<std::unique_ptr<Node>> nodes_;

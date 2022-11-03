@@ -34,31 +34,6 @@
 
 namespace stg {
 
-bool Graph::Is(Id id) const {
-  return nodes_[id.ix_] != nullptr;
-}
-
-Id Graph::Allocate() {
-  const auto ix = nodes_.size();
-  nodes_.push_back(nullptr);
-  return Id(ix);
-}
-
-void Graph::Set(Id id, std::unique_ptr<Node> node) {
-  Check(node != nullptr) << "node value not set";
-  auto& reference = nodes_[id.ix_];
-  Check(reference == nullptr) << "node value already set";
-  reference = std::move(node);
-}
-
-Id Graph::Add(std::unique_ptr<Node> node) {
-  auto id = Allocate();
-  Set(id, std::move(node));
-  return id;
-}
-
-const Node& Graph::Get(Id id) const { return *nodes_[id.ix_].get(); }
-
 Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers) {
   while (const auto maybe = graph.Get(id).ResolveQualifier(qualifiers))
     id = *maybe;
