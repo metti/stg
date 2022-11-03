@@ -175,10 +175,10 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, bool verbose) {
     // TODO: check for uniqueness of SymbolKey in map after support
     // for version info
     symbols_map.emplace(std::string(symbol.name),
-                        graph.Add(Make<ElfSymbol>(
-                            SymbolTableEntryToElfSymbol(symbol, crc_values))));
+                        graph.Add<ElfSymbol>(
+                            SymbolTableEntryToElfSymbol(symbol, crc_values)));
   }
-  return graph.Add(Make<Symbols>(std::move(symbols_map)));
+  return graph.Add<Symbols>(std::move(symbols_map));
 }
 
 }  // namespace

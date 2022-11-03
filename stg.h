@@ -44,11 +44,6 @@ namespace stg {
 
 struct Node;
 
-template <typename Node, typename... Args>
-Node Make(Args&&... args) {
-  return Node(std::forward<Args>(args)...);
-}
-
 // Concrete graph type.
 class Graph {
  public:
@@ -66,17 +61,17 @@ class Graph {
     return Id(ix);
   }
 
-  template <typename Node>
-  void Set(Id id, Node node) {
+  template <typename Node, typename... Args>
+  void Set(Id id, Args&&... args) {
     auto& reference = nodes_[id.ix_];
     Check(reference == nullptr) << "node value already set";
-    reference = std::make_unique<Node>(node);
+    reference = std::make_unique<Node>(std::forward<Args>(args)...);
   }
 
-  template <typename Node>
-  Id Add(Node node) {
+  template <typename Node, typename... Args>
+  Id Add(Args&&... args) {
     auto id = Allocate();
-    Set<Node>(id, node);
+    Set<Node>(id, std::forward<Args>(args)...);
     return id;
   }
 
@@ -259,6 +254,9 @@ struct State {
 };
 
 struct Node {
+  Node() = default;
+  Node(const Node&) = delete;
+  Node(Node&&) = default;
   virtual ~Node() = default;
 
   // as<Target>() provides a method to delegate downcasting to the base class,

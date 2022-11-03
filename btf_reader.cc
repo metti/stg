@@ -75,14 +75,14 @@ Structs::Structs(Graph& graph, const bool verbose)
 // Get the index of the void type, creating one if needed.
 Id Structs::GetVoid() {
   if (!void_)
-    void_ = {graph_.Add(Make<Void>())};
+    void_ = {graph_.Add<Void>()};
   return *void_;
 }
 
 // Get the index of the variadic parameter type, creating one if needed.
 Id Structs::GetVariadic() {
   if (!variadic_)
-    variadic_ = {graph_.Add(Make<Variadic>())};
+    variadic_ = {graph_.Add<Variadic>()};
   return *variadic_;
 }
 
@@ -175,9 +175,9 @@ std::vector<Id> Structs::BuildMembers(
         std::cout << " bitfield_size=" << bitfield_size;
       std::cout << '\n';
     }
-    auto member = Make<Member>(name, GetId(raw_member.type),
-                               static_cast<uint64_t>(offset), bitfield_size);
-    result.push_back(graph_.Add(std::move(member)));
+    result.push_back(
+        graph_.Add<Member>(name, GetId(raw_member.type),
+                           static_cast<uint64_t>(offset), bitfield_size));
   }
   return result;
 }
@@ -242,9 +242,9 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
 
   if (verbose_)
     std::cout << '[' << btf_index << "] ";
-  // delay allocation of type id as some BTF nodes are skipped
-  auto define = [&](auto type) {
-    graph_.Set(GetIdRaw(btf_index), type);
+  // delay allocation of node id as some BTF nodes are skipped
+  auto id = [&]() {
+    return GetIdRaw(btf_index);
   };
 
   switch (kind) {
@@ -276,15 +276,15 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                                       : Primitive::Encoding::UNSIGNED_INTEGER;
       if (offset)
         Die() << "BTF INT non-zero offset " << offset << '\n';
-      define(Make<Primitive>(name, encoding, bits, t->size));
+      graph_.Set<Primitive>(id(), name, encoding, bits, t->size);
       break;
     }
     case BTF_KIND_PTR: {
       if (verbose_) {
         std::cout << "PTR '" << ANON << "' type_id=" << t->type << '\n';
       }
-      define(Make<PointerReference>(PointerReference::Kind::POINTER,
-                                    GetId(t->type)));
+      graph_.Set<PointerReference>(id(), PointerReference::Kind::POINTER,
+                                   GetId(t->type));
       break;
     }
     case BTF_KIND_TYPEDEF: {
@@ -292,7 +292,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       if (verbose_) {
         std::cout << "TYPEDEF '" << name << "' type_id=" << t->type << '\n';
       }
-      define(Make<Typedef>(name, GetId(t->type)));
+      graph_.Set<Typedef>(id(), name, GetId(t->type));
       break;
     }
     case BTF_KIND_VOLATILE:
@@ -309,7 +309,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                       : "RESTRICT")
                   << " '" << ANON << "' type_id=" << t->type << '\n';
       }
-      define(Make<Qualified>(qualifier, GetId(t->type)));
+      graph_.Set<Qualified>(id(), qualifier, GetId(t->type));
       break;
     }
     case BTF_KIND_ARRAY: {
@@ -321,7 +321,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << " nr_elems=" << array->nelems
                   << '\n';
       }
-      define(Make<Array>(array->nelems, GetId(array->type)));
+      graph_.Set<Array>(id(), array->nelems, GetId(array->type));
       break;
     }
     case BTF_KIND_STRUCT:
@@ -339,8 +339,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       }
       const auto* btf_members = memory.Pull<struct btf_member>(vlen);
       const auto members = BuildMembers(kflag, btf_members, vlen);
-      define(Make<StructUnion>(struct_union_kind, name, t->size,
-                               std::vector<Id>(), std::vector<Id>(), members));
+      graph_.Set<StructUnion>(id(), struct_union_kind, name, t->size,
+                              std::vector<Id>(), std::vector<Id>(), members);
       break;
     }
     case BTF_KIND_ENUM: {
@@ -357,10 +357,10 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       // does not include forward-declared enums. They are treated as
       // BTF_KIND_ENUMs with vlen set to zero.
       if (vlen) {
-        define(Make<Enumeration>(name, t->size, enumerators));
+        graph_.Set<Enumeration>(id(), name, t->size, enumerators);
       } else {
         // BTF actually provides size (4), but it's meaningless.
-        define(Make<Enumeration>(name));
+        graph_.Set<Enumeration>(id(), name);
       }
       break;
     }
@@ -373,7 +373,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
         std::cout << "FWD '" << name << "' fwd_kind=" << struct_union_kind
                   << '\n';
       }
-      define(Make<StructUnion>(struct_union_kind, name));
+      graph_.Set<StructUnion>(id(), struct_union_kind, name);
       break;
     }
     case BTF_KIND_FUNC: {
@@ -386,14 +386,14 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << '\n';
       }
 
-      define(Make<ElfSymbol>(name, std::nullopt, true,
-                             ElfSymbol::SymbolType::FUNCTION,
-                             ElfSymbol::Binding::GLOBAL,
-                             ElfSymbol::Visibility::DEFAULT,
-                             std::nullopt,
-                             std::nullopt,
-                             GetId(t->type),
-                             std::nullopt));
+      graph_.Set<ElfSymbol>(id(), name, std::nullopt, true,
+                            ElfSymbol::SymbolType::FUNCTION,
+                            ElfSymbol::Binding::GLOBAL,
+                            ElfSymbol::Visibility::DEFAULT,
+                            std::nullopt,
+                            std::nullopt,
+                            GetId(t->type),
+                            std::nullopt);
       bool inserted = btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
       Check(inserted) << "duplicate symbol " << name;
       break;
@@ -407,7 +407,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << '\n';
       }
       const auto parameters = BuildParams(params, vlen);
-      define(Make<Function>(GetId(t->type), parameters));
+      graph_.Set<Function>(id(), GetId(t->type), parameters);
       break;
     }
     case BTF_KIND_VAR: {
@@ -423,14 +423,14 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << '\n';
       }
 
-      define(Make<ElfSymbol>(name, std::nullopt, true,
-                             ElfSymbol::SymbolType::OBJECT,
-                             ElfSymbol::Binding::GLOBAL,
-                             ElfSymbol::Visibility::DEFAULT,
-                             std::nullopt,
-                             std::nullopt,
-                             GetId(t->type),
-                             std::nullopt));
+      graph_.Set<ElfSymbol>(id(), name, std::nullopt, true,
+                            ElfSymbol::SymbolType::OBJECT,
+                            ElfSymbol::Binding::GLOBAL,
+                            ElfSymbol::Visibility::DEFAULT,
+                            std::nullopt,
+                            std::nullopt,
+                            GetId(t->type),
+                            std::nullopt);
       bool inserted = btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
       Check(inserted) << "duplicate symbol " << name;
       break;
@@ -472,7 +472,7 @@ void Structs::PrintStrings(MemoryRange memory) {
 }
 
 Id Structs::BuildSymbols() {
-  return graph_.Add(Make<Symbols>(btf_symbols_));
+  return graph_.Add<Symbols>(btf_symbols_);
 }
 
 Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
