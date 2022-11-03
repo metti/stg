@@ -85,8 +85,8 @@ std::optional<typename M::mapped_type> MaybeGet(const M& map, const K& key) {
   return {it->second};
 }
 
-const ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol,
-                                            const CRCValuesMap& crc_values) {
+ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol,
+                                      const CRCValuesMap& crc_values) {
   return ElfSymbol(
       /* symbol_name = */ std::string(symbol.name),
       /* version_info = */ std::nullopt,
