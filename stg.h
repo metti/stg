@@ -75,6 +75,12 @@ class Graph {
     return id;
   }
 
+  template <typename Result, typename FunctionObject>
+  Result Apply(FunctionObject& function, Id id) const;
+
+  template <typename Result, typename FunctionObject>
+  Result Apply(FunctionObject& function, Id id1, Id id2) const;
+
  private:
   std::vector<std::unique_ptr<Node>> nodes_;
 };
@@ -546,6 +552,130 @@ struct Symbols : Node {
 };
 
 std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding);
+
+template <typename Result, typename FunctionObject>
+Result Graph::Apply(FunctionObject& function, Id id) const {
+  const Node& node = Get(id);
+  const auto& type_id = typeid(node);
+  if (type_id == typeid(Void)) {
+    return function(static_cast<const Void&>(node));
+  }
+  if (type_id == typeid(Variadic)) {
+    return function(static_cast<const Variadic&>(node));
+  }
+  if (type_id == typeid(PointerReference)) {
+    return function(static_cast<const PointerReference&>(node));
+  }
+  if (type_id == typeid(Typedef)) {
+    return function(static_cast<const Typedef&>(node));
+  }
+  if (type_id == typeid(Qualified)) {
+    return function(static_cast<const Qualified&>(node));
+  }
+  if (type_id == typeid(Primitive)) {
+    return function(static_cast<const Primitive&>(node));
+  }
+  if (type_id == typeid(Array)) {
+    return function(static_cast<const Array&>(node));
+  }
+  if (type_id == typeid(BaseClass)) {
+    return function(static_cast<const BaseClass&>(node));
+  }
+  if (type_id == typeid(Member)) {
+    return function(static_cast<const Member&>(node));
+  }
+  if (type_id == typeid(Method)) {
+    return function(static_cast<const Method&>(node));
+  }
+  if (type_id == typeid(StructUnion)) {
+    return function(static_cast<const StructUnion&>(node));
+  }
+  if (type_id == typeid(Enumeration)) {
+    return function(static_cast<const Enumeration&>(node));
+  }
+  if (type_id == typeid(Function)) {
+    return function(static_cast<const Function&>(node));
+  }
+  if (type_id == typeid(ElfSymbol)) {
+    return function(static_cast<const ElfSymbol&>(node));
+  }
+  if (type_id == typeid(Symbols)) {
+    return function(static_cast<const Symbols&>(node));
+  }
+  Die() << "unknown node type " << type_id.name();
+}
+
+template <typename Result, typename FunctionObject>
+Result Graph::Apply(FunctionObject& function, Id id1, Id id2) const {
+  const Node& node1 = Get(id1);
+  const Node& node2 = Get(id2);
+  const auto& type_id1 = typeid(node1);
+  const auto& type_id2 = typeid(node2);
+  if (type_id1 != type_id2) {
+    return function.Mismatch();
+  }
+  if (type_id1 == typeid(Void)) {
+    return function(static_cast<const Void&>(node1),
+                    static_cast<const Void&>(node2));
+  }
+  if (type_id1 == typeid(Variadic)) {
+    return function(static_cast<const Variadic&>(node1),
+                    static_cast<const Variadic&>(node2));
+  }
+  if (type_id1 == typeid(PointerReference)) {
+    return function(static_cast<const PointerReference&>(node1),
+                    static_cast<const PointerReference&>(node2));
+  }
+  if (type_id1 == typeid(Typedef)) {
+    return function(static_cast<const Typedef&>(node1),
+                    static_cast<const Typedef&>(node2));
+  }
+  if (type_id1 == typeid(Qualified)) {
+    return function(static_cast<const Qualified&>(node1),
+                    static_cast<const Qualified&>(node2));
+  }
+  if (type_id1 == typeid(Primitive)) {
+    return function(static_cast<const Primitive&>(node1),
+                    static_cast<const Primitive&>(node2));
+  }
+  if (type_id1 == typeid(Array)) {
+    return function(static_cast<const Array&>(node1),
+                    static_cast<const Array&>(node2));
+  }
+  if (type_id1 == typeid(BaseClass)) {
+    return function(static_cast<const BaseClass&>(node1),
+                    static_cast<const BaseClass&>(node2));
+  }
+  if (type_id1 == typeid(Member)) {
+    return function(static_cast<const Member&>(node1),
+                    static_cast<const Member&>(node2));
+  }
+  if (type_id1 == typeid(Method)) {
+    return function(static_cast<const Method&>(node1),
+                    static_cast<const Method&>(node2));
+  }
+  if (type_id1 == typeid(StructUnion)) {
+    return function(static_cast<const StructUnion&>(node1),
+                    static_cast<const StructUnion&>(node2));
+  }
+  if (type_id1 == typeid(Enumeration)) {
+    return function(static_cast<const Enumeration&>(node1),
+                    static_cast<const Enumeration&>(node2));
+  }
+  if (type_id1 == typeid(Function)) {
+    return function(static_cast<const Function&>(node1),
+                    static_cast<const Function&>(node2));
+  }
+  if (type_id1 == typeid(ElfSymbol)) {
+    return function(static_cast<const ElfSymbol&>(node1),
+                    static_cast<const ElfSymbol&>(node2));
+  }
+  if (type_id1 == typeid(Symbols)) {
+    return function(static_cast<const Symbols&>(node1),
+                    static_cast<const Symbols&>(node2));
+  }
+  Die() << "unknown node type " << type_id1.name();
+}
 
 }  // namespace stg
 
