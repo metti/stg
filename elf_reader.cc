@@ -67,9 +67,10 @@ CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols) {
     const std::string_view name = symbol.name;
     if (name.substr(0, kCRCPrefix.size()) == kCRCPrefix) {
       std::string_view name_suffix = name.substr(kCRCPrefix.size());
-      bool emplaced = crc_values.emplace(name_suffix, CRC{symbol.value}).second;
-      Check(emplaced) << "Multiple CRC values for symbol '" << name_suffix
-                      << '\'';
+      CRC crc{static_cast<uint32_t>(symbol.value)};
+      if (!crc_values.emplace(name_suffix, crc).second) {
+        Die() << "Multiple CRC values for symbol '" << name_suffix << '\'';
+      }
     }
   }
 

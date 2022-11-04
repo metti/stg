@@ -26,7 +26,7 @@
 namespace stg {
 
 struct CRC {
-  uint64_t number;
+  uint32_t number;
 };
 
 inline bool operator==(CRC crc1, CRC crc2) {
