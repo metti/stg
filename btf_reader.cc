@@ -184,31 +184,48 @@ std::vector<Id> Structs::BuildMembers(
 
 // vlen: vector length, the number of enum values
 std::vector<std::pair<std::string, int64_t>> Structs::BuildEnums(
-    const struct btf_enum* enums, size_t vlen) {
+    bool is_signed, const struct btf_enum* enums, size_t vlen) {
   std::vector<std::pair<std::string, int64_t>> result;
   for (size_t i = 0; i < vlen; ++i) {
     const auto name = GetName(enums[i].name_off);
-    const auto value = enums[i].val;
-    if (verbose_) {
-      std::cout << "\t'" << name << "' val=" << value << '\n';
+    const uint32_t unsigned_value = enums[i].val;
+    if (is_signed) {
+      const int32_t signed_value = unsigned_value;
+      if (verbose_) {
+        std::cout << "\t'" << name << "' val=" << signed_value << '\n';
+      }
+      result.emplace_back(name, static_cast<int64_t>(signed_value));
+    } else {
+      if (verbose_) {
+        std::cout << "\t'" << name << "' val=" << unsigned_value << '\n';
+      }
+      result.emplace_back(name, static_cast<int64_t>(unsigned_value));
     }
-    result.emplace_back(name, value);
   }
   return result;
 }
 
 std::vector<std::pair<std::string, int64_t>> Structs::BuildEnums64(
-    const struct btf_enum64* enums, size_t vlen) {
+    bool is_signed, const struct btf_enum64* enums, size_t vlen) {
   std::vector<std::pair<std::string, int64_t>> result;
   for (size_t i = 0; i < vlen; ++i) {
     const auto name = GetName(enums[i].name_off);
     const uint32_t low = enums[i].val_lo32;
     const uint32_t high = enums[i].val_hi32;
-    const int64_t value = (static_cast<uint64_t>(high) << 32) | low;
-    if (verbose_) {
-      std::cout << "\t'" << name << "' val=" << value << "LL\n";
+    const uint64_t unsigned_value = (static_cast<uint64_t>(high) << 32) | low;
+    if (is_signed) {
+      const int64_t signed_value = unsigned_value;
+      if (verbose_) {
+        std::cout << "\t'" << name << "' val=" << signed_value << "LL\n";
+      }
+      result.emplace_back(name, signed_value);
+    } else {
+      if (verbose_) {
+        std::cout << "\t'" << name << "' val=" << unsigned_value << "ULL\n";
+      }
+      // TODO: very large unsigned values are stored as negative numbers
+      result.emplace_back(name, static_cast<int64_t>(unsigned_value));
     }
-    result.emplace_back(name, value);
   }
   return result;
 }
@@ -361,14 +378,16 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     }
     case BTF_KIND_ENUM: {
       const auto name = GetName(t->name_off);
+      const bool is_signed = BTF_INFO_KFLAG(t->info);
       if (verbose_) {
         std::cout << "ENUM '" << (name.empty() ? ANON : name) << "'"
+                  << " encoding=" << (is_signed ? "SIGNED" : "UNSIGNED")
                   << " size=" << t->size
                   << " vlen=" << vlen
                   << '\n';
       }
       const auto* enums = memory.Pull<struct btf_enum>(vlen);
-      const auto enumerators = BuildEnums(enums, vlen);
+      const auto enumerators = BuildEnums(is_signed, enums, vlen);
       // BTF only considers structs and unions as forward-declared types, and
       // does not include forward-declared enums. They are treated as
       // BTF_KIND_ENUMs with vlen set to zero.
@@ -382,14 +401,16 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     }
     case BTF_KIND_ENUM64: {
       const auto name = GetName(t->name_off);
+      const bool is_signed = BTF_INFO_KFLAG(t->info);
       if (verbose_) {
         std::cout << "ENUM64 '" << (name.empty() ? ANON : name) << "'"
+                  << " encoding=" << (is_signed ? "SIGNED" : "UNSIGNED")
                   << " size=" << t->size
                   << " vlen=" << vlen
                   << '\n';
       }
       const auto* enums = memory.Pull<struct btf_enum64>(vlen);
-      const auto enumerators = BuildEnums64(enums, vlen);
+      const auto enumerators = BuildEnums64(is_signed, enums, vlen);
       graph_.Set<Enumeration>(id(), name, t->size, enumerators);
       break;
     }

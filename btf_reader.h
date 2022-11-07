@@ -75,9 +75,9 @@ class Structs {
   std::vector<Id> BuildMembers(
       bool kflag, const btf_member* members, size_t vlen);
   Enumeration::Enumerators BuildEnums(
-      const struct btf_enum* enums, size_t vlen);
+      bool is_signed, const struct btf_enum* enums, size_t vlen);
   Enumeration::Enumerators BuildEnums64(
-      const struct btf_enum64* enums, size_t vlen);
+      bool is_signed, const struct btf_enum64* enums, size_t vlen);
   std::vector<Id> BuildParams(const struct btf_param* params, size_t vlen);
   std::string GetName(uint32_t name_off);
 
