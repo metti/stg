@@ -197,6 +197,22 @@ std::vector<std::pair<std::string, int64_t>> Structs::BuildEnums(
   return result;
 }
 
+std::vector<std::pair<std::string, int64_t>> Structs::BuildEnums64(
+    const struct btf_enum64* enums, size_t vlen) {
+  std::vector<std::pair<std::string, int64_t>> result;
+  for (size_t i = 0; i < vlen; ++i) {
+    const auto name = GetName(enums[i].name_off);
+    const uint32_t low = enums[i].val_lo32;
+    const uint32_t high = enums[i].val_hi32;
+    const int64_t value = (static_cast<uint64_t>(high) << 32) | low;
+    if (verbose_) {
+      std::cout << "\t'" << name << "' val=" << value << "LL\n";
+    }
+    result.emplace_back(name, value);
+  }
+  return result;
+}
+
 // vlen: vector length, the number of parameters
 std::vector<Id> Structs::BuildParams(const struct btf_param* params,
                                      size_t vlen) {
@@ -362,6 +378,19 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
         // BTF actually provides size (4), but it's meaningless.
         graph_.Set<Enumeration>(id(), name);
       }
+      break;
+    }
+    case BTF_KIND_ENUM64: {
+      const auto name = GetName(t->name_off);
+      if (verbose_) {
+        std::cout << "ENUM64 '" << (name.empty() ? ANON : name) << "'"
+                  << " size=" << t->size
+                  << " vlen=" << vlen
+                  << '\n';
+      }
+      const auto* enums = memory.Pull<struct btf_enum64>(vlen);
+      const auto enumerators = BuildEnums64(enums, vlen);
+      graph_.Set<Enumeration>(id(), name, t->size, enumerators);
       break;
     }
     case BTF_KIND_FWD: {
