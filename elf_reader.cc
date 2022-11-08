@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "crc.h"
+#include "dwarf.h"
 #include "elf_loader.h"
 #include "stg.h"
 
@@ -143,7 +144,8 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   return true;
 }
 
-Id Read(Graph& graph, elf::ElfLoader&& elf, bool verbose) {
+Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&&,
+        bool verbose) {
   const auto all_symbols = elf.GetElfSymbols();
   if (verbose) {
     std::cout << "Parsed " << all_symbols.size() << " symbols\n";
@@ -189,7 +191,8 @@ Id Read(Graph& graph, const std::string& path, bool verbose) {
     std::cout << "Parsing ELF: " << path << '\n';
   }
 
-  return Read(graph, elf::ElfLoader(path, verbose), verbose);
+  return Read(graph, elf::ElfLoader(path, verbose), dwarf::Handler(path),
+              verbose);
 }
 
 Id Read(Graph& graph, char* data, size_t size, bool verbose) {
@@ -197,7 +200,8 @@ Id Read(Graph& graph, char* data, size_t size, bool verbose) {
     std::cout << "Parsing ELF from memory\n";
   }
 
-  return Read(graph, elf::ElfLoader(data, size, verbose), verbose);
+  return Read(graph, elf::ElfLoader(data, size, verbose),
+              dwarf::Handler(data, size), verbose);
 }
 
 }  // namespace elf
