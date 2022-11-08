@@ -120,7 +120,6 @@ Id ResolveTypedefs(
     const Graph& graph, Id id, std::vector<std::string>& typedefs);
 
 const Name& GetDescription(const Graph& graph, NameCache& names, Id node);
-std::string GetResolvedDescription(const Graph& graph, NameCache& names, Id id);
 
 struct DiffDetail {
   DiffDetail(const std::string& text, const std::optional<Comparison>& edge)

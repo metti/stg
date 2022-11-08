@@ -120,18 +120,6 @@ const Name& GetDescription(const Graph& graph, NameCache& names, Id node) {
   return cached;
 }
 
-std::string GetResolvedDescription(
-    const Graph& graph, NameCache& names, Id id) {
-  std::ostringstream os;
-  std::vector<std::string> typedefs;
-  const Id resolved = ResolveTypedefs(graph, id, typedefs);
-  for (const auto& td : typedefs)
-    os << '\'' << td << "' = ";
-  os << '\'' << GetDescription(graph, names, resolved) << '\''
-     << graph.Get(resolved).ExtraDescription();
-  return os.str();
-}
-
 std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
   std::ostringstream os;
   os << "qualifier " << qualifier << ' ' << action;

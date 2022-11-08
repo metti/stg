@@ -32,6 +32,18 @@
 
 namespace stg {
 
+std::string GetResolvedDescription(
+    const Graph& graph, NameCache& names, Id id) {
+  std::ostringstream os;
+  std::vector<std::string> typedefs;
+  const Id resolved = ResolveTypedefs(graph, id, typedefs);
+  for (const auto& td : typedefs)
+    os << '\'' << td << "' = ";
+  os << '\'' << GetDescription(graph, names, resolved) << '\''
+     << graph.Get(resolved).ExtraDescription();
+  return os.str();
+}
+
 bool PrintComparison(Reporting& reporting, const Comparison& comparison,
                      std::ostream& os) {
   const auto id1 = comparison.first;
