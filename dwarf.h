@@ -32,6 +32,26 @@
 namespace stg {
 namespace dwarf {
 
+// C++ wrapper over Dwarf_Die, providing interface for its various properties.
+struct Entry {
+  // All methods in libdw take Dwarf_Die by non-const pointer as libdw caches
+  // in it a link to the associated abbreviation table. Updating this link is
+  // not thread-safe and so we cannot, for example, hold a std::shared_ptr to a
+  // heap-allocated Dwarf_Die.
+  //
+  // The only options left are holding a std::unique_ptr or storing a value.
+  // Unique pointers will add one more level of indirection to a hot path.
+  // So we choose to store Dwarf_Die values.
+  //
+  // Each Entry only contains references to DWARF file memory and is fairly
+  // small (32 bytes), so copies can be easily made if necessary. However,
+  // within one thread it is preferable to pass it by reference.
+  Dwarf_Die die{};
+
+  // All getters are non-const as libdw may need to modify Dwarf_Die.
+  int GetTag();
+};
+
 // C++ wrapper over libdw (DWARF library).
 //
 // Creates a "Dwarf" object from an ELF file or a memory and controls the life

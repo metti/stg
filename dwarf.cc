@@ -53,5 +53,9 @@ void Handler::InitialiseDwarf() {
   Check(dwarf_.get()) << "dwarf_begin_elf returned error: " << dwarf_errmsg(-1);
 }
 
+int Entry::GetTag() {
+  return dwarf_tag(&die);
+}
+
 }  // namespace dwarf
 }  // namespace stg
