@@ -23,7 +23,6 @@
 
 #include <algorithm>
 #include <array>
-#include <iomanip>
 #include <ostream>
 #include <string_view>
 #include <typeinfo>
@@ -127,7 +126,7 @@ std::string GetResolvedDescription(
   std::vector<std::string> typedefs;
   const Id resolved = ResolveTypedefs(graph, id, typedefs);
   for (auto td : typedefs)
-    os << std::quoted(td, '\'') << " = ";
+    os << '\'' << td << "' = ";
   os << '\'' << GetDescription(graph, names, resolved) << '\''
      << graph.Get(resolved).ExtraDescription();
   return os.str();
@@ -659,15 +658,15 @@ Result Enumeration::Equals(State& state, const Node& other) const {
       // removed
       const auto& enum1 = enums1[*index1];
       std::ostringstream os;
-      os << "enumerator " << std::quoted(enum1.first, '\'')
-         << " (" << enum1.second << ") was removed";
+      os << "enumerator '" << enum1.first
+         << "' (" << enum1.second << ") was removed";
       result.AddNodeDiff(os.str());
     } else if (!index1 && index2) {
       // added
       const auto& enum2 = enums2[*index2];
       std::ostringstream os;
-      os << "enumerator " << std::quoted(enum2.first, '\'')
-         << " (" << enum2.second << ") was added";
+      os << "enumerator '" << enum2.first
+         << "' (" << enum2.second << ") was added";
       result.AddNodeDiff(os.str());
     } else {
       // in both
@@ -675,7 +674,7 @@ Result Enumeration::Equals(State& state, const Node& other) const {
       const auto& enum2 = enums2[*index2];
       result.MaybeAddNodeDiff(
           [&](std::ostream& os) {
-            os << "enumerator " << std::quoted(enum1.first, '\'') << " value";
+            os << "enumerator '" << enum1.first << "' value";
           },
           enum1.second, enum2.second);
     }
