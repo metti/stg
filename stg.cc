@@ -125,7 +125,7 @@ std::string GetResolvedDescription(
   std::ostringstream os;
   std::vector<std::string> typedefs;
   const Id resolved = ResolveTypedefs(graph, id, typedefs);
-  for (auto td : typedefs)
+  for (const auto& td : typedefs)
     os << '\'' << td << "' = ";
   os << '\'' << GetDescription(graph, names, resolved) << '\''
      << graph.Get(resolved).ExtraDescription();
