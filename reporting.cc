@@ -45,12 +45,22 @@ std::string GetResolvedDescription(
   return os.str();
 }
 
+// Prints a comparison to the given output stream. The comparison is printed
+// with the given indentation and prefixed with the given prefix if it is not
+// empty.
+//
+// It returns true if the comparison denotes addition or removal of a node.
 bool PrintComparison(Reporting& reporting, const Comparison& comparison,
-                     std::ostream& os) {
+                     std::ostream& os, size_t indent,
+                     const std::string& prefix) {
   const auto id1 = comparison.first;
   const auto id2 = comparison.second;
   const auto* node1 = id1 ? &reporting.graph.Get(*id1) : nullptr;
   const auto* node2 = id2 ? &reporting.graph.Get(*id2) : nullptr;
+  os << std::string(indent, ' ');
+  if (!prefix.empty()) {
+    os << prefix << ' ';
+  }
   if (!id2) {
     os << node1->GetKindDescription() << " '"
        << GetDescription(reporting.graph, reporting.names, *id1)
@@ -86,9 +96,10 @@ static constexpr size_t INDENT_INCREMENT = 2;
 using Seen = std::unordered_map<Comparison, bool, HashComparison>;
 
 void PlainPrint(Reporting& reporting, const Comparison& comparison, Seen& seen,
-                std::ostream& os, size_t indent) {
-  if (PrintComparison(reporting, comparison, os))
+                std::ostream& os, size_t indent, const std::string& prefix) {
+  if (PrintComparison(reporting, comparison, os, indent, prefix)) {
     return;
+  }
 
   os << '\n';
   indent += INDENT_INCREMENT;
@@ -111,13 +122,10 @@ void PlainPrint(Reporting& reporting, const Comparison& comparison, Seen& seen,
   }
 
   for (const auto& detail : diff.details) {
-    os << std::string(indent, ' ') << detail.text_;
     if (!detail.edge_) {
-      os << '\n';
+      os << std::string(indent, ' ') << detail.text_ << '\n';
     } else {
-      if (!detail.text_.empty())
-        os << ' ';
-      PlainPrint(reporting, *detail.edge_, seen, os, indent);
+      PlainPrint(reporting, *detail.edge_, seen, os, indent, detail.text_);
     }
   }
 
@@ -131,7 +139,7 @@ void ReportPlain(Reporting& reporting, const Comparison& comparison,
   const auto& diff = reporting.outcomes.at(comparison);
   Seen seen;
   for (const auto& detail : diff.details) {
-    PlainPrint(reporting, *detail.edge_, seen, output, 0);
+    PlainPrint(reporting, *detail.edge_, seen, output, 0, {});
     // paragraph spacing
     output << '\n';
   }
@@ -145,11 +153,12 @@ void ReportPlain(Reporting& reporting, const Comparison& comparison,
 bool FlatPrint(Reporting& reporting, const Comparison& comparison,
                std::unordered_set<Comparison, HashComparison>& seen,
                std::deque<Comparison>& todo, bool full, bool stop,
-               std::ostream& os, size_t indent) {
+               std::ostream& os, size_t indent, const std::string& prefix) {
   // Nodes that represent additions or removal are always interesting and no
   // recursion is possible.
-  if (PrintComparison(reporting, comparison, os))
+  if (PrintComparison(reporting, comparison, os, indent, prefix)) {
     return true;
+  }
 
   // Look up the diff (including node and edge changes).
   const auto it = reporting.outcomes.find(comparison);
@@ -181,12 +190,10 @@ bool FlatPrint(Reporting& reporting, const Comparison& comparison,
     } else {
       // Edge changes are interesting if the target diff node is.
       std::ostringstream sub_os;
-      sub_os << std::string(indent, ' ') << detail.text_;
-      if (!detail.text_.empty())
-        sub_os << ' ';
       // Set the stop flag to prevent recursion past diff-holding nodes.
-      bool sub_interesting = FlatPrint(reporting, *detail.edge_, seen, todo,
-                                       full, true, sub_os, indent);
+      bool sub_interesting =
+          FlatPrint(reporting, *detail.edge_, seen, todo, full, true, sub_os,
+                    indent, detail.text_);
       // If the sub-tree was interesting, add it.
       if (sub_interesting || full)
         os << sub_os.str();
@@ -206,7 +213,7 @@ void ReportFlat(Reporting& reporting, const Comparison& comparison, bool full,
   for (const auto& detail : diff.details) {
     std::ostringstream os;
     const bool interesting =
-        FlatPrint(reporting, *detail.edge_, seen, todo, full, true, os, 0);
+        FlatPrint(reporting, *detail.edge_, seen, todo, full, true, os, 0, {});
     if (interesting || full)
       output << os.str() << '\n';
   }
@@ -215,7 +222,7 @@ void ReportFlat(Reporting& reporting, const Comparison& comparison, bool full,
     todo.pop_front();
     std::ostringstream os;
     const bool interesting =
-        FlatPrint(reporting, comp, seen, todo, full, false, os, 0);
+        FlatPrint(reporting, comp, seen, todo, full, false, os, 0, {});
     if (interesting || full)
       output << os.str() << '\n';
   }
