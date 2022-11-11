@@ -90,6 +90,8 @@ void PlainPrint(Reporting& reporting, const Comparison& comparison, Seen& seen,
   if (PrintComparison(reporting, comparison, os))
     return;
 
+  os << '\n';
+  indent += INDENT_INCREMENT;
   const auto it = reporting.outcomes.find(comparison);
   Check(it != reporting.outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
@@ -102,14 +104,12 @@ void PlainPrint(Reporting& reporting, const Comparison& comparison, Seen& seen,
 
   if (holds_changes && !insertion.second) {
     if (!insertion.first->second)
-      os << " (being reported)\n";
+      os << std::string(indent, ' ') << "(being reported)\n";
     else if (!diff.details.empty())
-      os << " (already reported)\n";
+      os << std::string(indent, ' ') << "(already reported)\n";
     return;
   }
 
-  os << '\n';
-  indent += INDENT_INCREMENT;
   for (const auto& detail : diff.details) {
     os << std::string(indent, ' ') << detail.text_;
     if (!detail.edge_) {
