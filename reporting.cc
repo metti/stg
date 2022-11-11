@@ -84,9 +84,9 @@ bool PrintComparison(Reporting& reporting, const Comparison& comparison,
       GetResolvedDescription(reporting.graph, reporting.names, *id2);
   os << node1->GetKindDescription() << ' ';
   if (description1 == description2)
-    os << description1 << " changed";
+    os << description1 << " changed\n";
   else
-    os << "changed from " << description1 << " to " << description2;
+    os << "changed from " << description1 << " to " << description2 << '\n';
   return false;
 }
 
@@ -101,7 +101,6 @@ void PlainPrint(Reporting& reporting, const Comparison& comparison, Seen& seen,
     return;
   }
 
-  os << '\n';
   indent += INDENT_INCREMENT;
   const auto it = reporting.outcomes.find(comparison);
   Check(it != reporting.outcomes.end()) << "internal error: missing comparison";
@@ -164,8 +163,6 @@ bool FlatPrint(Reporting& reporting, const Comparison& comparison,
   const auto it = reporting.outcomes.find(comparison);
   Check(it != reporting.outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
-
-  os << '\n';
 
   // Check the stopping condition.
   if (diff.holds_changes && stop) {
