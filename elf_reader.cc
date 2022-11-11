@@ -32,6 +32,7 @@
 
 #include "crc.h"
 #include "dwarf.h"
+#include "dwarf_processor.h"
 #include "elf_loader.h"
 #include "stg.h"
 
@@ -144,18 +145,6 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   return true;
 }
 
-void TraverseEntry(dwarf::Entry& root) {
-  for (auto& child : root.GetChildren()) {
-    TraverseEntry(child);
-  }
-}
-
-void Traverse(dwarf::Handler& dwarf) {
-  for (auto& entry : dwarf.GetCompilationUnits()) {
-    TraverseEntry(entry);
-  }
-}
-
 Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&& dwarf,
         bool verbose) {
   const auto all_symbols = elf.GetElfSymbols();
@@ -184,8 +173,8 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&& dwarf,
     }
   }
 
-  // TODO: implement DWARF processing
-  Traverse(dwarf);
+  // TODO: match STG from DWARF with ELF symbols
+  (void)dwarf::Process(dwarf);
 
   std::map<std::string, Id> symbols_map;
   for (const auto& symbol : public_functions_and_variables) {
