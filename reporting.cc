@@ -85,11 +85,8 @@ static constexpr size_t INDENT_INCREMENT = 2;
 // unvisited (absent) -> started (false) -> finished (true)
 using Seen = std::unordered_map<Comparison, bool, HashComparison>;
 
-void Print(Reporting& reporting, const std::vector<DiffDetail>& details,
-           Seen& seen, std::ostream& os, size_t indent);
-
-void Print(Reporting& reporting, const Comparison& comparison, Seen& seen,
-           std::ostream& os, size_t indent) {
+void PlainPrint(Reporting& reporting, const Comparison& comparison, Seen& seen,
+                std::ostream& os, size_t indent) {
   if (PrintComparison(reporting, comparison, os))
     return;
 
@@ -112,27 +109,20 @@ void Print(Reporting& reporting, const Comparison& comparison, Seen& seen,
   }
 
   os << '\n';
-  Print(reporting, diff.details, seen, os, indent + INDENT_INCREMENT);
-
-  if (holds_changes)
-    insertion.first->second = true;
-}
-
-void Print(Reporting& reporting, const std::vector<DiffDetail>& details,
-           Seen& seen, std::ostream& os, size_t indent) {
-  for (const auto& detail : details) {
+  indent += INDENT_INCREMENT;
+  for (const auto& detail : diff.details) {
     os << std::string(indent, ' ') << detail.text_;
     if (!detail.edge_) {
       os << '\n';
     } else {
       if (!detail.text_.empty())
         os << ' ';
-      Print(reporting, *detail.edge_, seen, os, indent);
+      PlainPrint(reporting, *detail.edge_, seen, os, indent);
     }
-    // paragraph spacing
-    if (!indent)
-      os << '\n';
   }
+
+  if (holds_changes)
+    insertion.first->second = true;
 }
 
 void ReportPlain(Reporting& reporting, const Comparison& comparison,
@@ -140,7 +130,11 @@ void ReportPlain(Reporting& reporting, const Comparison& comparison,
   // unpack then print - want symbol diff forest rather than symbols diff tree
   const auto& diff = reporting.outcomes.at(comparison);
   Seen seen;
-  Print(reporting, diff.details, seen, output, 0);
+  for (const auto& detail : diff.details) {
+    PlainPrint(reporting, *detail.edge_, seen, output, 0);
+    // paragraph spacing
+    output << '\n';
+  }
 }
 
 // Print the subtree of a diff graph starting at a given node and stopping at
