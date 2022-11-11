@@ -144,7 +144,19 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   return true;
 }
 
-Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&&,
+void TraverseEntry(dwarf::Entry& root) {
+  for (auto& child : root.GetChildren()) {
+    TraverseEntry(child);
+  }
+}
+
+void Traverse(dwarf::Handler& dwarf) {
+  for (auto& entry : dwarf.GetCompilationUnits()) {
+    TraverseEntry(entry);
+  }
+}
+
+Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&& dwarf,
         bool verbose) {
   const auto all_symbols = elf.GetElfSymbols();
   if (verbose) {
@@ -171,6 +183,9 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&&,
                 << symbol.value_type << "]\n";
     }
   }
+
+  // TODO: implement DWARF processing
+  Traverse(dwarf);
 
   std::map<std::string, Id> symbols_map;
   for (const auto& symbol : public_functions_and_variables) {

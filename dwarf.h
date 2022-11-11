@@ -26,6 +26,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "file_descriptor.h"
 
@@ -48,6 +49,9 @@ struct Entry {
   // within one thread it is preferable to pass it by reference.
   Dwarf_Die die{};
 
+  // Get list of direct descendants of an entry in the DWARF tree.
+  std::vector<Entry> GetChildren();
+
   // All getters are non-const as libdw may need to modify Dwarf_Die.
   int GetTag();
 };
@@ -60,6 +64,8 @@ class Handler {
  public:
   explicit Handler(const std::string& path);
   Handler(char* data, size_t size);
+
+  std::vector<Entry> GetCompilationUnits();
 
  private:
   struct ElfDeleter {
