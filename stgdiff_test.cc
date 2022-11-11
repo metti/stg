@@ -83,8 +83,9 @@ TEST_CASE("compare options") {
     std::ostringstream output;
     if (comparison) {
       stg::NameCache names;
-      stg::ReportingOptions options{stg::OutputFormat::SMALL, 0};
-      stg::Reporting reporting{graph, state.outcomes, options, names};
+      stg::reporting::Options options{stg::reporting::OutputFormat::SMALL, 0};
+      stg::reporting::Reporting reporting{graph, state.outcomes, options,
+                                          names};
       Report(reporting, *comparison, output);
     }
 
@@ -135,8 +136,9 @@ TEST_CASE("short report") {
     std::stringstream output;
     if (comparison) {
       stg::NameCache names;
-      stg::ReportingOptions options{stg::OutputFormat::SHORT, 2};
-      stg::Reporting reporting{graph, state.outcomes, options, names};
+      stg::reporting::Options options{stg::reporting::OutputFormat::SHORT, 2};
+      stg::reporting::Reporting reporting{graph, state.outcomes, options,
+                                          names};
       Report(reporting, *comparison, output);
     }
 

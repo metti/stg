@@ -85,7 +85,8 @@ std::vector<std::pair<const char*, uint64_t>> Time::times_;
 enum class InputFormat { ABI, BTF, ELF };
 
 using Inputs = std::vector<std::pair<InputFormat, const char*>>;
-using Outputs = std::vector<std::pair<stg::OutputFormat, const char*>>;
+using Outputs =
+    std::vector<std::pair<stg::reporting::OutputFormat, const char*>>;
 
 bool Run(const Inputs& inputs, const Outputs& outputs,
          const stg::CompareOptions& compare_options) {
@@ -128,8 +129,9 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
     std::ofstream output(filename);
     if (comparison) {
       Time report("report diffs");
-      stg::ReportingOptions options{format, kMaxCrcOnlyChanges};
-      stg::Reporting reporting{graph, state.outcomes, options, names};
+      stg::reporting::Options options{format, kMaxCrcOnlyChanges};
+      stg::reporting::Reporting reporting{graph, state.outcomes, options,
+                                          names};
       Report(reporting, *comparison, output);
       output << std::flush;
     }
@@ -162,7 +164,8 @@ int main(int argc, char* argv[]) {
   bool opt_times = false;
   stg::CompareOptions compare_options;
   InputFormat opt_input_format = InputFormat::ABI;
-  stg::OutputFormat opt_output_format = stg::OutputFormat::PLAIN;
+  stg::reporting::OutputFormat opt_output_format =
+      stg::reporting::OutputFormat::PLAIN;
   Inputs inputs;
   Outputs outputs;
   static option opts[] = {
@@ -219,15 +222,15 @@ int main(int argc, char* argv[]) {
         break;
       case 'f':
         if (strcmp(argument, "plain") == 0)
-          opt_output_format = stg::OutputFormat::PLAIN;
+          opt_output_format = stg::reporting::OutputFormat::PLAIN;
         else if (strcmp(argument, "flat") == 0)
-          opt_output_format = stg::OutputFormat::FLAT;
+          opt_output_format = stg::reporting::OutputFormat::FLAT;
         else if (strcmp(argument, "small") == 0)
-          opt_output_format = stg::OutputFormat::SMALL;
+          opt_output_format = stg::reporting::OutputFormat::SMALL;
         else if (strcmp(argument, "short") == 0)
-          opt_output_format = stg::OutputFormat::SHORT;
+          opt_output_format = stg::reporting::OutputFormat::SHORT;
         else if (strcmp(argument, "viz") == 0)
-          opt_output_format = stg::OutputFormat::VIZ;
+          opt_output_format = stg::reporting::OutputFormat::VIZ;
         else
           return usage();
         break;

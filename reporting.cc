@@ -31,6 +31,7 @@
 #include "post_processing.h"
 
 namespace stg {
+namespace reporting {
 
 std::string GetResolvedDescription(
     const Graph& graph, NameCache& names, Id id) {
@@ -334,4 +335,5 @@ void Report(Reporting& reporting, const Comparison& comparison,
   }
 }
 
+}  // namespace reporting
 }  // namespace stg
