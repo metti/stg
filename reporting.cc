@@ -36,8 +36,7 @@ namespace reporting {
 std::string GetResolvedDescription(
     const Graph& graph, NameCache& names, Id id) {
   std::ostringstream os;
-  std::vector<std::string> typedefs;
-  const Id resolved = ResolveTypedefs(graph, id, typedefs);
+  const auto [resolved, typedefs] = ResolveTypedefs(graph, id);
   for (const auto& td : typedefs)
     os << '\'' << td << "' = ";
   os << '\'' << Describe(graph, names)(resolved) << '\''

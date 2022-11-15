@@ -39,11 +39,12 @@ Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers) {
   return id;
 }
 
-Id ResolveTypedefs(
-    const Graph& graph, Id id, std::vector<std::string>& typedefs) {
-  while (const auto maybe = graph.Get(id).ResolveTypedef(typedefs))
-    id = *maybe;
-  return id;
+std::pair<Id, std::vector<std::string>> ResolveTypedefs(
+    const Graph& graph, Id id) {
+  std::pair<Id, std::vector<std::string>> result = {id, {}};
+  while (graph.Get(result.first).ResolveTypedef(result.first, result.second)) {
+  }
+  return result;
 }
 
 std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
@@ -144,10 +145,8 @@ std::pair<bool, std::optional<Comparison>> Compare(
     const auto type_diff = Compare(state, unqualified1, unqualified2);
     result.MaybeAddEdgeDiff("underlying", type_diff);
   } else {
-    std::vector<std::string> typedefs1;
-    std::vector<std::string> typedefs2;
-    const Id resolved1 = ResolveTypedefs(graph, unqualified1, typedefs1);
-    const Id resolved2 = ResolveTypedefs(graph, unqualified2, typedefs2);
+    const auto [resolved1, typedefs1] = ResolveTypedefs(graph, unqualified1);
+    const auto [resolved2, typedefs2] = ResolveTypedefs(graph, unqualified2);
     if (unqualified1 != resolved1 || unqualified2 != resolved2) {
       // 3.2 Typedef difference.
       result.diff_.holds_changes = !typedefs1.empty() && !typedefs2.empty()
@@ -632,14 +631,14 @@ std::optional<Id> Qualified::ResolveQualifier(Qualifiers& qualifiers) const {
   return {qualified_type_id};
 }
 
-std::optional<Id> Node::ResolveTypedef(std::vector<std::string>&) const {
-  return {};
+bool Node::ResolveTypedef(Id&, std::vector<std::string>&) const {
+  return false;
 }
 
-std::optional<Id> Typedef::ResolveTypedef(
-    std::vector<std::string>& typedefs) const {
+bool Typedef::ResolveTypedef(Id& id, std::vector<std::string>& typedefs) const {
+  id = referred_type_id;
   typedefs.push_back(name);
-  return {referred_type_id};
+  return true;
 }
 
 std::string MatchingKey::operator()(Id id) {
