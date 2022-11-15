@@ -626,18 +626,20 @@ std::optional<Id> Qualified::ResolveQualifier(Qualifiers& qualifiers) const {
 std::pair<Id, std::vector<std::string>> ResolveTypedefs(
     const Graph& graph, Id id) {
   std::pair<Id, std::vector<std::string>> result = {id, {}};
-  while (graph.Get(result.first).ResolveTypedef(result.first, result.second)) {
+  ResolveTypedef resolve(graph, result.first, result.second);
+  while (graph.Apply<bool>(resolve, result.first)) {
   }
   return result;
 }
 
-bool Typedef::ResolveTypedef(Id& id, std::vector<std::string>& typedefs) const {
-  id = referred_type_id;
-  typedefs.push_back(name);
+bool ResolveTypedef::operator()(const Typedef& x) {
+  id = x.referred_type_id;
+  names.push_back(x.name);
   return true;
 }
 
-bool Node::ResolveTypedef(Id&, std::vector<std::string>&) const {
+template <typename Node>
+bool ResolveTypedef::operator()(const Node&) {
   return false;
 }
 

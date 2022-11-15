@@ -93,8 +93,6 @@ std::ostream& operator<<(std::ostream& os, Qualifier qualifier);
 using Comparison = std::pair<std::optional<Id>, std::optional<Id>>;
 
 Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers);
-std::pair<Id, std::vector<std::string>> ResolveTypedefs(
-    const Graph& graph, Id id);
 
 struct DiffDetail {
   DiffDetail(const std::string& text, const std::optional<Comparison>& edge)
@@ -253,8 +251,6 @@ struct Node {
   // The caller must always be prepared to receive a different type as
   // qualifiers are sometimes discarded.
   virtual std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const;
-  virtual bool ResolveTypedef(
-      Id& id, std::vector<std::string>& typedefs) const;
 
   virtual Result Equals(State& state, const Node& other) const = 0;
 };
@@ -292,7 +288,6 @@ struct Typedef : Node {
   Typedef(const std::string& name, Id referred_type_id)
       : name(name), referred_type_id(referred_type_id) {}
   Result Equals(State& state, const Node& other) const final;
-  bool ResolveTypedef(Id& id, std::vector<std::string>& typedefs) const final;
 
   const std::string name;
   const Id referred_type_id;
@@ -630,6 +625,21 @@ struct MatchingKey {
   template <typename Node>
   std::string operator()(const Node&);
   const Graph& graph;
+};
+
+std::pair<Id, std::vector<std::string>> ResolveTypedefs(
+    const Graph& graph, Id id);
+
+struct ResolveTypedef {
+  ResolveTypedef(const Graph& graph, Id& id, std::vector<std::string>& names)
+      : graph(graph), id(id), names(names) {}
+  bool operator()(const Typedef&);
+  template <typename Node>
+  bool operator()(const Node&);
+
+  const Graph& graph;
+  Id& id;
+  std::vector<std::string>& names;
 };
 
 }  // namespace stg
