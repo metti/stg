@@ -33,14 +33,6 @@
 
 namespace stg {
 
-std::pair<Id, Qualifiers> ResolveQualifiers(const Graph& graph, Id id) {
-  std::pair<Id, Qualifiers> result = {id, {}};
-  while (graph.Get(result.first)
-             .ResolveQualifier(result.first, result.second)) {
-  }
-  return result;
-}
-
 std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
   std::ostringstream os;
   os << "qualifier " << qualifier << ' ' << action;
@@ -602,8 +594,12 @@ Result Symbols::Equals(State& state, const Node& other) const {
   return result;
 }
 
-bool Node::ResolveQualifier(Id&, Qualifiers&) const {
-  return false;
+std::pair<Id, Qualifiers> ResolveQualifiers(const Graph& graph, Id id) {
+  std::pair<Id, Qualifiers> result = {id, {}};
+  while (graph.Get(result.first)
+             .ResolveQualifier(result.first, result.second)) {
+  }
+  return result;
 }
 
 bool Array::ResolveQualifier(Id&, Qualifiers& qualifiers) const {
@@ -622,6 +618,10 @@ bool Qualified::ResolveQualifier(Id& id, Qualifiers& qualifiers) const {
   id = qualified_type_id;
   qualifiers.insert(qualifier);
   return true;
+}
+
+bool Node::ResolveQualifier(Id&, Qualifiers&) const {
+  return false;
 }
 
 std::pair<Id, std::vector<std::string>> ResolveTypedefs(
