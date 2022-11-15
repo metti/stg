@@ -259,28 +259,28 @@ std::pair<bool, std::optional<Comparison>> Compare(
   return {result.equals_, {comparison}};
 }
 
-const Name& GetDescription(const Graph& graph, NameCache& names, Id node) {
+Name Describe::operator()(Id id) {
   // infinite recursion prevention - insert at most once
   static const Name black_hole{"#"};
-  auto insertion = names.insert({node, black_hole});
+  auto insertion = names.insert({id, black_hole});
   Name& cached = insertion.first->second;
-  if (insertion.second)
-    cached = graph.Get(node).MakeDescription(graph, names);
+  if (insertion.second) {
+    cached = graph.Apply<Name>(*this, id);
+  }
   return cached;
 }
 
-Name Void::MakeDescription(const Graph&, NameCache&) const {
+Name Describe::operator()(const Void&) {
   return Name{"void"};
 }
 
-Name Variadic::MakeDescription(const Graph&, NameCache&) const {
+Name Describe::operator()(const Variadic&) {
   return Name{"..."};
 }
 
-Name PointerReference::MakeDescription(const Graph& graph,
-                                       NameCache& names) const {
+Name Describe::operator()(const PointerReference& x) {
   std::string sign;
-  switch (kind) {
+  switch (x.kind) {
     case PointerReference::Kind::POINTER:
       sign = "*";
       break;
@@ -291,102 +291,101 @@ Name PointerReference::MakeDescription(const Graph& graph,
       sign = "&&";
       break;
   }
-  return GetDescription(graph, names, pointee_type_id)
-      .Add(Side::LEFT, Precedence::POINTER, sign);
+  return (*this)(x.pointee_type_id)
+          .Add(Side::LEFT, Precedence::POINTER, sign);
 }
 
-Name Typedef::MakeDescription(const Graph&, NameCache&) const {
-  return Name{name};
+Name Describe::operator()(const Typedef& x) {
+  return Name{x.name};
 }
 
-Name Qualified::MakeDescription(const Graph& graph, NameCache& names) const {
-  return GetDescription(graph, names, qualified_type_id).Qualify(qualifier);
+Name Describe::operator()(const Qualified& x) {
+  return (*this)(x.qualified_type_id).Qualify(x.qualifier);
 }
 
-Name Primitive::MakeDescription(const Graph&, NameCache&) const {
-  return Name{name};
+Name Describe::operator()(const Primitive& x) {
+  return Name{x.name};
 }
 
-Name Array::MakeDescription(const Graph& graph, NameCache& names) const {
+Name Describe::operator()(const Array& x) {
   std::ostringstream os;
-  os << '[' << number_of_elements << ']';
-  return GetDescription(graph, names, element_type_id)
-      .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
+  os << '[' << x.number_of_elements << ']';
+  return (*this)(x.element_type_id)
+          .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
-Name BaseClass::MakeDescription(const Graph& graph, NameCache& names) const {
-  return GetDescription(graph, names, type_id);
+Name Describe::operator()(const BaseClass& x) {
+  return (*this)(x.type_id);
 }
 
-Name Member::MakeDescription(const Graph& graph, NameCache& names) const {
-  auto description = GetDescription(graph, names, type_id);
-  if (!name.empty())
-    description = description.Add(Side::LEFT, Precedence::ATOMIC, name);
-  if (bitsize)
+Name Describe::operator()(const Member& x) {
+  auto description = (*this)(x.type_id);
+  if (!x.name.empty())
+    description = description.Add(Side::LEFT, Precedence::ATOMIC, x.name);
+  if (x.bitsize)
     description = description.Add(
-        Side::RIGHT, Precedence::ATOMIC, " : " + std::to_string(bitsize));
+        Side::RIGHT, Precedence::ATOMIC, " : " + std::to_string(x.bitsize));
   return description;
 }
 
-Name Method::MakeDescription(const Graph&, NameCache&) const {
-  if (mangled_name == name)
-    return Name{name};
-  return Name{name + " {" + mangled_name + "}"};
+Name Describe::operator()(const Method& x) {
+  if (x.mangled_name == x.name)
+    return Name{x.name};
+  return Name{x.name + " {" + x.mangled_name + "}"};
 }
 
-Name StructUnion::MakeDescription(const Graph& graph, NameCache& names) const {
+Name Describe::operator()(const StructUnion& x) {
   std::ostringstream os;
-  os << kind << ' ';
-  if (!name.empty()) {
-    os << name;
-  } else if (definition) {
+  os << x.kind << ' ';
+  if (!x.name.empty()) {
+    os << x.name;
+  } else if (x.definition) {
     os << "{ ";
-    for (const auto& member : definition->members)
-      os << GetDescription(graph, names, member) << "; ";
+    for (const auto& member : x.definition->members)
+      os << (*this)(member) << "; ";
     os << '}';
   }
   return Name{os.str()};
 }
 
-Name Enumeration::MakeDescription(const Graph&, NameCache&) const {
+Name Describe::operator()(const Enumeration& x) {
   std::ostringstream os;
   os << "enum ";
-  if (!name.empty()) {
-    os << name;
-  } else if (definition) {
+  if (!x.name.empty()) {
+    os << x.name;
+  } else if (x.definition) {
     os << "{ ";
-    for (const auto& e : definition->enumerators)
+    for (const auto& e : x.definition->enumerators)
       os << e.first << " = " << e.second << ", ";
     os << '}';
   }
   return Name{os.str()};
 }
 
-Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
+Name Describe::operator()(const Function& x) {
   std::ostringstream os;
   os << '(';
   bool sep = false;
-  for (const Id p : parameters) {
+  for (const Id p : x.parameters) {
     if (sep)
       os << ", ";
     else
       sep = true;
-    os << GetDescription(graph, names, p);
+    os << (*this)(p);
   }
   os << ')';
-  return GetDescription(graph, names, return_type_id)
+  return (*this)(x.return_type_id)
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
-Name ElfSymbol::MakeDescription(const Graph& graph, NameCache& names) const {
-  const auto& name = full_name ? *full_name : symbol_name;
-  return type_id
-      ? GetDescription(graph, names, *type_id).Add(
-          Side::LEFT, Precedence::ATOMIC, name)
+Name Describe::operator()(const ElfSymbol& x) {
+  const auto& name = x.full_name ? *x.full_name : x.symbol_name;
+  return x.type_id
+      ? (*this)(*x.type_id).Add(Side::LEFT, Precedence::ATOMIC, name)
       : Name{name};
 }
 
-Name Symbols::MakeDescription(const Graph&, NameCache&) const {
+Name Describe::operator()(const Symbols&) {
   return Name{"symbols"};
 }
 

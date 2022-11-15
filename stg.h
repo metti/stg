@@ -119,8 +119,6 @@ Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers);
 Id ResolveTypedefs(
     const Graph& graph, Id id, std::vector<std::string>& typedefs);
 
-const Name& GetDescription(const Graph& graph, NameCache& names, Id node);
-
 struct DiffDetail {
   DiffDetail(const std::string& text, const std::optional<Comparison>& edge)
       : text_(text), edge_(edge) {}
@@ -282,7 +280,6 @@ struct Node {
       std::vector<std::string>& typedefs) const;
   virtual std::string MatchingKey(const Graph& graph) const;
 
-  virtual Name MakeDescription(const Graph& graph, NameCache& names) const = 0;
   virtual std::string ExtraDescription() const;
   virtual std::string GetKindDescription() const;
 
@@ -295,12 +292,10 @@ std::pair<bool, std::optional<Comparison>> Compare(
     State& state, Id node1, const Id node2);
 
 struct Void : Node {
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 };
 
 struct Variadic : Node {
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 };
 
@@ -312,7 +307,6 @@ struct PointerReference : Node {
   };
   PointerReference(Kind kind, Id pointee_type_id)
       : kind(kind), pointee_type_id(pointee_type_id) {}
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 
   const Kind kind;
@@ -324,7 +318,6 @@ std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind);
 struct Typedef : Node {
   Typedef(const std::string& name, Id referred_type_id)
       : name(name), referred_type_id(referred_type_id) {}
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveTypedef(
       std::vector<std::string>& typedefs) const final;
@@ -336,7 +329,6 @@ struct Typedef : Node {
 struct Qualified : Node {
   Qualified(Qualifier qualifier, Id qualified_type_id)
       : qualifier(qualifier), qualified_type_id(qualified_type_id) {}
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
@@ -359,7 +351,6 @@ struct Primitive : Node {
             uint32_t bitsize, uint32_t bytesize)
       : name(name), encoding(encoding), bitsize(bitsize), bytesize(bytesize) {}
 
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 
   const std::string name;
@@ -374,7 +365,6 @@ struct Array : Node {
   Array(uint64_t number_of_elements, Id element_type_id)
       : number_of_elements(number_of_elements),
         element_type_id(element_type_id)  {}
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
@@ -387,7 +377,6 @@ struct BaseClass : Node {
   BaseClass(Id type_id, uint64_t offset, Inheritance inheritance)
       : type_id(type_id), offset(offset), inheritance(inheritance) {}
   std::string GetKindDescription() const final;
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::string MatchingKey(const Graph& graph) const final;
 
@@ -402,7 +391,6 @@ struct Member : Node {
   Member(const std::string& name, Id type_id, uint64_t offset, uint64_t bitsize)
       : name(name), type_id(type_id), offset(offset), bitsize(bitsize) {}
   std::string GetKindDescription() const final;
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::string MatchingKey(const Graph& graph) const final;
 
@@ -419,7 +407,6 @@ struct Method : Node {
       : mangled_name(mangled_name), name(name), kind(kind),
         vtable_offset(vtable_offset), type_id(type_id) {}
   std::string GetKindDescription() const final;
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::string MatchingKey(const Graph& graph) const final;
 
@@ -446,7 +433,6 @@ struct StructUnion : Node {
               const std::vector<Id>& methods, const std::vector<Id>& members)
       : kind(kind), name(name),
         definition({bytesize, base_classes, methods, members}) {}
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::string MatchingKey(const Graph& graph) const final;
 
@@ -467,7 +453,6 @@ struct Enumeration : Node {
   Enumeration(const std::string& name, uint32_t bytesize,
               const Enumerators& enumerators)
       : name(name), definition({bytesize, enumerators}) {}
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 
   std::vector<std::pair<std::string, size_t>> GetEnumNames() const;
@@ -478,7 +463,6 @@ struct Enumeration : Node {
 struct Function : Node {
   Function(Id return_type_id, const std::vector<Id>& parameters)
       : return_type_id(return_type_id), parameters(parameters) {}
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
   std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const final;
 
@@ -519,7 +503,6 @@ struct ElfSymbol : Node {
         type_id(type_id),
         full_name(full_name) {}
   std::string GetKindDescription() const final;
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   std::string ExtraDescription() const final;
   Result Equals(State& state, const Node& other) const final;
 
@@ -544,7 +527,6 @@ std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info);
 struct Symbols : Node {
   Symbols(const std::map<std::string, Id>& symbols) : symbols(symbols) {}
   std::string GetKindDescription() const final;
-  Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Node& other) const final;
 
   const std::map<std::string, Id> symbols;
@@ -675,6 +657,28 @@ Result Graph::Apply(FunctionObject& function, Id id1, Id id2) const {
   }
   Die() << "unknown node type " << type_id1.name();
 }
+
+struct Describe {
+  Describe(const Graph& graph, NameCache& names) : graph(graph), names(names) {}
+  Name operator()(Id id);
+  Name operator()(const Void&);
+  Name operator()(const Variadic&);
+  Name operator()(const PointerReference&);
+  Name operator()(const Typedef&);
+  Name operator()(const Qualified&);
+  Name operator()(const Primitive&);
+  Name operator()(const Array&);
+  Name operator()(const BaseClass&);
+  Name operator()(const Member&);
+  Name operator()(const Method&);
+  Name operator()(const StructUnion&);
+  Name operator()(const Enumeration&);
+  Name operator()(const Function&);
+  Name operator()(const ElfSymbol&);
+  Name operator()(const Symbols&);
+  const Graph& graph;
+  NameCache& names;
+};
 
 }  // namespace stg
 

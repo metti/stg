@@ -40,7 +40,7 @@ std::string GetResolvedDescription(
   const Id resolved = ResolveTypedefs(graph, id, typedefs);
   for (const auto& td : typedefs)
     os << '\'' << td << "' = ";
-  os << '\'' << GetDescription(graph, names, resolved) << '\''
+  os << '\'' << Describe(graph, names)(resolved) << '\''
      << graph.Get(resolved).ExtraDescription();
   return os.str();
 }
@@ -63,7 +63,7 @@ bool PrintComparison(Reporting& reporting, const Comparison& comparison,
   }
   if (!id2) {
     os << node1->GetKindDescription() << " '"
-       << GetDescription(reporting.graph, reporting.names, *id1)
+       << Describe(reporting.graph, reporting.names)(*id1)
        << "'"
        << node1->ExtraDescription()
        << " was removed\n";
@@ -71,7 +71,7 @@ bool PrintComparison(Reporting& reporting, const Comparison& comparison,
   }
   if (!id1) {
     os << node2->GetKindDescription() << " '"
-       << GetDescription(reporting.graph, reporting.names, *id2)
+       << Describe(reporting.graph, reporting.names)(*id2)
        << "'"
        << node2->ExtraDescription()
        << " was added\n";
@@ -243,14 +243,14 @@ void VizPrint(Reporting& reporting, const Comparison& comparison,
   const auto id2 = comparison.second;
   if (!id2) {
     os << "  \"" << node << "\" [color=red, label=\"" << "removed("
-       << GetDescription(reporting.graph, reporting.names, *id1)
+       << Describe(reporting.graph, reporting.names)(*id1)
        << reporting.graph.Get(*id1).ExtraDescription()
        << ")\"]\n";
     return;
   }
   if (!id1) {
     os << "  \"" << node << "\" [color=red, label=\"" << "added("
-       << GetDescription(reporting.graph, reporting.names, *id2)
+       << Describe(reporting.graph, reporting.names)(*id2)
        << reporting.graph.Get(*id2).ExtraDescription()
        << ")\"]\n";
     return;
