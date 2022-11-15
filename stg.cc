@@ -314,8 +314,8 @@ Name Array::MakeDescription(const Graph& graph, NameCache& names) const {
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
-Name BaseClass::MakeDescription(const Graph& graph, NameCache&) const {
-  return Name{MatchingKey(graph)};
+Name BaseClass::MakeDescription(const Graph& graph, NameCache& names) const {
+  return GetDescription(graph, names, type_id);
 }
 
 Name Member::MakeDescription(const Graph& graph, NameCache& names) const {
