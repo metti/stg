@@ -39,14 +39,14 @@ std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
   return os.str();
 }
 
-Comparison Removed(State& state, Id node) {
-  Comparison comparison{{node}, {}};
+Comparison Removed(State& state, Id id) {
+  Comparison comparison{{id}, {}};
   state.outcomes.insert({comparison, {}});
   return comparison;
 }
 
-Comparison Added(State& state, Id node) {
-  Comparison comparison{{}, {node}};
+Comparison Added(State& state, Id id) {
+  Comparison comparison{{}, {id}};
   state.outcomes.insert({comparison, {}});
   return comparison;
 }
@@ -77,8 +77,8 @@ Comparison Added(State& state, Id node) {
  * an edge diff.
  */
 std::pair<bool, std::optional<Comparison>> Compare(
-    State& state, Id node1, Id node2) {
-  const Comparison comparison{{node1}, {node2}};
+    State& state, Id id1, Id id2) {
+  const Comparison comparison{{id1}, {id2}};
 
   // 1. Check if the comparison has an already known result.
   auto already_known = state.known.find(comparison);
@@ -106,8 +106,8 @@ std::pair<bool, std::optional<Comparison>> Compare(
   const Graph& graph = state.graph;
   Result result;
 
-  const auto [unqualified1, qualifiers1] = ResolveQualifiers(graph, node1);
-  const auto [unqualified2, qualifiers2] = ResolveQualifiers(graph, node2);
+  const auto [unqualified1, qualifiers1] = ResolveQualifiers(graph, id1);
+  const auto [unqualified2, qualifiers2] = ResolveQualifiers(graph, id2);
   if (!qualifiers1.empty() || !qualifiers2.empty()) {
     // 3.1 Qualified type difference.
     auto it1 = qualifiers1.begin();
@@ -246,13 +246,13 @@ static bool CompareDefined(bool defined1, bool defined2, Result& result,
 
 using KeyIndexPairs = std::vector<std::pair<std::string, size_t>>;
 static KeyIndexPairs MatchingKeys(const Graph& graph,
-                                  const std::vector<Id>& nodes) {
+                                  const std::vector<Id>& ids) {
   KeyIndexPairs keys;
-  const auto size = nodes.size();
+  const auto size = ids.size();
   keys.reserve(size);
   size_t anonymous_ix = 0;
   for (size_t ix = 0; ix < size; ++ix) {
-    auto key = MatchingKey(graph)(nodes[ix]);
+    auto key = MatchingKey(graph)(ids[ix]);
     if (key.empty())
       key = "#anon#" + std::to_string(anonymous_ix++);
     keys.push_back({key, ix});
@@ -291,28 +291,28 @@ static MatchedPairs PairUp(const KeyIndexPairs& keys1,
 }
 
 static void CompareNodes(Result& result, State& state,
-                         const std::vector<Id>& nodes1,
-                         const std::vector<Id>& nodes2,
+                         const std::vector<Id>& ids1,
+                         const std::vector<Id>& ids2,
                          const bool reorder) {
-  const auto keys1 = MatchingKeys(state.graph, nodes1);
-  const auto keys2 = MatchingKeys(state.graph, nodes2);
+  const auto keys1 = MatchingKeys(state.graph, ids1);
+  const auto keys2 = MatchingKeys(state.graph, ids2);
   auto pairs = PairUp(keys1, keys2);
   if (reorder)
     Reorder(pairs);
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
       // removed
-      const auto& node1 = nodes1[*index1];
-      result.AddEdgeDiff("", Removed(state, node1));
+      const auto& id1 = ids1[*index1];
+      result.AddEdgeDiff("", Removed(state, id1));
     } else if (!index1 && index2) {
       // added
-      const auto& node2 = nodes2[*index2];
-      result.AddEdgeDiff("", Added(state, node2));
+      const auto& id2 = ids2[*index2];
+      result.AddEdgeDiff("", Added(state, id2));
     } else {
       // in both
-      const auto& node1 = nodes1[*index1];
-      const auto& node2 = nodes2[*index2];
-      result.MaybeAddEdgeDiff("", Compare(state, node1, node2));
+      const auto& id1 = ids1[*index1];
+      const auto& id2 = ids2[*index2];
+      result.MaybeAddEdgeDiff("", Compare(state, id1, id2));
     }
   }
 }

@@ -248,10 +248,10 @@ struct Node {
   virtual Result Equals(State& state, const Node& other) const = 0;
 };
 
-Comparison Removed(State& state, Id node);
-Comparison Added(State& state, Id node);
+Comparison Removed(State& state, Id id);
+Comparison Added(State& state, Id id);
 std::pair<bool, std::optional<Comparison>> Compare(
-    State& state, Id node1, const Id node2);
+    State& state, Id id1, const Id id2);
 
 struct Void : Node {
   Result Equals(State& state, const Node& other) const final;
