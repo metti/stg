@@ -76,15 +76,15 @@ TEST_CASE("compare options") {
     const auto id1 = stg::abixml::Read(graph, filename_to_path(test_case.xml1));
 
     // Compute differences.
-    stg::State state{graph, test_case.compare_options};
-    const auto& [equals, comparison] = stg::Compare(state, id0, id1);
+    stg::Compare compare{graph, test_case.compare_options};
+    const auto& [equals, comparison] = compare(id0, id1);
 
     // Write SMALL reports.
     std::ostringstream output;
     if (comparison) {
       stg::NameCache names;
       stg::reporting::Options options{stg::reporting::OutputFormat::SMALL, 0};
-      stg::reporting::Reporting reporting{graph, state.outcomes, options,
+      stg::reporting::Reporting reporting{graph, compare.outcomes, options,
                                           names};
       Report(reporting, *comparison, output);
     }
@@ -129,15 +129,15 @@ TEST_CASE("short report") {
     const auto id1 = stg::abixml::Read(graph, filename_to_path(test_case.xml1));
 
     // Compute differences.
-    stg::State state{graph, {}};
-    const auto& [equals, comparison] = stg::Compare(state, id0, id1);
+    stg::Compare compare{graph, {}};
+    const auto& [equals, comparison] = compare(id0, id1);
 
     // Write SHORT reports.
     std::stringstream output;
     if (comparison) {
       stg::NameCache names;
       stg::reporting::Options options{stg::reporting::OutputFormat::SHORT, 2};
-      stg::reporting::Reporting reporting{graph, state.outcomes, options,
+      stg::reporting::Reporting reporting{graph, compare.outcomes, options,
                                           names};
       Report(reporting, *comparison, output);
     }

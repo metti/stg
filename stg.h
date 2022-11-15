@@ -219,16 +219,6 @@ struct CompareOptions {
   bool ignore_type_declaration_status_changes = false;
 };
 
-struct State {
-  State(const Graph& g, const CompareOptions& o) : graph(g), options(o) {}
-  const Graph& graph;
-  const CompareOptions options;
-  std::unordered_map<Comparison, bool, HashComparison> known;
-  Outcomes outcomes;
-  Outcomes provisional;
-  SCC<Comparison, HashComparison> scc;
-};
-
 struct Node {
   Node() = default;
   Node(const Node&) = delete;
@@ -244,21 +234,12 @@ struct Node {
                   "Target must publically inherit Node");
     return dynamic_cast<const Target&>(*this);
   }
-
-  virtual Result Equals(State& state, const Node& other) const = 0;
 };
 
-Comparison Removed(State& state, Id id);
-Comparison Added(State& state, Id id);
-std::pair<bool, std::optional<Comparison>> Compare(
-    State& state, Id id1, const Id id2);
-
 struct Void : Node {
-  Result Equals(State& state, const Node& other) const final;
 };
 
 struct Variadic : Node {
-  Result Equals(State& state, const Node& other) const final;
 };
 
 struct PointerReference : Node {
@@ -269,7 +250,6 @@ struct PointerReference : Node {
   };
   PointerReference(Kind kind, Id pointee_type_id)
       : kind(kind), pointee_type_id(pointee_type_id) {}
-  Result Equals(State& state, const Node& other) const final;
 
   const Kind kind;
   const Id pointee_type_id;
@@ -280,7 +260,6 @@ std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind);
 struct Typedef : Node {
   Typedef(const std::string& name, Id referred_type_id)
       : name(name), referred_type_id(referred_type_id) {}
-  Result Equals(State& state, const Node& other) const final;
 
   const std::string name;
   const Id referred_type_id;
@@ -289,7 +268,6 @@ struct Typedef : Node {
 struct Qualified : Node {
   Qualified(Qualifier qualifier, Id qualified_type_id)
       : qualifier(qualifier), qualified_type_id(qualified_type_id) {}
-  Result Equals(State& state, const Node& other) const final;
 
   const Qualifier qualifier;
   const Id qualified_type_id;
@@ -310,8 +288,6 @@ struct Primitive : Node {
             uint32_t bitsize, uint32_t bytesize)
       : name(name), encoding(encoding), bitsize(bitsize), bytesize(bytesize) {}
 
-  Result Equals(State& state, const Node& other) const final;
-
   const std::string name;
   const std::optional<Encoding> encoding;
   // bitsize gives the semantics of the field. bytesize gives the
@@ -324,7 +300,6 @@ struct Array : Node {
   Array(uint64_t number_of_elements, Id element_type_id)
       : number_of_elements(number_of_elements),
         element_type_id(element_type_id)  {}
-  Result Equals(State& state, const Node& other) const final;
 
   const uint64_t number_of_elements;
   const Id element_type_id;
@@ -334,7 +309,6 @@ struct BaseClass : Node {
   enum class Inheritance { NON_VIRTUAL, VIRTUAL };
   BaseClass(Id type_id, uint64_t offset, Inheritance inheritance)
       : type_id(type_id), offset(offset), inheritance(inheritance) {}
-  Result Equals(State& state, const Node& other) const final;
 
   const Id type_id;
   const uint64_t offset;
@@ -346,7 +320,6 @@ std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance);
 struct Member : Node {
   Member(const std::string& name, Id type_id, uint64_t offset, uint64_t bitsize)
       : name(name), type_id(type_id), offset(offset), bitsize(bitsize) {}
-  Result Equals(State& state, const Node& other) const final;
 
   const std::string name;
   const Id type_id;
@@ -360,7 +333,6 @@ struct Method : Node {
          const std::optional<uint64_t> vtable_offset, Id type_id)
       : mangled_name(mangled_name), name(name), kind(kind),
         vtable_offset(vtable_offset), type_id(type_id) {}
-  Result Equals(State& state, const Node& other) const final;
 
   const std::string mangled_name;
   const std::string name;
@@ -385,7 +357,6 @@ struct StructUnion : Node {
               const std::vector<Id>& methods, const std::vector<Id>& members)
       : kind(kind), name(name),
         definition({bytesize, base_classes, methods, members}) {}
-  Result Equals(State& state, const Node& other) const final;
 
   const Kind kind;
   const std::string name;
@@ -404,7 +375,6 @@ struct Enumeration : Node {
   Enumeration(const std::string& name, uint32_t bytesize,
               const Enumerators& enumerators)
       : name(name), definition({bytesize, enumerators}) {}
-  Result Equals(State& state, const Node& other) const final;
 
   std::vector<std::pair<std::string, size_t>> GetEnumNames() const;
   const std::string name;
@@ -414,7 +384,6 @@ struct Enumeration : Node {
 struct Function : Node {
   Function(Id return_type_id, const std::vector<Id>& parameters)
       : return_type_id(return_type_id), parameters(parameters) {}
-  Result Equals(State& state, const Node& other) const final;
 
   const Id return_type_id;
   const std::vector<Id> parameters;
@@ -452,7 +421,6 @@ struct ElfSymbol : Node {
         ns(ns),
         type_id(type_id),
         full_name(full_name) {}
-  Result Equals(State& state, const Node& other) const final;
 
   const std::string symbol_name;
   const std::optional<VersionInfo> version_info;
@@ -474,7 +442,6 @@ std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info);
 
 struct Symbols : Node {
   Symbols(const std::map<std::string, Id>& symbols) : symbols(symbols) {}
-  Result Equals(State& state, const Node& other) const final;
 
   const std::map<std::string, Id> symbols;
 };
@@ -650,6 +617,36 @@ struct ResolveQualifier {
   const Graph& graph;
   Id& id;
   Qualifiers& qualifiers;
+};
+
+struct Compare {
+  Compare(const Graph& graph, const CompareOptions& options)
+      : graph(graph), options(options) {}
+  std::pair<bool, std::optional<Comparison>>  operator()(Id id1, Id id2);
+  Comparison Removed(Id id);
+  Comparison Added(Id id);
+  Result Mismatch();
+  Result operator()(const Void&, const Void&);
+  Result operator()(const Variadic&, const Variadic&);
+  Result operator()(const PointerReference&, const PointerReference&);
+  Result operator()(const Typedef&, const Typedef&);
+  Result operator()(const Qualified&, const Qualified&);
+  Result operator()(const Primitive&, const Primitive&);
+  Result operator()(const Array&, const Array&);
+  Result operator()(const BaseClass&, const BaseClass&);
+  Result operator()(const Member&, const Member&);
+  Result operator()(const Method&, const Method&);
+  Result operator()(const StructUnion&, const StructUnion&);
+  Result operator()(const Enumeration&, const Enumeration&);
+  Result operator()(const Function&, const Function&);
+  Result operator()(const ElfSymbol&, const ElfSymbol&);
+  Result operator()(const Symbols&, const Symbols&);
+  const Graph& graph;
+  const CompareOptions options;
+  std::unordered_map<Comparison, bool, HashComparison> known;
+  Outcomes outcomes;
+  Outcomes provisional;
+  SCC<Comparison, HashComparison> scc;
 };
 
 }  // namespace stg

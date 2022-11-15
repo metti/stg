@@ -64,13 +64,12 @@ std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
  * return true and an edge diff. The node is closed, return the stored value and
  * an edge diff.
  */
-std::pair<bool, std::optional<Comparison>> Compare(
-    State& state, Id id1, Id id2) {
+std::pair<bool, std::optional<Comparison>> Compare::operator()(Id id1, Id id2) {
   const Comparison comparison{{id1}, {id2}};
 
   // 1. Check if the comparison has an already known result.
-  auto already_known = state.known.find(comparison);
-  if (already_known != state.known.end()) {
+  auto already_known = known.find(comparison);
+  if (already_known != known.end()) {
     // Already visited and closed.
     if (already_known->second)
       return {true, {}};
@@ -80,7 +79,7 @@ std::pair<bool, std::optional<Comparison>> Compare(
   // Either open or not visited at all
 
   // 2. Record node with Strongly-Connected Component finder.
-  auto handle = state.scc.Open(comparison);
+  auto handle = scc.Open(comparison);
   if (!handle) {
     // Already open.
     //
@@ -91,7 +90,6 @@ std::pair<bool, std::optional<Comparison>> Compare(
   }
   // Comparison opened, need to close it before returning.
 
-  const Graph& graph = state.graph;
   Result result;
 
   const auto [unqualified1, qualifiers1] = ResolveQualifiers(graph, id1);
@@ -114,7 +112,7 @@ std::pair<bool, std::optional<Comparison>> Compare(
         ++it2;
       }
     }
-    const auto type_diff = Compare(state, unqualified1, unqualified2);
+    const auto type_diff = (*this)(unqualified1, unqualified2);
     result.MaybeAddEdgeDiff("underlying", type_diff);
   } else {
     const auto [resolved1, typedefs1] = ResolveTypedefs(graph, unqualified1);
@@ -123,23 +121,16 @@ std::pair<bool, std::optional<Comparison>> Compare(
       // 3.2 Typedef difference.
       result.diff_.holds_changes = !typedefs1.empty() && !typedefs2.empty()
                                    && typedefs1[0] == typedefs2[0];
-      result.MaybeAddEdgeDiff("resolved", Compare(state, resolved1, resolved2));
+      result.MaybeAddEdgeDiff("resolved", (*this)(resolved1, resolved2));
     } else {
-      const auto& type1 = graph.Get(unqualified1);
-      const auto& type2 = graph.Get(unqualified2);
-      if (typeid(type1) != typeid(type2)) {
-        // 4. Incomparable.
-        result.MarkIncomparable();
-      } else {
-        // 5. Actually compare with dynamic type dispatch.
-        result = type1.Equals(state, type2);
-      }
+      // 4. Compare nodes, if possible.
+      result = graph.Apply<Result>(*this, unqualified1, unqualified2);
     }
   }
 
-  // 6. Update result and check for a complete Strongly-Connected Component.
-  state.provisional.insert({comparison, result.diff_});
-  auto comparisons = state.scc.Close(*handle);
+  // 5. Update result and check for a complete Strongly-Connected Component.
+  provisional.insert({comparison, result.diff_});
+  auto comparisons = scc.Close(*handle);
   if (!comparisons.empty()) {
     // Closed SCC.
     //
@@ -147,14 +138,14 @@ std::pair<bool, std::optional<Comparison>> Compare(
     // SCC via the DFS spanning tree.
     for (auto& c : comparisons) {
       // Record equality / inequality.
-      state.known.insert({c, result.equals_});
-      const auto it = state.provisional.find(c);
-      Check(it != state.provisional.end())
+      known.insert({c, result.equals_});
+      const auto it = provisional.find(c);
+      Check(it != provisional.end())
           << "internal error: missing provisional diffs";
       if (!result.equals_)
         // Record differences.
-        state.outcomes.insert(*it);
-      state.provisional.erase(it);
+        outcomes.insert(*it);
+      provisional.erase(it);
     }
     if (result.equals_)
       return {true, {}};
@@ -166,71 +157,70 @@ std::pair<bool, std::optional<Comparison>> Compare(
   return {result.equals_, {comparison}};
 }
 
-Comparison Removed(State& state, Id id) {
+Comparison Compare::Removed(Id id) {
   Comparison comparison{{id}, {}};
-  state.outcomes.insert({comparison, {}});
+  outcomes.insert({comparison, {}});
   return comparison;
 }
 
-Comparison Added(State& state, Id id) {
+Comparison Compare::Added(Id id) {
   Comparison comparison{{}, {id}};
-  state.outcomes.insert({comparison, {}});
+  outcomes.insert({comparison, {}});
   return comparison;
 }
 
-Result Void::Equals(State&, const Node&) const {
+Result Compare::Mismatch() {
+  return Result().MarkIncomparable();
+}
+
+Result Compare::operator()(const Void&, const Void&) {
   return {};
 }
 
-Result Variadic::Equals(State&, const Node&) const {
+Result Compare::operator()(const Variadic&, const Variadic&) {
   return {};
 }
 
-Result PointerReference::Equals(State& state, const Node& other) const {
-  const auto& o = other.as<PointerReference>();
-
+Result Compare::operator()(const PointerReference& x1,
+                           const PointerReference& x2) {
   Result result;
-  if (kind != o.kind)
+  if (x1.kind != x2.kind)
     return result.MarkIncomparable();
-  const auto type_diff = Compare(state, pointee_type_id, o.pointee_type_id);
+  const auto type_diff = (*this)(x1.pointee_type_id, x2.pointee_type_id);
   const auto text =
-      kind == PointerReference::Kind::POINTER ? "pointed-to" : "referred-to";
+      x1.kind == PointerReference::Kind::POINTER ? "pointed-to" : "referred-to";
   result.MaybeAddEdgeDiff(text, type_diff);
   return result;
 }
 
-Result Typedef::Equals(State&, const Node&) const {
+Result Compare::operator()(const Typedef&, const Typedef&) {
   // Compare will never attempt to directly compare Typedefs.
-  Die() << "internal error: Typedef::Equals";
+  Die() << "internal error: Compare(Typedef)";
 }
 
-Result Qualified::Equals(State&, const Node&) const {
+Result Compare::operator()(const Qualified&, const Qualified&) {
   // Compare will never attempt to directly compare Qualifiers.
-  Die() << "internal error: Qualified::Equals";
+  Die() << "internal error: Compare(Qualified)";
 }
 
-Result Primitive::Equals(State&, const Node& other) const {
-  const auto& o = other.as<Primitive>();
-
+Result Compare::operator()(const Primitive& x1, const Primitive& x2) {
   Result result;
-  if (name != o.name) {
+  if (x1.name != x2.name) {
     return result.MarkIncomparable();
   }
-  result.diff_.holds_changes = !name.empty();
-  result.MaybeAddNodeDiff("encoding", encoding, o.encoding);
-  result.MaybeAddNodeDiff("bit size", bitsize, o.bitsize);
-  if (bitsize != bytesize * 8 && o.bitsize != o.bytesize * 8)
-    result.MaybeAddNodeDiff("byte size", bytesize, o.bytesize);
+  result.diff_.holds_changes = !x1.name.empty();
+  result.MaybeAddNodeDiff("encoding", x1.encoding, x2.encoding);
+  result.MaybeAddNodeDiff("bit size", x1.bitsize, x2.bitsize);
+  if (x1.bitsize != x1.bytesize * 8 && x2.bitsize != x2.bytesize * 8)
+    result.MaybeAddNodeDiff("byte size", x1.bytesize, x2.bytesize);
   return result;
 }
 
-Result Array::Equals(State& state, const Node& other) const {
-  const auto& o = other.as<Array>();
-
+Result Compare::operator()(const Array& x1, const Array& x2) {
   Result result;
   result.MaybeAddNodeDiff("number of elements",
-                          number_of_elements, o.number_of_elements);
-  const auto type_diff = Compare(state, element_type_id, o.element_type_id);
+                          x1.number_of_elements, x2.number_of_elements);
+  const auto type_diff = (*this)(x1.element_type_id, x2.element_type_id);
   result.MaybeAddEdgeDiff("element", type_diff);
   return result;
 }
@@ -294,114 +284,104 @@ static MatchedPairs PairUp(const KeyIndexPairs& keys1,
   return pairs;
 }
 
-static void CompareNodes(Result& result, State& state,
+static void CompareNodes(Result& result, Compare& compare,
                          const std::vector<Id>& ids1,
                          const std::vector<Id>& ids2,
                          const bool reorder) {
-  const auto keys1 = MatchingKeys(state.graph, ids1);
-  const auto keys2 = MatchingKeys(state.graph, ids2);
+  const auto keys1 = MatchingKeys(compare.graph, ids1);
+  const auto keys2 = MatchingKeys(compare.graph, ids2);
   auto pairs = PairUp(keys1, keys2);
   if (reorder)
     Reorder(pairs);
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
       // removed
-      const auto& id1 = ids1[*index1];
-      result.AddEdgeDiff("", Removed(state, id1));
+      const auto& x1 = ids1[*index1];
+      result.AddEdgeDiff("", compare.Removed(x1));
     } else if (!index1 && index2) {
       // added
-      const auto& id2 = ids2[*index2];
-      result.AddEdgeDiff("", Added(state, id2));
+      const auto& x2 = ids2[*index2];
+      result.AddEdgeDiff("", compare.Added(x2));
     } else {
       // in both
-      const auto& id1 = ids1[*index1];
-      const auto& id2 = ids2[*index2];
-      result.MaybeAddEdgeDiff("", Compare(state, id1, id2));
+      const auto& x1 = ids1[*index1];
+      const auto& x2 = ids2[*index2];
+      result.MaybeAddEdgeDiff("", compare(x1, x2));
     }
   }
 }
 
-Result BaseClass::Equals(State& state, const Node& other) const {
-  const auto& o = other.as<BaseClass>();
-
+Result Compare::operator()(const BaseClass& x1, const BaseClass& x2) {
   Result result;
-  result.MaybeAddNodeDiff("inheritance", inheritance, o.inheritance);
-  result.MaybeAddNodeDiff("offset", offset, o.offset);
-  result.MaybeAddEdgeDiff("", Compare(state, type_id, o.type_id));
+  result.MaybeAddNodeDiff("inheritance", x1.inheritance, x2.inheritance);
+  result.MaybeAddNodeDiff("offset", x1.offset, x2.offset);
+  result.MaybeAddEdgeDiff("", (*this)(x1.type_id, x2.type_id));
   return result;
 }
 
-Result Member::Equals(State& state, const Node& other) const {
-  const auto& o = other.as<Member>();
-
+Result Compare::operator()(const Member& x1, const Member& x2) {
   Result result;
-  result.MaybeAddNodeDiff("offset", offset, o.offset);
-  result.MaybeAddNodeDiff("size", bitsize, o.bitsize);
-  result.MaybeAddEdgeDiff("", Compare(state, type_id, o.type_id));
+  result.MaybeAddNodeDiff("offset", x1.offset, x2.offset);
+  result.MaybeAddNodeDiff("size", x1.bitsize, x2.bitsize);
+  result.MaybeAddEdgeDiff("", (*this)(x1.type_id, x2.type_id));
   return result;
 }
 
-Result Method::Equals(State& state, const Node& other) const {
-  const auto& o = other.as<Method>();
-
+Result Compare::operator()(const Method& x1, const Method& x2) {
   Result result;
-  result.MaybeAddNodeDiff("kind", kind, o.kind);
-  result.MaybeAddNodeDiff("vtable offset", vtable_offset, o.vtable_offset);
-  result.MaybeAddEdgeDiff("", Compare(state, type_id, o.type_id));
+  result.MaybeAddNodeDiff("kind", x1.kind, x2.kind);
+  result.MaybeAddNodeDiff("vtable offset", x1.vtable_offset, x2.vtable_offset);
+  result.MaybeAddEdgeDiff("", (*this)(x1.type_id, x2.type_id));
   return result;
 }
 
-Result StructUnion::Equals(State& state, const Node& other) const {
-  const auto& o = other.as<StructUnion>();
-
+Result Compare::operator()(const StructUnion& x1, const StructUnion& x2) {
   Result result;
   // Compare two anonymous types recursively, not holding diffs.
   // Compare two identically named types recursively, holding diffs.
   // Everything else treated as distinct. No recursion.
-  if (kind != o.kind || name != o.name)
+  if (x1.kind != x2.kind || x1.name != x2.name)
     return result.MarkIncomparable();
-  result.diff_.holds_changes = !name.empty();
+  result.diff_.holds_changes = !x1.name.empty();
 
-  const auto& definition1 = definition;
-  const auto& definition2 = o.definition;
+  const auto& definition1 = x1.definition;
+  const auto& definition2 = x2.definition;
   if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
-                      state.options.ignore_type_declaration_status_changes))
+                      options.ignore_type_declaration_status_changes))
     return result;
 
   result.MaybeAddNodeDiff(
       "byte size", definition1->bytesize, definition2->bytesize);
   CompareNodes(
-     result, state, definition1->base_classes, definition2->base_classes, true);
+     result, *this, definition1->base_classes, definition2->base_classes, true);
   CompareNodes(
-     result, state, definition1->methods, definition2->methods, false);
-  CompareNodes(result, state, definition1->members, definition2->members, true);
+     result, *this, definition1->methods, definition2->methods, false);
+  CompareNodes(result, *this, definition1->members, definition2->members, true);
 
   return result;
 }
 
-Result Enumeration::Equals(State& state, const Node& other) const {
-  const auto& o = other.as<Enumeration>();
-
+Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
   Result result;
   // Compare two anonymous types recursively, not holding diffs.
   // Compare two identically named types recursively, holding diffs.
   // Everything else treated as distinct. No recursion.
-  if (name != o.name)
+  if (x1.name != x2.name)
     return result.MarkIncomparable();
-  result.diff_.holds_changes = !name.empty();
+  result.diff_.holds_changes = !x1.name.empty();
 
-  const auto& definition1 = definition;
-  const auto& definition2 = o.definition;
+  const auto& definition1 = x1.definition;
+  const auto& definition2 = x2.definition;
   if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
-                      state.options.ignore_type_declaration_status_changes))
+                      options.ignore_type_declaration_status_changes))
     return result;
   result.MaybeAddNodeDiff(
       "byte size", definition1->bytesize, definition2->bytesize);
 
   const auto enums1 = definition1->enumerators;
   const auto enums2 = definition2->enumerators;
-  const auto names1 = GetEnumNames();
-  const auto names2 = o.GetEnumNames();
+  const auto names1 = x1.GetEnumNames();
+  const auto names2 = x2.GetEnumNames();
   auto pairs = PairUp(names1, names2);
   Reorder(pairs);
   for (const auto& [index1, index2] : pairs) {
@@ -434,15 +414,13 @@ Result Enumeration::Equals(State& state, const Node& other) const {
   return result;
 }
 
-Result Function::Equals(State& state, const Node& other) const {
-  const auto& o = other.as<Function>();
-
+Result Compare::operator()(const Function& x1, const Function& x2) {
   Result result;
-  const auto type_diff = Compare(state, return_type_id, o.return_type_id);
+  const auto type_diff = (*this)(x1.return_type_id, x2.return_type_id);
   result.MaybeAddEdgeDiff("return", type_diff);
 
-  const auto& parameters1 = parameters;
-  const auto& parameters2 = o.parameters;
+  const auto& parameters1 = x1.parameters;
+  const auto& parameters2 = x2.parameters;
   size_t min = std::min(parameters1.size(), parameters2.size());
   for (size_t i = 0; i < min; ++i) {
     const Id p1 = parameters1.at(i);
@@ -451,26 +429,24 @@ Result Function::Equals(State& state, const Node& other) const {
         [&](std::ostream& os) {
           os << "parameter " << i + 1;
         },
-        Compare(state, p1, p2));
+        (*this)(p1, p2));
   }
 
   bool added = parameters1.size() < parameters2.size();
-  const auto& which = added ? o : *this;
+  const auto& which = added ? x2 : x1;
   const auto& parameters = which.parameters;
   for (size_t i = min; i < parameters.size(); ++i) {
     const Id parameter = parameters.at(i);
     std::ostringstream os;
     os << "parameter " << i + 1 << " of";
-    auto diff = added ? Added(state, parameter) : Removed(state, parameter);
+    auto diff = added ? Added(parameter) : Removed(parameter);
     result.AddEdgeDiff(os.str(), diff);
   }
 
   return result;
 }
 
-Result ElfSymbol::Equals(State& state, const Node& other) const {
-  const auto& o = other.as<ElfSymbol>();
-
+Result Compare::operator()(const ElfSymbol& x1, const ElfSymbol& x2) {
   // ELF symbols have a lot of different attributes that can impact ABI
   // compatibility and others that either cannot or are subsumed by information
   // elsewhere.
@@ -520,33 +496,33 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   // Symbol namespace - fundamental to ABI compatibility, if present
 
   Result result;
-  result.MaybeAddNodeDiff("name", symbol_name, o.symbol_name);
+  result.MaybeAddNodeDiff("name", x1.symbol_name, x2.symbol_name);
 
-  if (version_info && o.version_info) {
-    result.MaybeAddNodeDiff("version", version_info->name,
-                            o.version_info->name);
-    result.MaybeAddNodeDiff("default version", version_info->is_default,
-                            o.version_info->is_default);
+  if (x1.version_info && x2.version_info) {
+    result.MaybeAddNodeDiff("version", x1.version_info->name,
+                            x2.version_info->name);
+    result.MaybeAddNodeDiff("default version", x1.version_info->is_default,
+                            x2.version_info->is_default);
   } else {
-    result.MaybeAddNodeDiff("has version", version_info.has_value(),
-                            o.version_info.has_value());
+    result.MaybeAddNodeDiff("has version", x1.version_info.has_value(),
+                            x2.version_info.has_value());
   }
 
-  result.MaybeAddNodeDiff("defined", is_defined, o.is_defined);
-  result.MaybeAddNodeDiff("symbol type", symbol_type, o.symbol_type);
-  result.MaybeAddNodeDiff("binding", binding, o.binding);
-  result.MaybeAddNodeDiff("visibility", visibility, o.visibility);
-  result.MaybeAddNodeDiff("CRC", crc, o.crc);
-  result.MaybeAddNodeDiff("namespace", ns, o.ns);
+  result.MaybeAddNodeDiff("defined", x1.is_defined, x2.is_defined);
+  result.MaybeAddNodeDiff("symbol type", x1.symbol_type, x2.symbol_type);
+  result.MaybeAddNodeDiff("binding", x1.binding, x2.binding);
+  result.MaybeAddNodeDiff("visibility", x1.visibility, x2.visibility);
+  result.MaybeAddNodeDiff("CRC", x1.crc, x2.crc);
+  result.MaybeAddNodeDiff("namespace", x1.ns, x2.ns);
 
-  if (type_id && o.type_id) {
-    result.MaybeAddEdgeDiff("", Compare(state, *type_id, *o.type_id));
-  } else if (type_id) {
-    if (!state.options.ignore_symbol_type_presence_changes)
-      result.AddEdgeDiff("", Removed(state, *type_id));
-  } else if (o.type_id) {
-    if (!state.options.ignore_symbol_type_presence_changes)
-      result.AddEdgeDiff("", Added(state, *o.type_id));
+  if (x1.type_id && x2.type_id) {
+    result.MaybeAddEdgeDiff("", (*this)(*x1.type_id, *x2.type_id));
+  } else if (x1.type_id) {
+    if (!options.ignore_symbol_type_presence_changes)
+      result.AddEdgeDiff("", Removed(*x1.type_id));
+  } else if (x2.type_id) {
+    if (!options.ignore_symbol_type_presence_changes)
+      result.AddEdgeDiff("", Added(*x2.type_id));
   } else {
     // both types missing, we have nothing to say
   }
@@ -554,9 +530,7 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   return result;
 }
 
-Result Symbols::Equals(State& state, const Node& other) const {
-  const auto& o = other.as<Symbols>();
-
+Result Compare::operator()(const Symbols& x1, const Symbols& x2) {
   Result result;
   result.diff_.holds_changes = true;
 
@@ -565,8 +539,8 @@ Result Symbols::Equals(State& state, const Node& other) const {
   std::vector<Id> added;
   std::vector<std::pair<Id, Id>> in_both;
 
-  const auto& symbols1 = symbols;
-  const auto& symbols2 = o.symbols;
+  const auto& symbols1 = x1.symbols;
+  const auto& symbols2 = x2.symbols;
   auto it1 = symbols1.begin();
   auto it2 = symbols2.begin();
   const auto end1 = symbols1.end();
@@ -589,11 +563,11 @@ Result Symbols::Equals(State& state, const Node& other) const {
   }
 
   for (const auto symbol1 : removed)
-    result.AddEdgeDiff("", Removed(state, symbol1));
+    result.AddEdgeDiff("", Removed(symbol1));
   for (const auto symbol2 : added)
-    result.AddEdgeDiff("", Added(state, symbol2));
+    result.AddEdgeDiff("", Added(symbol2));
   for (const auto& [symbol1, symbol2] : in_both)
-    result.MaybeAddEdgeDiff("", Compare(state, symbol1, symbol2));
+    result.MaybeAddEdgeDiff("", (*this)(symbol1, symbol2));
 
   return result;
 }

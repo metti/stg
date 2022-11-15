@@ -114,13 +114,13 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
   }
 
   // Compute differences.
-  stg::State state{graph, compare_options};
+  stg::Compare compare{graph, compare_options};
   std::pair<bool, std::optional<stg::Comparison>> result;
   {
     Time compute("compute diffs");
-    result = stg::Compare(state, roots[0], roots[1]);
+    result = compare(roots[0], roots[1]);
   }
-  stg::Check(state.scc.Empty()) << "internal error: SCC state broken";
+  stg::Check(compare.scc.Empty()) << "internal error: SCC state broken";
   const auto& [equals, comparison] = result;
 
   // Write reports.
@@ -130,8 +130,8 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
     if (comparison) {
       Time report("report diffs");
       stg::reporting::Options options{format, kMaxCrcOnlyChanges};
-      stg::reporting::Reporting reporting{graph, state.outcomes, options,
-                                          names};
+      stg::reporting::Reporting reporting{graph, compare.outcomes, options,
+        names};
       Report(reporting, *comparison, output);
       output << std::flush;
     }
