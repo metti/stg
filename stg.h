@@ -47,10 +47,6 @@ struct Node;
 // Concrete graph type.
 class Graph {
  public:
-  const Node& Get(Id id) const {
-    return *nodes_[id.ix_].get();
-  }
-
   bool Is(Id id) const {
     return nodes_[id.ix_] != nullptr;
   }
@@ -82,6 +78,10 @@ class Graph {
   Result Apply(FunctionObject& function, Id id1, Id id2) const;
 
  private:
+  const Node& Get(Id id) const {
+    return *nodes_[id.ix_].get();
+  }
+
   std::vector<std::unique_ptr<Node>> nodes_;
 };
 
