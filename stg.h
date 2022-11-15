@@ -224,16 +224,6 @@ struct Node {
   Node(const Node&) = delete;
   Node(Node&&) = default;
   virtual ~Node() = default;
-
-  // as<Target>() provides a method to delegate downcasting to the base class,
-  // instead of needing to use dynamic_cast in a local context. If the type is
-  // not correct, an exception will be thrown.
-  template <typename Target>
-  const Target& as() const {
-    static_assert(std::is_convertible<Target*, Node*>::value,
-                  "Target must publically inherit Node");
-    return dynamic_cast<const Target&>(*this);
-  }
 };
 
 struct Void : Node {
