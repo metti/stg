@@ -110,16 +110,6 @@ std::ostream& operator<<(std::ostream& os, const Name& name) {
   return name.Print(os);
 }
 
-const Name& GetDescription(const Graph& graph, NameCache& names, Id node) {
-  // infinite recursion prevention - insert at most once
-  static const Name black_hole{"#"};
-  auto insertion = names.insert({node, black_hole});
-  Name& cached = insertion.first->second;
-  if (insertion.second)
-    cached = graph.Get(node).MakeDescription(graph, names);
-  return cached;
-}
-
 std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
   std::ostringstream os;
   os << "qualifier " << qualifier << ' ' << action;
@@ -269,6 +259,16 @@ std::pair<bool, std::optional<Comparison>> Compare(
   return {result.equals_, {comparison}};
 }
 
+const Name& GetDescription(const Graph& graph, NameCache& names, Id node) {
+  // infinite recursion prevention - insert at most once
+  static const Name black_hole{"#"};
+  auto insertion = names.insert({node, black_hole});
+  Name& cached = insertion.first->second;
+  if (insertion.second)
+    cached = graph.Get(node).MakeDescription(graph, names);
+  return cached;
+}
+
 Name Void::MakeDescription(const Graph&, NameCache&) const {
   return Name{"void"};
 }
@@ -378,15 +378,6 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
       .Add(Side::RIGHT, Precedence::ARRAY_FUNCTION, os.str());
 }
 
-std::string ElfSymbol::ExtraDescription() const {
-  const auto& name = full_name ? *full_name : symbol_name;
-  std::string versioned = symbol_name;
-  if (version_info) {
-    versioned += VersionInfoToString(*version_info);
-  }
-  return name == versioned ? std::string() : " {" + versioned + '}';
-}
-
 Name ElfSymbol::MakeDescription(const Graph& graph, NameCache& names) const {
   const auto& name = full_name ? *full_name : symbol_name;
   return type_id
@@ -397,6 +388,15 @@ Name ElfSymbol::MakeDescription(const Graph& graph, NameCache& names) const {
 
 Name Symbols::MakeDescription(const Graph&, NameCache&) const {
   return Name{"symbols"};
+}
+
+std::string ElfSymbol::ExtraDescription() const {
+  const auto& name = full_name ? *full_name : symbol_name;
+  std::string versioned = symbol_name;
+  if (version_info) {
+    versioned += VersionInfoToString(*version_info);
+  }
+  return name == versioned ? std::string() : " {" + versioned + '}';
 }
 
 std::string Node::ExtraDescription() const {
