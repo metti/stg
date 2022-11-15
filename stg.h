@@ -38,53 +38,6 @@
 
 namespace stg {
 
-struct Node;
-
-// Concrete graph type.
-class Graph {
- public:
-  bool Is(Id id) const {
-    return nodes_[id.ix_] != nullptr;
-  }
-
-  Id Allocate() {
-    const auto ix = nodes_.size();
-    nodes_.push_back(nullptr);
-    return Id(ix);
-  }
-
-  template <typename Node, typename... Args>
-  void Set(Id id, Args&&... args) {
-    auto& reference = nodes_[id.ix_];
-    Check(reference == nullptr) << "node value already set";
-    reference = std::make_unique<Node>(std::forward<Args>(args)...);
-  }
-
-  template <typename Node, typename... Args>
-  Id Add(Args&&... args) {
-    auto id = Allocate();
-    Set<Node>(id, std::forward<Args>(args)...);
-    return id;
-  }
-
-  template <typename Result, typename FunctionObject>
-  Result Apply(FunctionObject& function, Id id) const;
-
-  template <typename Result, typename FunctionObject>
-  Result Apply(FunctionObject& function, Id id1, Id id2) const;
-
- private:
-  const Node& Get(Id id) const {
-    return *nodes_[id.ix_].get();
-  }
-
-  std::vector<std::unique_ptr<Node>> nodes_;
-};
-
-enum class Qualifier { CONST, VOLATILE, RESTRICT };
-
-std::ostream& operator<<(std::ostream& os, Qualifier qualifier);
-
 struct Node {
   Node() = default;
   Node(const Node&) = delete;
@@ -120,6 +73,10 @@ struct Typedef : Node {
   const std::string name;
   const Id referred_type_id;
 };
+
+enum class Qualifier { CONST, VOLATILE, RESTRICT };
+
+std::ostream& operator<<(std::ostream& os, Qualifier qualifier);
 
 struct Qualified : Node {
   Qualified(Qualifier qualifier, Id qualified_type_id)
@@ -302,6 +259,47 @@ struct Symbols : Node {
 };
 
 std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding);
+
+// Concrete graph type.
+class Graph {
+ public:
+  bool Is(Id id) const {
+    return nodes_[id.ix_] != nullptr;
+  }
+
+  Id Allocate() {
+    const auto ix = nodes_.size();
+    nodes_.push_back(nullptr);
+    return Id(ix);
+  }
+
+  template <typename Node, typename... Args>
+  void Set(Id id, Args&&... args) {
+    auto& reference = nodes_[id.ix_];
+    Check(reference == nullptr) << "node value already set";
+    reference = std::make_unique<Node>(std::forward<Args>(args)...);
+  }
+
+  template <typename Node, typename... Args>
+  Id Add(Args&&... args) {
+    auto id = Allocate();
+    Set<Node>(id, std::forward<Args>(args)...);
+    return id;
+  }
+
+  template <typename Result, typename FunctionObject>
+  Result Apply(FunctionObject& function, Id id) const;
+
+  template <typename Result, typename FunctionObject>
+  Result Apply(FunctionObject& function, Id id1, Id id2) const;
+
+ private:
+  const Node& Get(Id id) const {
+    return *nodes_[id.ix_].get();
+  }
+
+  std::vector<std::unique_ptr<Node>> nodes_;
+};
 
 template <typename Result, typename FunctionObject>
 Result Graph::Apply(FunctionObject& function, Id id) const {
