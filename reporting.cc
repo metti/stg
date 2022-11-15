@@ -62,7 +62,7 @@ bool PrintComparison(Reporting& reporting, const Comparison& comparison,
     os << prefix << ' ';
   }
   if (!id2) {
-    os << node1->GetKindDescription() << " '"
+    os << DescribeKind(reporting.graph)(*id1) << " '"
        << Describe(reporting.graph, reporting.names)(*id1)
        << "'"
        << node1->ExtraDescription()
@@ -70,7 +70,7 @@ bool PrintComparison(Reporting& reporting, const Comparison& comparison,
     return true;
   }
   if (!id1) {
-    os << node2->GetKindDescription() << " '"
+    os << DescribeKind(reporting.graph)(*id2) << " '"
        << Describe(reporting.graph, reporting.names)(*id2)
        << "'"
        << node2->ExtraDescription()
@@ -82,7 +82,7 @@ bool PrintComparison(Reporting& reporting, const Comparison& comparison,
       GetResolvedDescription(reporting.graph, reporting.names, *id1);
   const auto description2 =
       GetResolvedDescription(reporting.graph, reporting.names, *id2);
-  os << node1->GetKindDescription() << ' ';
+  os << DescribeKind(reporting.graph)(*id1) << ' ';
   if (description1 == description2)
     os << description1 << " changed\n";
   else

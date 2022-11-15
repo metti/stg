@@ -402,21 +402,36 @@ std::string Node::ExtraDescription() const {
   return {};
 }
 
-std::string Node::GetKindDescription() const { return "type"; }
+std::string DescribeKind::operator()(Id id) {
+  return graph.Apply<std::string>(*this, id);
+}
 
-std::string BaseClass::GetKindDescription() const { return "base class"; }
+std::string DescribeKind::operator()(const BaseClass&) {
+  return "base class";
+}
 
-std::string Member::GetKindDescription() const { return "member"; }
+std::string DescribeKind::operator()(const Member&) {
+  return "member";
+}
 
-std::string Method::GetKindDescription() const { return "method"; }
+std::string DescribeKind::operator()(const Method&) {
+  return "method";
+}
 
-std::string ElfSymbol::GetKindDescription() const {
+std::string DescribeKind::operator()(const ElfSymbol& x) {
   std::ostringstream os;
-  os << symbol_type << " symbol";
+  os << x.symbol_type << " symbol";
   return os.str();
 }
 
-std::string Symbols::GetKindDescription() const { return "symbols"; }
+std::string DescribeKind::operator()(const Symbols&) {
+  return "symbols";
+}
+
+template <typename Node>
+std::string DescribeKind::operator()(const Node&) {
+  return "type";
+}
 
 Result Void::Equals(State&, const Node&) const { return {}; }
 

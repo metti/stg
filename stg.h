@@ -281,8 +281,6 @@ struct Node {
   virtual std::string MatchingKey(const Graph& graph) const;
 
   virtual std::string ExtraDescription() const;
-  virtual std::string GetKindDescription() const;
-
   virtual Result Equals(State& state, const Node& other) const = 0;
 };
 
@@ -376,7 +374,6 @@ struct BaseClass : Node {
   enum class Inheritance { NON_VIRTUAL, VIRTUAL };
   BaseClass(Id type_id, uint64_t offset, Inheritance inheritance)
       : type_id(type_id), offset(offset), inheritance(inheritance) {}
-  std::string GetKindDescription() const final;
   Result Equals(State& state, const Node& other) const final;
   std::string MatchingKey(const Graph& graph) const final;
 
@@ -390,7 +387,6 @@ std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance);
 struct Member : Node {
   Member(const std::string& name, Id type_id, uint64_t offset, uint64_t bitsize)
       : name(name), type_id(type_id), offset(offset), bitsize(bitsize) {}
-  std::string GetKindDescription() const final;
   Result Equals(State& state, const Node& other) const final;
   std::string MatchingKey(const Graph& graph) const final;
 
@@ -406,7 +402,6 @@ struct Method : Node {
          const std::optional<uint64_t> vtable_offset, Id type_id)
       : mangled_name(mangled_name), name(name), kind(kind),
         vtable_offset(vtable_offset), type_id(type_id) {}
-  std::string GetKindDescription() const final;
   Result Equals(State& state, const Node& other) const final;
   std::string MatchingKey(const Graph& graph) const final;
 
@@ -502,7 +497,6 @@ struct ElfSymbol : Node {
         ns(ns),
         type_id(type_id),
         full_name(full_name) {}
-  std::string GetKindDescription() const final;
   std::string ExtraDescription() const final;
   Result Equals(State& state, const Node& other) const final;
 
@@ -526,7 +520,6 @@ std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info);
 
 struct Symbols : Node {
   Symbols(const std::map<std::string, Id>& symbols) : symbols(symbols) {}
-  std::string GetKindDescription() const final;
   Result Equals(State& state, const Node& other) const final;
 
   const std::map<std::string, Id> symbols;
@@ -678,6 +671,19 @@ struct Describe {
   Name operator()(const Symbols&);
   const Graph& graph;
   NameCache& names;
+};
+
+struct DescribeKind {
+  DescribeKind(const Graph& graph) : graph(graph) {}
+  std::string operator()(Id id);
+  std::string operator()(const BaseClass&);
+  std::string operator()(const Member&);
+  std::string operator()(const Method&);
+  std::string operator()(const ElfSymbol&);
+  std::string operator()(const Symbols&);
+  template <typename Node>
+  std::string operator()(const Node&);
+  const Graph& graph;
 };
 
 }  // namespace stg
