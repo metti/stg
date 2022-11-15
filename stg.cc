@@ -39,18 +39,6 @@ std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
   return os.str();
 }
 
-Comparison Removed(State& state, Id id) {
-  Comparison comparison{{id}, {}};
-  state.outcomes.insert({comparison, {}});
-  return comparison;
-}
-
-Comparison Added(State& state, Id id) {
-  Comparison comparison{{}, {id}};
-  state.outcomes.insert({comparison, {}});
-  return comparison;
-}
-
 /*
  * We compute a diff for every visited node.
  *
@@ -178,9 +166,25 @@ std::pair<bool, std::optional<Comparison>> Compare(
   return {result.equals_, {comparison}};
 }
 
-Result Void::Equals(State&, const Node&) const { return {}; }
+Comparison Removed(State& state, Id id) {
+  Comparison comparison{{id}, {}};
+  state.outcomes.insert({comparison, {}});
+  return comparison;
+}
 
-Result Variadic::Equals(State&, const Node&) const { return {}; }
+Comparison Added(State& state, Id id) {
+  Comparison comparison{{}, {id}};
+  state.outcomes.insert({comparison, {}});
+  return comparison;
+}
+
+Result Void::Equals(State&, const Node&) const {
+  return {};
+}
+
+Result Variadic::Equals(State&, const Node&) const {
+  return {};
+}
 
 Result PointerReference::Equals(State& state, const Node& other) const {
   const auto& o = other.as<PointerReference>();
