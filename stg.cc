@@ -25,6 +25,10 @@
 
 namespace stg {
 
+std::ostream& operator<<(std::ostream& os, Id id) {
+  return os << '<' << id.ix_ << '>';
+}
+
 std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance) {
   switch (inheritance) {
     case BaseClass::Inheritance::NON_VIRTUAL:

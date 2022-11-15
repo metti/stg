@@ -27,7 +27,6 @@
 #include <utility>
 #include <vector>
 
-#include "id.h"
 #include "stg.h"
 #include <libxml/tree.h>
 

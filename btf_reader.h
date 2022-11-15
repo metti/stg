@@ -30,7 +30,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "id.h"
 #include "stg.h"
 #include <linux/btf.h>
 

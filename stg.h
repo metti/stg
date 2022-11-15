@@ -23,6 +23,7 @@
 #define STG_STG_H_
 
 #include <cstdint>
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <memory>
@@ -33,7 +34,36 @@
 #include <vector>
 
 #include "error.h"
-#include "id.h"
+
+namespace stg {
+
+// A wrapped (for type safety) array index.
+struct Id {
+  explicit Id(size_t ix) : ix_(ix) {}
+  // TODO: auto operator<=>(const Id&) const = default;
+  bool operator==(const Id& other) const {
+    return ix_ == other.ix_;
+  }
+  bool operator!=(const Id& other) const {
+    return ix_ != other.ix_;
+  }
+  size_t ix_;
+};
+
+std::ostream& operator<<(std::ostream& os, Id id);
+
+}  // namespace stg
+
+namespace std {
+
+template<>
+struct hash<stg::Id> {
+  size_t operator()(const stg::Id& id) const {
+    return id.ix_;
+  }
+};
+
+}  // namespace std
 
 namespace stg {
 
