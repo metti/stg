@@ -37,7 +37,6 @@
 #include <utility>
 
 #include <libxml/parser.h>
-#include "crc.h"
 #include "error.h"
 #include "stg.h"
 
@@ -155,8 +154,8 @@ std::optional<ElfSymbol::Visibility> Parse<ElfSymbol::Visibility>(
 }
 
 template <>
-std::optional<CRC> Parse<CRC>(const std::string& value) {
-  CRC result;
+std::optional<ElfSymbol::CRC> Parse<ElfSymbol::CRC>(const std::string& value) {
+  ElfSymbol::CRC result;
   std::istringstream is(value);
   is >> std::noskipws >> std::hex >> result.number;
   if (!is || !is.eof())
@@ -720,7 +719,7 @@ Id Abigail::BuildSymbol(const SymbolInfo& info,
                         const std::optional<std::string>& name) {
   const xmlNodePtr symbol = info.node;
   const bool is_defined = ReadAttributeOrDie<bool>(symbol, "is-defined");
-  const auto crc = ReadAttribute<CRC>(symbol, "crc");
+  const auto crc = ReadAttribute<ElfSymbol::CRC>(symbol, "crc");
   const auto ns = ReadAttribute<std::string>(symbol, "namespace");
   const auto type = ReadAttributeOrDie<ElfSymbol::SymbolType>(symbol, "type");
   const auto binding =

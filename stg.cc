@@ -111,6 +111,10 @@ std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info) {
          version_info.name;
 }
 
+std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc) {
+  return os << "0x" << std::hex << crc.number;
+}
+
 std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding) {
   switch (encoding) {
     case Primitive::Encoding::BOOLEAN:

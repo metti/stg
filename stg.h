@@ -32,7 +32,6 @@
 #include <utility>
 #include <vector>
 
-#include "crc.h"
 #include "error.h"
 #include "id.h"
 
@@ -213,6 +212,16 @@ struct ElfSymbol : Node {
     bool is_default;
     std::string name;
   };
+  struct CRC {
+    // TODO: auto operator<=>(const bool&) const = default;
+    bool operator==(const CRC& other) const {
+      return number == other.number;
+    }
+    bool operator!=(const CRC& other) const {
+      return number != other.number;
+    }
+    uint32_t number;
+  };
   ElfSymbol(const std::string& symbol_name,
             std::optional<VersionInfo> version_info,
             bool is_defined,
@@ -251,6 +260,8 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding);
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility);
 
 std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info);
+
+std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc);
 
 struct Symbols : Node {
   Symbols(const std::map<std::string, Id>& symbols) : symbols(symbols) {}

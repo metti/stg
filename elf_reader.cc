@@ -30,7 +30,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "crc.h"
 #include "dwarf.h"
 #include "dwarf_processor.h"
 #include "elf_loader.h"
@@ -42,7 +41,7 @@ namespace elf {
 namespace {
 
 using SymbolTable = std::vector<SymbolTableEntry>;
-using CRCValuesMap = std::unordered_map<std::string, CRC>;
+using CRCValuesMap = std::unordered_map<std::string, ElfSymbol::CRC>;
 
 ElfSymbol::SymbolType ConvertSymbolType(
     SymbolTableEntry::SymbolType symbol_type) {
@@ -69,7 +68,7 @@ CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols) {
     const std::string_view name = symbol.name;
     if (name.substr(0, kCRCPrefix.size()) == kCRCPrefix) {
       std::string_view name_suffix = name.substr(kCRCPrefix.size());
-      CRC crc{static_cast<uint32_t>(symbol.value)};
+      ElfSymbol::CRC crc{static_cast<uint32_t>(symbol.value)};
       if (!crc_values.emplace(name_suffix, crc).second) {
         Die() << "Multiple CRC values for symbol '" << name_suffix << '\'';
       }
