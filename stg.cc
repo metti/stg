@@ -39,14 +39,6 @@ Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers) {
   return id;
 }
 
-std::pair<Id, std::vector<std::string>> ResolveTypedefs(
-    const Graph& graph, Id id) {
-  std::pair<Id, std::vector<std::string>> result = {id, {}};
-  while (graph.Get(result.first).ResolveTypedef(result.first, result.second)) {
-  }
-  return result;
-}
-
 std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
   std::ostringstream os;
   os << "qualifier " << qualifier << ' ' << action;
@@ -631,14 +623,22 @@ std::optional<Id> Qualified::ResolveQualifier(Qualifiers& qualifiers) const {
   return {qualified_type_id};
 }
 
-bool Node::ResolveTypedef(Id&, std::vector<std::string>&) const {
-  return false;
+std::pair<Id, std::vector<std::string>> ResolveTypedefs(
+    const Graph& graph, Id id) {
+  std::pair<Id, std::vector<std::string>> result = {id, {}};
+  while (graph.Get(result.first).ResolveTypedef(result.first, result.second)) {
+  }
+  return result;
 }
 
 bool Typedef::ResolveTypedef(Id& id, std::vector<std::string>& typedefs) const {
   id = referred_type_id;
   typedefs.push_back(name);
   return true;
+}
+
+bool Node::ResolveTypedef(Id&, std::vector<std::string>&) const {
+  return false;
 }
 
 std::string MatchingKey::operator()(Id id) {
