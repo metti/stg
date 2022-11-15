@@ -22,6 +22,7 @@
 
 #include <ostream>
 
+#include "comparison.h"
 #include "naming.h"
 #include "stg.h"
 
