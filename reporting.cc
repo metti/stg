@@ -41,7 +41,7 @@ std::string GetResolvedDescription(
   for (const auto& td : typedefs)
     os << '\'' << td << "' = ";
   os << '\'' << Describe(graph, names)(resolved) << '\''
-     << graph.Get(resolved).ExtraDescription();
+     << DescribeExtra(graph)(resolved);
   return os.str();
 }
 
@@ -53,19 +53,17 @@ std::string GetResolvedDescription(
 bool PrintComparison(Reporting& reporting, const Comparison& comparison,
                      std::ostream& os, size_t indent,
                      const std::string& prefix) {
-  const auto id1 = comparison.first;
-  const auto id2 = comparison.second;
-  const auto* node1 = id1 ? &reporting.graph.Get(*id1) : nullptr;
-  const auto* node2 = id2 ? &reporting.graph.Get(*id2) : nullptr;
   os << std::string(indent, ' ');
   if (!prefix.empty()) {
     os << prefix << ' ';
   }
+  const auto id1 = comparison.first;
+  const auto id2 = comparison.second;
   if (!id2) {
     os << DescribeKind(reporting.graph)(*id1) << " '"
        << Describe(reporting.graph, reporting.names)(*id1)
        << "'"
-       << node1->ExtraDescription()
+       << DescribeExtra(reporting.graph)(*id1)
        << " was removed\n";
     return true;
   }
@@ -73,7 +71,7 @@ bool PrintComparison(Reporting& reporting, const Comparison& comparison,
     os << DescribeKind(reporting.graph)(*id2) << " '"
        << Describe(reporting.graph, reporting.names)(*id2)
        << "'"
-       << node2->ExtraDescription()
+       << DescribeExtra(reporting.graph)(*id2)
        << " was added\n";
     return true;
   }
@@ -244,14 +242,14 @@ void VizPrint(Reporting& reporting, const Comparison& comparison,
   if (!id2) {
     os << "  \"" << node << "\" [color=red, label=\"" << "removed("
        << Describe(reporting.graph, reporting.names)(*id1)
-       << reporting.graph.Get(*id1).ExtraDescription()
+       << DescribeExtra(reporting.graph)(*id1)
        << ")\"]\n";
     return;
   }
   if (!id1) {
     os << "  \"" << node << "\" [color=red, label=\"" << "added("
        << Describe(reporting.graph, reporting.names)(*id2)
-       << reporting.graph.Get(*id2).ExtraDescription()
+       << DescribeExtra(reporting.graph)(*id2)
        << ")\"]\n";
     return;
   }

@@ -389,16 +389,21 @@ Name Describe::operator()(const Symbols&) {
   return Name{"symbols"};
 }
 
-std::string ElfSymbol::ExtraDescription() const {
-  const auto& name = full_name ? *full_name : symbol_name;
-  std::string versioned = symbol_name;
-  if (version_info) {
-    versioned += VersionInfoToString(*version_info);
+std::string DescribeExtra::operator()(Id id) {
+  return graph.Apply<std::string>(*this, id);
+}
+
+std::string DescribeExtra::operator()(const ElfSymbol& x) {
+  const auto& name = x.full_name ? *x.full_name : x.symbol_name;
+  std::string versioned = x.symbol_name;
+  if (x.version_info) {
+    versioned += VersionInfoToString(*x.version_info);
   }
   return name == versioned ? std::string() : " {" + versioned + '}';
 }
 
-std::string Node::ExtraDescription() const {
+template <typename Node>
+std::string DescribeExtra::operator()(const Node&) {
   return {};
 }
 

@@ -280,7 +280,6 @@ struct Node {
       std::vector<std::string>& typedefs) const;
   virtual std::string MatchingKey(const Graph& graph) const;
 
-  virtual std::string ExtraDescription() const;
   virtual Result Equals(State& state, const Node& other) const = 0;
 };
 
@@ -497,7 +496,6 @@ struct ElfSymbol : Node {
         ns(ns),
         type_id(type_id),
         full_name(full_name) {}
-  std::string ExtraDescription() const final;
   Result Equals(State& state, const Node& other) const final;
 
   const std::string symbol_name;
@@ -681,6 +679,15 @@ struct DescribeKind {
   std::string operator()(const Method&);
   std::string operator()(const ElfSymbol&);
   std::string operator()(const Symbols&);
+  template <typename Node>
+  std::string operator()(const Node&);
+  const Graph& graph;
+};
+
+struct DescribeExtra {
+  DescribeExtra(const Graph& graph) : graph(graph) {}
+  std::string operator()(Id id);
+  std::string operator()(const ElfSymbol&);
   template <typename Node>
   std::string operator()(const Node&);
   const Graph& graph;
