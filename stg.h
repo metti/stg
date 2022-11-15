@@ -92,8 +92,6 @@ std::ostream& operator<<(std::ostream& os, Qualifier qualifier);
 
 using Comparison = std::pair<std::optional<Id>, std::optional<Id>>;
 
-std::pair<Id, Qualifiers> ResolveQualifiers(const Graph& graph, Id id);
-
 struct DiffDetail {
   DiffDetail(const std::string& text, const std::optional<Comparison>& edge)
       : text_(text), edge_(edge) {}
@@ -246,11 +244,6 @@ struct Node {
                   "Target must publically inherit Node");
     return dynamic_cast<const Target&>(*this);
   }
-  // Separate qualifiers from underlying type.
-  //
-  // The caller must always be prepared to receive a different type as
-  // qualifiers are sometimes discarded.
-  virtual bool ResolveQualifier(Id& id, Qualifiers& qualifiers) const;
 
   virtual Result Equals(State& state, const Node& other) const = 0;
 };
@@ -297,7 +290,6 @@ struct Qualified : Node {
   Qualified(Qualifier qualifier, Id qualified_type_id)
       : qualifier(qualifier), qualified_type_id(qualified_type_id) {}
   Result Equals(State& state, const Node& other) const final;
-  bool ResolveQualifier(Id& id, Qualifiers& qualifiers) const final;
 
   const Qualifier qualifier;
   const Id qualified_type_id;
@@ -333,7 +325,6 @@ struct Array : Node {
       : number_of_elements(number_of_elements),
         element_type_id(element_type_id)  {}
   Result Equals(State& state, const Node& other) const final;
-  bool ResolveQualifier(Id& id, Qualifiers& qualifiers) const final;
 
   const uint64_t number_of_elements;
   const Id element_type_id;
@@ -424,7 +415,6 @@ struct Function : Node {
   Function(Id return_type_id, const std::vector<Id>& parameters)
       : return_type_id(return_type_id), parameters(parameters) {}
   Result Equals(State& state, const Node& other) const final;
-  bool ResolveQualifier(Id& id, Qualifiers& qualifiers) const final;
 
   const Id return_type_id;
   const std::vector<Id> parameters;
@@ -640,6 +630,26 @@ struct ResolveTypedef {
   const Graph& graph;
   Id& id;
   std::vector<std::string>& names;
+};
+
+// Separate qualifiers from underlying type.
+//
+// The caller must always be prepared to receive a different type as qualifiers
+// are sometimes discarded.
+std::pair<Id, Qualifiers> ResolveQualifiers(const Graph& graph, Id id);
+
+struct ResolveQualifier {
+  ResolveQualifier(const Graph& graph, Id& id, Qualifiers& qualifiers)
+      : graph(graph), id(id), qualifiers(qualifiers) {}
+  bool operator()(const Qualified&);
+  bool operator()(const Array&);
+  bool operator()(const Function&);
+  template <typename Node>
+  bool operator()(const Node&);
+
+  const Graph& graph;
+  Id& id;
+  Qualifiers& qualifiers;
 };
 
 }  // namespace stg

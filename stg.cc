@@ -596,31 +596,32 @@ Result Symbols::Equals(State& state, const Node& other) const {
 
 std::pair<Id, Qualifiers> ResolveQualifiers(const Graph& graph, Id id) {
   std::pair<Id, Qualifiers> result = {id, {}};
-  while (graph.Get(result.first)
-             .ResolveQualifier(result.first, result.second)) {
+  ResolveQualifier resolve(graph, result.first, result.second);
+  while (graph.Apply<bool>(resolve, result.first)) {
   }
   return result;
 }
 
-bool Array::ResolveQualifier(Id&, Qualifiers& qualifiers) const {
+bool ResolveQualifier::operator()(const Array&) {
   // There should be no qualifiers here.
   qualifiers.clear();
   return false;
 }
 
-bool Function::ResolveQualifier(Id&, Qualifiers& qualifiers) const {
+bool ResolveQualifier::operator()(const Function&) {
   // There should be no qualifiers here.
   qualifiers.clear();
   return false;
 }
 
-bool Qualified::ResolveQualifier(Id& id, Qualifiers& qualifiers) const {
-  id = qualified_type_id;
-  qualifiers.insert(qualifier);
+bool ResolveQualifier::operator()(const Qualified& x) {
+  id = x.qualified_type_id;
+  qualifiers.insert(x.qualifier);
   return true;
 }
 
-bool Node::ResolveQualifier(Id&, Qualifiers&) const {
+template <typename Node>
+bool ResolveQualifier::operator()(const Node&) {
   return false;
 }
 
