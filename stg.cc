@@ -269,7 +269,7 @@ static KeyIndexPairs MatchingKeys(const Graph& graph,
   keys.reserve(size);
   size_t anonymous_ix = 0;
   for (size_t ix = 0; ix < size; ++ix) {
-    auto key = graph.Get(nodes[ix]).MatchingKey(graph);
+    auto key = MatchingKey(graph)(nodes[ix]);
     if (key.empty())
       key = "#anon#" + std::to_string(anonymous_ix++);
     keys.push_back({key, ix});
@@ -642,33 +642,40 @@ std::optional<Id> Typedef::ResolveTypedef(
   return {referred_type_id};
 }
 
-std::string Node::MatchingKey(const Graph&) const { return {}; }
-
-std::string BaseClass::MatchingKey(const Graph& graph) const {
-  return graph.Get(type_id).MatchingKey(graph);
+std::string MatchingKey::operator()(Id id) {
+  return graph.Apply<std::string>(*this, id);
 }
 
-std::string Member::MatchingKey(const Graph& graph) const {
-  if (!name.empty())
-    return name;
-  return graph.Get(type_id).MatchingKey(graph);
+std::string MatchingKey::operator()(const BaseClass& x) {
+  return (*this)(x.type_id);
 }
 
-std::string Method::MatchingKey(const Graph&) const {
-  return name + ',' + mangled_name;
+std::string MatchingKey::operator()(const Member& x) {
+  if (!x.name.empty())
+    return x.name;
+  return (*this)(x.type_id);
 }
 
-std::string StructUnion::MatchingKey(const Graph& graph) const {
-  if (!name.empty())
-    return name;
-  if (definition) {
-    const auto& members = definition->members;
+std::string MatchingKey::operator()(const Method& x) {
+  return x.name + ',' + x.mangled_name;
+}
+
+std::string MatchingKey::operator()(const StructUnion& x) {
+  if (!x.name.empty())
+    return x.name;
+  if (x.definition) {
+    const auto& members = x.definition->members;
     for (const auto& member : members) {
-      const auto recursive = graph.Get(member).MatchingKey(graph);
+      const auto recursive = (*this)(member);
       if (!recursive.empty())
         return recursive;
     }
   }
+  return {};
+}
+
+template <typename Node>
+std::string MatchingKey::operator()(const Node&) {
   return {};
 }
 

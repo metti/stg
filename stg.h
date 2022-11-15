@@ -255,7 +255,6 @@ struct Node {
   virtual std::optional<Id> ResolveQualifier(Qualifiers& qualifiers) const;
   virtual std::optional<Id> ResolveTypedef(
       std::vector<std::string>& typedefs) const;
-  virtual std::string MatchingKey(const Graph& graph) const;
 
   virtual Result Equals(State& state, const Node& other) const = 0;
 };
@@ -351,7 +350,6 @@ struct BaseClass : Node {
   BaseClass(Id type_id, uint64_t offset, Inheritance inheritance)
       : type_id(type_id), offset(offset), inheritance(inheritance) {}
   Result Equals(State& state, const Node& other) const final;
-  std::string MatchingKey(const Graph& graph) const final;
 
   const Id type_id;
   const uint64_t offset;
@@ -364,7 +362,6 @@ struct Member : Node {
   Member(const std::string& name, Id type_id, uint64_t offset, uint64_t bitsize)
       : name(name), type_id(type_id), offset(offset), bitsize(bitsize) {}
   Result Equals(State& state, const Node& other) const final;
-  std::string MatchingKey(const Graph& graph) const final;
 
   const std::string name;
   const Id type_id;
@@ -379,7 +376,6 @@ struct Method : Node {
       : mangled_name(mangled_name), name(name), kind(kind),
         vtable_offset(vtable_offset), type_id(type_id) {}
   Result Equals(State& state, const Node& other) const final;
-  std::string MatchingKey(const Graph& graph) const final;
 
   const std::string mangled_name;
   const std::string name;
@@ -405,7 +401,6 @@ struct StructUnion : Node {
       : kind(kind), name(name),
         definition({bytesize, base_classes, methods, members}) {}
   Result Equals(State& state, const Node& other) const final;
-  std::string MatchingKey(const Graph& graph) const final;
 
   const Kind kind;
   const std::string name;
@@ -625,6 +620,18 @@ Result Graph::Apply(FunctionObject& function, Id id1, Id id2) const {
   }
   Die() << "unknown node type " << type_id1.name();
 }
+
+struct MatchingKey {
+  MatchingKey(const Graph& graph) : graph(graph) {}
+  std::string operator()(Id id);
+  std::string operator()(const BaseClass&);
+  std::string operator()(const Member&);
+  std::string operator()(const Method&);
+  std::string operator()(const StructUnion&);
+  template <typename Node>
+  std::string operator()(const Node&);
+  const Graph& graph;
+};
 
 }  // namespace stg
 
