@@ -33,10 +33,12 @@
 
 namespace stg {
 
-Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers) {
-  while (const auto maybe = graph.Get(id).ResolveQualifier(qualifiers))
-    id = *maybe;
-  return id;
+std::pair<Id, Qualifiers> ResolveQualifiers(const Graph& graph, Id id) {
+  std::pair<Id, Qualifiers> result = {id, {}};
+  while (graph.Get(result.first)
+             .ResolveQualifier(result.first, result.second)) {
+  }
+  return result;
 }
 
 std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
@@ -112,10 +114,8 @@ std::pair<bool, std::optional<Comparison>> Compare(
   const Graph& graph = state.graph;
   Result result;
 
-  Qualifiers qualifiers1;
-  Qualifiers qualifiers2;
-  const Id unqualified1 = ResolveQualifiers(graph, node1, qualifiers1);
-  const Id unqualified2 = ResolveQualifiers(graph, node2, qualifiers2);
+  const auto [unqualified1, qualifiers1] = ResolveQualifiers(graph, node1);
+  const auto [unqualified2, qualifiers2] = ResolveQualifiers(graph, node2);
   if (!qualifiers1.empty() || !qualifiers2.empty()) {
     // 3.1 Qualified type difference.
     auto it1 = qualifiers1.begin();
@@ -602,25 +602,26 @@ Result Symbols::Equals(State& state, const Node& other) const {
   return result;
 }
 
-std::optional<Id> Node::ResolveQualifier(Qualifiers&) const {
-  return {};
+bool Node::ResolveQualifier(Id&, Qualifiers&) const {
+  return false;
 }
 
-std::optional<Id> Array::ResolveQualifier(Qualifiers& qualifiers) const {
+bool Array::ResolveQualifier(Id&, Qualifiers& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
-  return {};
+  return false;
 }
 
-std::optional<Id> Function::ResolveQualifier(Qualifiers& qualifiers) const {
+bool Function::ResolveQualifier(Id&, Qualifiers& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
-  return {};
+  return false;
 }
 
-std::optional<Id> Qualified::ResolveQualifier(Qualifiers& qualifiers) const {
+bool Qualified::ResolveQualifier(Id& id, Qualifiers& qualifiers) const {
+  id = qualified_type_id;
   qualifiers.insert(qualifier);
-  return {qualified_type_id};
+  return true;
 }
 
 std::pair<Id, std::vector<std::string>> ResolveTypedefs(
