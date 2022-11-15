@@ -92,29 +92,6 @@ std::ostream& operator<<(std::ostream& os, Qualifier qualifier);
 
 using Comparison = std::pair<std::optional<Id>, std::optional<Id>>;
 
-enum class Precedence { NIL, POINTER, ARRAY_FUNCTION, ATOMIC };
-enum class Side { LEFT, RIGHT };
-
-class Name {
- public:
-  explicit Name(const std::string& name)
-      : left_(name), precedence_(Precedence::NIL), right_() {}
-  Name(const std::string& left, Precedence precedence, const std::string& right)
-      : left_(left), precedence_(precedence), right_(right) {}
-  Name Add(Side side, Precedence precedence, const std::string& text) const;
-  Name Qualify(Qualifier qualifier) const;
-  std::ostream& Print(std::ostream& os) const;
-
- private:
-  std::string left_;
-  Precedence precedence_;
-  std::string right_;
-};
-
-std::ostream& operator<<(std::ostream& os, const Name& name);
-
-using NameCache = std::unordered_map<Id, Name>;
-
 Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers);
 Id ResolveTypedefs(
     const Graph& graph, Id id, std::vector<std::string>& typedefs);
@@ -648,50 +625,6 @@ Result Graph::Apply(FunctionObject& function, Id id1, Id id2) const {
   }
   Die() << "unknown node type " << type_id1.name();
 }
-
-struct Describe {
-  Describe(const Graph& graph, NameCache& names) : graph(graph), names(names) {}
-  Name operator()(Id id);
-  Name operator()(const Void&);
-  Name operator()(const Variadic&);
-  Name operator()(const PointerReference&);
-  Name operator()(const Typedef&);
-  Name operator()(const Qualified&);
-  Name operator()(const Primitive&);
-  Name operator()(const Array&);
-  Name operator()(const BaseClass&);
-  Name operator()(const Member&);
-  Name operator()(const Method&);
-  Name operator()(const StructUnion&);
-  Name operator()(const Enumeration&);
-  Name operator()(const Function&);
-  Name operator()(const ElfSymbol&);
-  Name operator()(const Symbols&);
-  const Graph& graph;
-  NameCache& names;
-};
-
-struct DescribeKind {
-  DescribeKind(const Graph& graph) : graph(graph) {}
-  std::string operator()(Id id);
-  std::string operator()(const BaseClass&);
-  std::string operator()(const Member&);
-  std::string operator()(const Method&);
-  std::string operator()(const ElfSymbol&);
-  std::string operator()(const Symbols&);
-  template <typename Node>
-  std::string operator()(const Node&);
-  const Graph& graph;
-};
-
-struct DescribeExtra {
-  DescribeExtra(const Graph& graph) : graph(graph) {}
-  std::string operator()(Id id);
-  std::string operator()(const ElfSymbol&);
-  template <typename Node>
-  std::string operator()(const Node&);
-  const Graph& graph;
-};
 
 }  // namespace stg
 

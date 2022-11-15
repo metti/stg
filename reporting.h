@@ -22,6 +22,7 @@
 
 #include <ostream>
 
+#include "naming.h"
 #include "stg.h"
 
 namespace stg {
