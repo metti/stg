@@ -361,6 +361,18 @@ Result Compare::operator()(const StructUnion& x1, const StructUnion& x2) {
   return result;
 }
 
+static KeyIndexPairs MatchingKeys(const Enumeration::Enumerators& enums) {
+  KeyIndexPairs names;
+  const auto size = enums.size();
+  names.reserve(size);
+  for (size_t ix = 0; ix < size; ++ix) {
+    const auto& name = enums[ix].first;
+    names.push_back({name, ix});
+  }
+  std::stable_sort(names.begin(), names.end());
+  return names;
+}
+
 Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
   Result result;
   // Compare two anonymous types recursively, not holding diffs.
@@ -380,9 +392,9 @@ Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
 
   const auto enums1 = definition1->enumerators;
   const auto enums2 = definition2->enumerators;
-  const auto names1 = x1.GetEnumNames();
-  const auto names2 = x2.GetEnumNames();
-  auto pairs = PairUp(names1, names2);
+  const auto keys1 = MatchingKeys(enums1);
+  const auto keys2 = MatchingKeys(enums2);
+  auto pairs = PairUp(keys1, keys2);
   Reorder(pairs);
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
@@ -658,21 +670,6 @@ std::string MatchingKey::operator()(const StructUnion& x) {
 template <typename Node>
 std::string MatchingKey::operator()(const Node&) {
   return {};
-}
-
-std::vector<std::pair<std::string, size_t>> Enumeration::GetEnumNames() const {
-  std::vector<std::pair<std::string, size_t>> names;
-  if (definition) {
-    const auto& enums = definition->enumerators;
-    const auto size = enums.size();
-    names.reserve(size);
-    for (size_t ix = 0; ix < size; ++ix) {
-      const auto& name = enums[ix].first;
-      names.push_back({name, ix});
-    }
-    std::stable_sort(names.begin(), names.end());
-  }
-  return names;
 }
 
 std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance) {

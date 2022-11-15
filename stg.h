@@ -366,7 +366,6 @@ struct Enumeration : Node {
               const Enumerators& enumerators)
       : name(name), definition({bytesize, enumerators}) {}
 
-  std::vector<std::pair<std::string, size_t>> GetEnumNames() const;
   const std::string name;
   const std::optional<Definition> definition;
 };
