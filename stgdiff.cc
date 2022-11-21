@@ -190,7 +190,7 @@ int main(int argc, char* argv[]) {
               << " [{-o|--output} {filename|-}] ...\n"
               << "   implicit defaults: --abi --format plain\n"
               << "   format and output can appear multiple times\n"
-              << "   multiple comma separated compare-options can be passed\n"
+              << "   multiple comma-separated compare-options can be passed\n"
               << "\n";
     return 1;
   };
