@@ -54,6 +54,7 @@ struct Entry {
 
   // All getters are non-const as libdw may need to modify Dwarf_Die.
   int GetTag();
+  Dwarf_Off GetOffset();
 };
 
 // C++ wrapper over libdw (DWARF library).

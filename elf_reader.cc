@@ -173,7 +173,7 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&& dwarf,
   }
 
   // TODO: match STG from DWARF with ELF symbols
-  (void)dwarf::Process(dwarf);
+  (void)dwarf::Process(dwarf, graph);
 
   std::map<std::string, Id> symbols_map;
   for (const auto& symbol : public_functions_and_variables) {

@@ -103,5 +103,9 @@ int Entry::GetTag() {
   return dwarf_tag(&die);
 }
 
+Dwarf_Off Entry::GetOffset() {
+  return dwarf_dieoffset(&die);
+}
+
 }  // namespace dwarf
 }  // namespace stg
