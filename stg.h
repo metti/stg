@@ -328,11 +328,11 @@ class Graph {
     return id;
   }
 
-  template <typename Result, typename FunctionObject>
-  Result Apply(FunctionObject& function, Id id) const;
+  template <typename Result, typename FunctionObject, typename... Args>
+  Result Apply(FunctionObject& function, Id id, Args&&... args) const;
 
-  template <typename Result, typename FunctionObject>
-  Result Apply2(FunctionObject& function, Id id1, Id id2) const;
+  template <typename Result, typename FunctionObject, typename... Args>
+  Result Apply2(FunctionObject& function, Id id1, Id id2, Args&&... args) const;
 
  private:
   const Node& Get(Id id) const {
@@ -342,126 +342,157 @@ class Graph {
   std::vector<std::unique_ptr<Node>> nodes_;
 };
 
-template <typename Result, typename FunctionObject>
-Result Graph::Apply(FunctionObject& function, Id id) const {
+template <typename Result, typename FunctionObject, typename... Args>
+Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) const {
   const Node& node = Get(id);
   const auto& type_id = typeid(node);
   if (type_id == typeid(Void)) {
-    return function(static_cast<const Void&>(node));
+    return function(static_cast<const Void&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(Variadic)) {
-    return function(static_cast<const Variadic&>(node));
+    return function(static_cast<const Variadic&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(PointerReference)) {
-    return function(static_cast<const PointerReference&>(node));
+    return function(static_cast<const PointerReference&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(Typedef)) {
-    return function(static_cast<const Typedef&>(node));
+    return function(static_cast<const Typedef&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(Qualified)) {
-    return function(static_cast<const Qualified&>(node));
+    return function(static_cast<const Qualified&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(Primitive)) {
-    return function(static_cast<const Primitive&>(node));
+    return function(static_cast<const Primitive&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(Array)) {
-    return function(static_cast<const Array&>(node));
+    return function(static_cast<const Array&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(BaseClass)) {
-    return function(static_cast<const BaseClass&>(node));
+    return function(static_cast<const BaseClass&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(Member)) {
-    return function(static_cast<const Member&>(node));
+    return function(static_cast<const Member&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(Method)) {
-    return function(static_cast<const Method&>(node));
+    return function(static_cast<const Method&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(StructUnion)) {
-    return function(static_cast<const StructUnion&>(node));
+    return function(static_cast<const StructUnion&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(Enumeration)) {
-    return function(static_cast<const Enumeration&>(node));
+    return function(static_cast<const Enumeration&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(Function)) {
-    return function(static_cast<const Function&>(node));
+    return function(static_cast<const Function&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(ElfSymbol)) {
-    return function(static_cast<const ElfSymbol&>(node));
+    return function(static_cast<const ElfSymbol&>(node),
+                    std::forward<Args>(args)...);
   }
   if (type_id == typeid(Symbols)) {
-    return function(static_cast<const Symbols&>(node));
+    return function(static_cast<const Symbols&>(node),
+                    std::forward<Args>(args)...);
   }
   Die() << "unknown node type " << type_id.name();
 }
 
-template <typename Result, typename FunctionObject>
-Result Graph::Apply2(FunctionObject& function, Id id1, Id id2) const {
+template <typename Result, typename FunctionObject, typename... Args>
+Result Graph::Apply2(
+    FunctionObject& function, Id id1, Id id2, Args&&... args) const {
   const Node& node1 = Get(id1);
   const Node& node2 = Get(id2);
   const auto& type_id1 = typeid(node1);
   const auto& type_id2 = typeid(node2);
   if (type_id1 != type_id2) {
-    return function.Mismatch();
+    return function.Mismatch(std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(Void)) {
     return function(static_cast<const Void&>(node1),
-                    static_cast<const Void&>(node2));
+                    static_cast<const Void&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(Variadic)) {
     return function(static_cast<const Variadic&>(node1),
-                    static_cast<const Variadic&>(node2));
+                    static_cast<const Variadic&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(PointerReference)) {
     return function(static_cast<const PointerReference&>(node1),
-                    static_cast<const PointerReference&>(node2));
+                    static_cast<const PointerReference&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(Typedef)) {
     return function(static_cast<const Typedef&>(node1),
-                    static_cast<const Typedef&>(node2));
+                    static_cast<const Typedef&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(Qualified)) {
     return function(static_cast<const Qualified&>(node1),
-                    static_cast<const Qualified&>(node2));
+                    static_cast<const Qualified&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(Primitive)) {
     return function(static_cast<const Primitive&>(node1),
-                    static_cast<const Primitive&>(node2));
+                    static_cast<const Primitive&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(Array)) {
     return function(static_cast<const Array&>(node1),
-                    static_cast<const Array&>(node2));
+                    static_cast<const Array&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(BaseClass)) {
     return function(static_cast<const BaseClass&>(node1),
-                    static_cast<const BaseClass&>(node2));
+                    static_cast<const BaseClass&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(Member)) {
     return function(static_cast<const Member&>(node1),
-                    static_cast<const Member&>(node2));
+                    static_cast<const Member&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(Method)) {
     return function(static_cast<const Method&>(node1),
-                    static_cast<const Method&>(node2));
+                    static_cast<const Method&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(StructUnion)) {
     return function(static_cast<const StructUnion&>(node1),
-                    static_cast<const StructUnion&>(node2));
+                    static_cast<const StructUnion&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(Enumeration)) {
     return function(static_cast<const Enumeration&>(node1),
-                    static_cast<const Enumeration&>(node2));
+                    static_cast<const Enumeration&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(Function)) {
     return function(static_cast<const Function&>(node1),
-                    static_cast<const Function&>(node2));
+                    static_cast<const Function&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(ElfSymbol)) {
     return function(static_cast<const ElfSymbol&>(node1),
-                    static_cast<const ElfSymbol&>(node2));
+                    static_cast<const ElfSymbol&>(node2),
+                    std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(Symbols)) {
     return function(static_cast<const Symbols&>(node1),
-                    static_cast<const Symbols&>(node2));
+                    static_cast<const Symbols&>(node2),
+                    std::forward<Args>(args)...);
   }
   Die() << "unknown node type " << type_id1.name();
 }
