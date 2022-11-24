@@ -108,11 +108,11 @@ struct Result {
       MaybeAddNodeDiff(text, *before, *after);
     } else if (before) {
       std::ostringstream os;
-      os << text << *before << " was removed";
+      os << text << ' ' << *before << " was removed";
       AddNodeDiff(os.str());
     } else if (after) {
       std::ostringstream os;
-      os << text << *after << " was added";
+      os << text << ' ' << *after << " was added";
       AddNodeDiff(os.str());
     }
   }
