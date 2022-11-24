@@ -332,7 +332,7 @@ class Graph {
   Result Apply(FunctionObject& function, Id id) const;
 
   template <typename Result, typename FunctionObject>
-  Result Apply(FunctionObject& function, Id id1, Id id2) const;
+  Result Apply2(FunctionObject& function, Id id1, Id id2) const;
 
  private:
   const Node& Get(Id id) const {
@@ -395,7 +395,7 @@ Result Graph::Apply(FunctionObject& function, Id id) const {
 }
 
 template <typename Result, typename FunctionObject>
-Result Graph::Apply(FunctionObject& function, Id id1, Id id2) const {
+Result Graph::Apply2(FunctionObject& function, Id id1, Id id2) const {
   const Node& node1 = Get(id1);
   const Node& node2 = Get(id2);
   const auto& type_id1 = typeid(node1);

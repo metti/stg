@@ -120,7 +120,7 @@ std::pair<bool, std::optional<Comparison>> Compare::operator()(Id id1, Id id2) {
       result.MaybeAddEdgeDiff("resolved", (*this)(resolved1, resolved2));
     } else {
       // 4. Compare nodes, if possible.
-      result = graph.Apply<Result>(*this, unqualified1, unqualified2);
+      result = graph.Apply2<Result>(*this, unqualified1, unqualified2);
     }
   }
 
