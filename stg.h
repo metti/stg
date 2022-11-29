@@ -56,7 +56,7 @@ std::ostream& operator<<(std::ostream& os, Id id);
 
 namespace std {
 
-template<>
+template <>
 struct hash<stg::Id> {
   size_t operator()(const stg::Id& id) const {
     return id.ix_;
