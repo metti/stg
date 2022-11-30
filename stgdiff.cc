@@ -41,6 +41,7 @@
 #include "abigail_reader.h"
 #include "btf_reader.h"
 #include "elf_reader.h"
+#include "equality.h"
 #include "error.h"
 #include "reporting.h"
 #include "stg.h"
@@ -88,10 +89,7 @@ using Inputs = std::vector<std::pair<InputFormat, const char*>>;
 using Outputs =
     std::vector<std::pair<stg::reporting::OutputFormat, const char*>>;
 
-bool Run(const Inputs& inputs, const Outputs& outputs,
-         const stg::CompareOptions& compare_options) {
-  // Read inputs.
-  stg::Graph graph;
+std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph) {
   std::vector<stg::Id> roots;
   for (const auto& [format, filename] : inputs) {
     switch (format) {
@@ -112,6 +110,38 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
       }
     }
   }
+  return roots;
+}
+
+bool RunExact(const Inputs& inputs) {
+  stg::Graph graph;
+  const auto roots = Read(inputs, graph);
+
+  struct PairCache {
+    std::optional<bool> Query(const stg::Pair& comparison) const {
+      return equalities.find(comparison) != equalities.end()
+          ? std::make_optional(true)
+          : std::nullopt;
+    }
+    void AllSame(const std::vector<stg::Pair>& comparisons) {
+      for (const auto& comparison : comparisons) {
+        equalities.insert(comparison);
+      }
+    }
+    void AllDifferent(const std::vector<stg::Pair>&) {}
+    std::unordered_set<stg::Pair, stg::HashPair> equalities;
+  };
+
+  Time compute("equality check");
+  PairCache equalities;
+  return stg::Equals<PairCache>(graph, equalities)(roots[0], roots[1]);
+}
+
+bool Run(const Inputs& inputs, const Outputs& outputs,
+         const stg::CompareOptions& compare_options) {
+  // Read inputs.
+  stg::Graph graph;
+  const auto roots = Read(inputs, graph);
 
   // Compute differences.
   stg::Compare compare{graph, compare_options};
@@ -162,6 +192,7 @@ bool ParseCompareOptions(const char* opts_arg, stg::CompareOptions& opts) {
 int main(int argc, char* argv[]) {
   // Process arguments.
   bool opt_times = false;
+  bool opt_exact = false;
   stg::CompareOptions compare_options;
   InputFormat opt_input_format = InputFormat::ABI;
   stg::reporting::OutputFormat opt_output_format =
@@ -173,6 +204,7 @@ int main(int argc, char* argv[]) {
       {"abi",             no_argument,       nullptr, 'a'},
       {"btf",             no_argument,       nullptr, 'b'},
       {"elf",             no_argument,       nullptr, 'e'},
+      {"exact",           no_argument,       nullptr, 'x'},
       {"compare-options", required_argument, nullptr, 'c'},
       {"format",          required_argument, nullptr, 'f'},
       {"output",          required_argument, nullptr, 'o'},
@@ -183,6 +215,7 @@ int main(int argc, char* argv[]) {
               << " [-t|--times]\n"
               << " [-a|--abi|-b|--btf|-e|--elf] file1\n"
               << " [-a|--abi|-b|--btf|-e|--elf] file2\n"
+              << " [{-x|--exact}]\n"
               << " [{-c|--compare-options} "
                  "{ignore_symbol_type_presence_changes|"
                  "ignore_type_declaration_status_changes|all}]\n"
@@ -191,12 +224,13 @@ int main(int argc, char* argv[]) {
               << "   implicit defaults: --abi --format plain\n"
               << "   format and output can appear multiple times\n"
               << "   multiple comma-separated compare-options can be passed\n"
+              << "   --exact (node equality) cannot be combined with --output\n"
               << "\n";
     return 1;
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-tabec:f:o:", opts, &ix);
+    int c = getopt_long(argc, argv, "-tabexc:f:o:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
@@ -212,6 +246,9 @@ int main(int argc, char* argv[]) {
         break;
       case 'e':
         opt_input_format = InputFormat::ELF;
+        break;
+      case 'x':
+        opt_exact = true;
         break;
       case 1:
         inputs.push_back({opt_input_format, argument});
@@ -243,11 +280,14 @@ int main(int argc, char* argv[]) {
         return usage();
     }
   }
-  if (inputs.size() != 2)
+  if (inputs.size() != 2 || opt_exact > outputs.empty()) {
     return usage();
+  }
 
   try {
-    const bool equals = Run(inputs, outputs, compare_options);
+    const bool equals = opt_exact
+                        ? RunExact(inputs)
+                        : Run(inputs, outputs, compare_options);
     if (opt_times)
       Time::report();
     return equals ? 0 : kAbiChange;

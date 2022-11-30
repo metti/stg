@@ -10,12 +10,14 @@ stgdiff
  [-t|--times]
  [-a|--abi|-b|--btf|-e|--elf] file1
  [-a|--abi|-b|--btf|-e|--elf] file2
+ [{-x|--exact}]
  [{-c|--compare-options} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes|all}]
  [{-f|--format} {plain|flat|small|short|viz}]
  [{-o|--output} {filename|-}] ...
    implicit defaults: --abi --format plain
    format and output can appear multiple times
    multiple comma-separated compare-options can be passed
+   --exact (node equality) cannot be combined with --output
 ```
 
 ## Input formats
@@ -156,6 +158,11 @@ symbol table nodes.
       "0" -> "1" [label=""]
     }
     ```
+
+## Exact Node Equality
+
+**  `-x|--exact`: perform exact node equality (ignoring node identity) instead
+    of generating an ABI equivalence diff graph; no outputs may be specified.
 
 ## Other options:
 
