@@ -334,6 +334,9 @@ class Graph {
   template <typename Result, typename FunctionObject, typename... Args>
   Result Apply2(FunctionObject& function, Id id1, Id id2, Args&&... args) const;
 
+  template <typename Result, typename FunctionObject, typename... Args>
+  Result Apply(FunctionObject& function, Id id, Args&&... args);
+
  private:
   const Node& Get(Id id) const {
     return *nodes_[id.ix_].get();
@@ -495,6 +498,23 @@ Result Graph::Apply2(
                     std::forward<Args>(args)...);
   }
   Die() << "unknown node type " << type_id1.name();
+}
+
+template <typename Result, typename FunctionObject, typename... Args>
+struct ConstAdapter {
+  ConstAdapter(FunctionObject& function) : function(function) {}
+  template <typename Node>
+  Result operator()(const Node& node, Args&&... args) {
+    return function(const_cast<Node&>(node), std::forward<Args>(args)...);
+  }
+  FunctionObject& function;
+};
+
+template <typename Result, typename FunctionObject, typename... Args>
+Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) {
+  ConstAdapter<Result, FunctionObject, Args&&...> adapter(function);
+  return static_cast<const Graph&>(*this).Apply<Result>(
+      adapter, id, std::forward<Args>(args)...);
 }
 
 }  // namespace stg
