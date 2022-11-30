@@ -89,8 +89,8 @@ struct PointerReference : Node {
   PointerReference(Kind kind, Id pointee_type_id)
       : kind(kind), pointee_type_id(pointee_type_id) {}
 
-  const Kind kind;
-  const Id pointee_type_id;
+  Kind kind;
+  Id pointee_type_id;
 };
 
 std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind);
@@ -99,8 +99,8 @@ struct Typedef : Node {
   Typedef(const std::string& name, Id referred_type_id)
       : name(name), referred_type_id(referred_type_id) {}
 
-  const std::string name;
-  const Id referred_type_id;
+  std::string name;
+  Id referred_type_id;
 };
 
 enum class Qualifier { CONST, VOLATILE, RESTRICT };
@@ -111,8 +111,8 @@ struct Qualified : Node {
   Qualified(Qualifier qualifier, Id qualified_type_id)
       : qualifier(qualifier), qualified_type_id(qualified_type_id) {}
 
-  const Qualifier qualifier;
-  const Id qualified_type_id;
+  Qualifier qualifier;
+  Id qualified_type_id;
 };
 
 struct Primitive : Node {
@@ -130,12 +130,12 @@ struct Primitive : Node {
             uint32_t bitsize, uint32_t bytesize)
       : name(name), encoding(encoding), bitsize(bitsize), bytesize(bytesize) {}
 
-  const std::string name;
-  const std::optional<Encoding> encoding;
+  std::string name;
+  std::optional<Encoding> encoding;
   // bitsize gives the semantics of the field. bytesize gives the
   // storage size, and is equal to bitsize / 8 rounded up.
-  const uint32_t bitsize;
-  const uint32_t bytesize;
+  uint32_t bitsize;
+  uint32_t bytesize;
 };
 
 struct Array : Node {
@@ -143,8 +143,8 @@ struct Array : Node {
       : number_of_elements(number_of_elements),
         element_type_id(element_type_id)  {}
 
-  const uint64_t number_of_elements;
-  const Id element_type_id;
+  uint64_t number_of_elements;
+  Id element_type_id;
 };
 
 struct BaseClass : Node {
@@ -152,9 +152,9 @@ struct BaseClass : Node {
   BaseClass(Id type_id, uint64_t offset, Inheritance inheritance)
       : type_id(type_id), offset(offset), inheritance(inheritance) {}
 
-  const Id type_id;
-  const uint64_t offset;
-  const Inheritance inheritance;
+  Id type_id;
+  uint64_t offset;
+  Inheritance inheritance;
 };
 
 std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance);
@@ -163,10 +163,10 @@ struct Member : Node {
   Member(const std::string& name, Id type_id, uint64_t offset, uint64_t bitsize)
       : name(name), type_id(type_id), offset(offset), bitsize(bitsize) {}
 
-  const std::string name;
-  const Id type_id;
-  const uint64_t offset;
-  const uint64_t bitsize;
+  std::string name;
+  Id type_id;
+  uint64_t offset;
+  uint64_t bitsize;
 };
 
 struct Method : Node {
@@ -176,11 +176,11 @@ struct Method : Node {
       : mangled_name(mangled_name), name(name), kind(kind),
         vtable_offset(vtable_offset), type_id(type_id) {}
 
-  const std::string mangled_name;
-  const std::string name;
-  const Kind kind;
-  const std::optional<uint64_t> vtable_offset;
-  const Id type_id;
+  std::string mangled_name;
+  std::string name;
+  Kind kind;
+  std::optional<uint64_t> vtable_offset;
+  Id type_id;
 };
 
 std::ostream& operator<<(std::ostream& os, Method::Kind kind);
@@ -188,10 +188,10 @@ std::ostream& operator<<(std::ostream& os, Method::Kind kind);
 struct StructUnion : Node {
   enum class Kind { CLASS, STRUCT, UNION };
   struct Definition {
-    const uint64_t bytesize;
-    const std::vector<Id> base_classes;
-    const std::vector<Id> methods;
-    const std::vector<Id> members;
+    uint64_t bytesize;
+    std::vector<Id> base_classes;
+    std::vector<Id> methods;
+    std::vector<Id> members;
   };
   StructUnion(Kind kind, const std::string& name) : kind(kind), name(name) {}
   StructUnion(Kind kind, const std::string& name, uint64_t bytesize,
@@ -200,9 +200,9 @@ struct StructUnion : Node {
       : kind(kind), name(name),
         definition({bytesize, base_classes, methods, members}) {}
 
-  const Kind kind;
-  const std::string name;
-  const std::optional<Definition> definition;
+  Kind kind;
+  std::string name;
+  std::optional<Definition> definition;
 };
 
 std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind);
@@ -210,24 +210,24 @@ std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind);
 struct Enumeration : Node {
   using Enumerators = std::vector<std::pair<std::string, int64_t>>;
   struct Definition {
-    const uint32_t bytesize;
-    const Enumerators enumerators;
+    uint32_t bytesize;
+    Enumerators enumerators;
   };
   Enumeration(const std::string& name) : name(name) {}
   Enumeration(const std::string& name, uint32_t bytesize,
               const Enumerators& enumerators)
       : name(name), definition({bytesize, enumerators}) {}
 
-  const std::string name;
-  const std::optional<Definition> definition;
+  std::string name;
+  std::optional<Definition> definition;
 };
 
 struct Function : Node {
   Function(Id return_type_id, const std::vector<Id>& parameters)
       : return_type_id(return_type_id), parameters(parameters) {}
 
-  const Id return_type_id;
-  const std::vector<Id> parameters;
+  Id return_type_id;
+  std::vector<Id> parameters;
 };
 
 struct ElfSymbol : Node {
@@ -273,16 +273,16 @@ struct ElfSymbol : Node {
         type_id(type_id),
         full_name(full_name) {}
 
-  const std::string symbol_name;
-  const std::optional<VersionInfo> version_info;
-  const bool is_defined;
-  const SymbolType symbol_type;
-  const Binding binding;
-  const Visibility visibility;
-  const std::optional<CRC> crc;
-  const std::optional<std::string> ns;
-  const std::optional<Id> type_id;
-  const std::optional<std::string> full_name;
+  std::string symbol_name;
+  std::optional<VersionInfo> version_info;
+  bool is_defined;
+  SymbolType symbol_type;
+  Binding binding;
+  Visibility visibility;
+  std::optional<CRC> crc;
+  std::optional<std::string> ns;
+  std::optional<Id> type_id;
+  std::optional<std::string> full_name;
 };
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType);
@@ -296,7 +296,7 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc);
 struct Symbols : Node {
   Symbols(const std::map<std::string, Id>& symbols) : symbols(symbols) {}
 
-  const std::map<std::string, Id> symbols;
+  std::map<std::string, Id> symbols;
 };
 
 std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding);
