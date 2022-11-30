@@ -17,12 +17,241 @@
 //
 // Author: Siddharth Nayyar
 //
-// Protobuf definitions mirroring the graph and nodes defined in stg.h.
+// Protobuf definitions representing the graph and nodes defined in stg.h.
+//
+// The protobuf representations approximately mirror the internal STG
+// representataion. Keeping the representations as close as possible helps keep
+// the serialisation and deserialisation logic simple. Nevertheless, there are
+// some differences between the two representation, which are as follows:
+//
+// * The protobuf graph has repeated fields for each node type rather than a
+//   repeated field of one offs of all node types.
+// * The external ids are 32-bit integers. We use fixed32 type to represent the
+//   ids which is better than using a variable integer type in terms of both
+//   space and time. The ids are generated using 32-bit hashes of local
+//   information of nodes.
+// * All enumerations have a default UNKNOWN value to avoid defaulting to
+//   concrete enumeration values when those values are missing.
+// * Self ids of nodes have been made a part of the node itself (as the first
+//   member) for all node types. This is to improve succinctness of textual
+//   representation of the protobuf.
+// * The binary protobuf definitions have no stability guarantee and exist
+//   solely to support the associated textual format.
 
 syntax = "proto3";
 
 package stg.proto;
 
+message Void {
+  fixed32 id = 1;
+}
+
+message Variadic {
+  fixed32 id = 1;
+}
+
+message PointerReference {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    POINTER = 1;
+    LVALUE_REFERENCE = 2;
+    RVALUE_REFERENCE = 3;
+  }
+
+  fixed32 id = 1;
+  Kind kind = 2;
+  fixed32 pointee_type_id = 3;
+}
+
+message Typedef {
+  fixed32 id = 1;
+  string name = 2;
+  fixed32 referred_type_id = 3;
+}
+
+message Qualified {
+  enum Qualifier {
+    QUALIFIER_UNSPECIFIED = 0;
+    CONST = 1;
+    VOLATILE = 2;
+    RESTRICT = 3;
+  }
+
+  fixed32 id = 1;
+  Qualifier qualifier = 2;
+  fixed32 qualified_type_id = 3;
+}
+
+message Primitive {
+  enum Encoding {
+    ENCODING_UNSPECIFIED = 0;
+    NONE = 1;
+    BOOLEAN = 2;
+    SIGNED_INTEGER = 3;
+    UNSIGNED_INTEGER = 4;
+    SIGNED_CHARACTER = 5;
+    UNSIGNED_CHARACTER = 6;
+    REAL_NUMBER = 7;
+    COMPLEX_NUMBER = 8;
+    UTF = 9;
+  }
+
+  fixed32 id = 1;
+  string name = 2;
+  optional Encoding encoding = 3;
+  fixed32 bitsize = 4;
+  fixed32 bytesize = 5;
+}
+
+message Array {
+  fixed32 id = 1;
+  uint64 number_of_elements = 2;
+  fixed32 element_type_id = 3;
+}
+
+message BaseClass {
+  enum Inheritance {
+    INHERITANCE_UNSPECIFIED = 0;
+    NON_VIRTUAL = 1;
+    VIRTUAL = 2;
+  }
+
+  fixed32 id = 1;
+  fixed32 type_id = 2;
+  uint64 offset = 3;
+  Inheritance inheritance = 4;
+}
+
+message Member {
+  fixed32 id = 1;
+  string name = 2;
+  fixed32 type_id = 3;
+  uint64 offset = 4;
+  uint64 bitsize = 5;
+}
+
+message Method {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    NON_VIRTUAL = 1;
+    STATIC = 2;
+    VIRTUAL = 3;
+  }
+
+  fixed32 id = 1;
+  string mangled_name = 2;
+  string name = 3;
+  Kind kind = 4;
+  optional uint64 vtable_offset = 5;
+  fixed32 type_id = 6;
+}
+
+message StructUnion {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    CLASS = 1;
+    STRUCT = 2;
+    UNION = 3;
+  }
+
+  message Definition {
+    uint64 bytesize = 1;
+    repeated fixed32 base_class_id = 2;
+    repeated fixed32 member_id = 3;
+    repeated fixed32 method_id = 4;
+  }
+
+  fixed32 id = 1;
+  Kind kind = 2;
+  string name = 3;
+  optional Definition definition = 4;
+}
+
+message Enumeration {
+  message Enumerator {
+    string name = 1;
+    int64 value = 2;
+  }
+
+  message Definition {
+    fixed32 bytesize = 1;
+    repeated Enumerator enumerator = 2;
+  }
+
+  fixed32 id = 1;
+  string name = 2;
+  optional Definition definition = 3;
+}
+
+message Function {
+  fixed32 id = 1;
+  fixed32 return_type_id = 2;
+  repeated fixed32 parameter_id = 3;
+}
+
+message ElfSymbol {
+  message VersionInfo {
+    bool is_default = 1;
+    string name = 2;
+  }
+
+  enum SymbolType {
+    SYMBOL_TYPE_UNSPECIFIED = 0;
+    OBJECT = 1;
+    FUNCTION = 2;
+    COMMON = 3;
+    TLS = 4;
+  }
+
+  enum Binding {
+    BINDING_UNSPECIFIED = 0;
+    GLOBAL = 1;
+    LOCAL = 2;
+    WEAK = 3;
+    GNU_UNIQUE = 4;
+  }
+
+  enum Visibility {
+    VISIBILITY_UNSPECIFIED = 0;
+    DEFAULT = 1;
+    PROTECTED = 2;
+    HIDDEN = 3;
+    INTERNAL = 4;
+  }
+
+  fixed32 id = 1;
+  string name = 2;
+  optional VersionInfo version_info = 3;
+  bool is_defined = 4;
+  SymbolType symbol_type = 5;
+  Binding binding = 6;
+  Visibility visibility = 7;
+  optional fixed32 crc = 8;
+  optional string namespace = 9;
+  optional fixed32 type_id = 10;
+  optional string full_name = 11;
+}
+
+message Symbols {
+  fixed32 id = 1;
+  map<string, fixed32> symbols = 2;
+}
+
 message STG {
   fixed32 root_id = 1;
+  repeated Void void = 2;
+  repeated Variadic variadic = 3;
+  repeated PointerReference pointer_reference = 4;
+  repeated Typedef typedef = 5;
+  repeated Qualified qualified = 6;
+  repeated Primitive primitive = 7;
+  repeated Array array = 8;
+  repeated BaseClass base_class = 9;
+  repeated Member member = 10;
+  repeated Method method = 11;
+  repeated StructUnion struct_union = 12;
+  repeated Enumeration enumeration = 13;
+  repeated Function function = 14;
+  repeated ElfSymbol elf_symbol = 15;
+  optional Symbols symbols = 16;
 }
