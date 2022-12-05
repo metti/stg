@@ -41,6 +41,9 @@ stgdiff
 
     Read ABI information, stored inside ELF in DWARF format.
 
+    NOTE: Only ELF symbol information, and not DWARF type information, is
+    currently processed.
+
 ## Compare options
 
 The options here suppress noisy diffs that are inevitable when consuming ABI XML
