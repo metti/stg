@@ -24,7 +24,9 @@
 #include <elfutils/libdw.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -55,6 +57,7 @@ struct Entry {
   // All getters are non-const as libdw may need to modify Dwarf_Die.
   int GetTag();
   Dwarf_Off GetOffset();
+  std::optional<std::string> MaybeGetString(uint32_t attribute);
 };
 
 // C++ wrapper over libdw (DWARF library).

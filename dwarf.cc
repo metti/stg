@@ -24,7 +24,9 @@
 #include <fcntl.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -37,6 +39,19 @@ namespace {
 
 constexpr int kReturnOk = 0;
 constexpr int kReturnNoEntry = 1;
+
+std::optional<Dwarf_Attribute> GetAttribute(Dwarf_Die* die, int attribute) {
+  // Create an optional with default-initialized value already inside
+  std::optional<Dwarf_Attribute> result(std::in_place);
+  // "integrate" automatically resolves DW_AT_abstract_origin and
+  // DW_AT_specification references, fetching the attribute from the linked DIE.
+  //
+  // libdw has infinite loop protection, as it stops after 16 dereferences.
+  if (!dwarf_attr_integrate(die, attribute, &result.value())) {
+    result.reset();
+  }
+  return result;
+}
 
 }  // namespace
 
@@ -105,6 +120,19 @@ int Entry::GetTag() {
 
 Dwarf_Off Entry::GetOffset() {
   return dwarf_dieoffset(&die);
+}
+
+std::optional<std::string> Entry::MaybeGetString(uint32_t attribute) {
+  std::optional<std::string> result;
+  auto dwarf_attribute = GetAttribute(&die, attribute);
+  if (!dwarf_attribute) {
+    return result;
+  }
+
+  const char* value = dwarf_formstring(&dwarf_attribute.value());
+  Check(value) << "dwarf_formstring returned error";
+  result.emplace(value);
+  return result;
 }
 
 }  // namespace dwarf
