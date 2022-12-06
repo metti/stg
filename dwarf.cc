@@ -135,5 +135,20 @@ std::optional<std::string> Entry::MaybeGetString(uint32_t attribute) {
   return result;
 }
 
+std::optional<uint64_t> Entry::MaybeGetUnsignedConstant(
+    uint32_t attribute) {
+  std::optional<uint64_t> result;
+  auto dwarf_attribute = GetAttribute(&die, attribute);
+  if (!dwarf_attribute) {
+    return result;
+  }
+
+  // Place default-initialized value inside to be filled with dwarf_formudata
+  result.emplace();
+  Check(dwarf_formudata(&dwarf_attribute.value(), &result.value()) == kReturnOk)
+      << "dwarf_formudata returned error";
+  return result;
+}
+
 }  // namespace dwarf
 }  // namespace stg

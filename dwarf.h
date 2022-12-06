@@ -58,6 +58,7 @@ struct Entry {
   int GetTag();
   Dwarf_Off GetOffset();
   std::optional<std::string> MaybeGetString(uint32_t attribute);
+  std::optional<uint64_t> MaybeGetUnsignedConstant(uint32_t attribute);
 };
 
 // C++ wrapper over libdw (DWARF library).
