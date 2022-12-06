@@ -657,7 +657,7 @@ std::string MatchingKey::operator()(const StructUnion& x) {
     for (const auto& member : members) {
       const auto recursive = (*this)(member);
       if (!recursive.empty())
-        return recursive;
+        return recursive + '+';
     }
   }
   return {};
