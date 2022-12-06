@@ -2,6 +2,11 @@
 
 #include <dwarf.h>
 
+#include <ios>
+#include <iostream>
+#include <optional>
+#include <sstream>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -12,6 +17,65 @@
 
 namespace stg {
 namespace dwarf {
+
+namespace {
+
+std::string EntryToString(Entry& entry) {
+  std::ostringstream os;
+  os << "DWARF entry <0x" << std::hex << entry.GetOffset() << ">";
+  return os.str();
+}
+
+std::optional<std::string> MaybeGetName(Entry& entry) {
+  return entry.MaybeGetString(DW_AT_name);
+}
+
+std::string GetName(Entry& entry) {
+  auto result = MaybeGetName(entry);
+  if (!result.has_value()) {
+    Die() << "Name was not found for " << EntryToString(entry);
+  }
+  return std::move(*result);
+}
+
+size_t GetBitSize(Entry& entry) {
+  if (auto byte_size = entry.MaybeGetUnsignedConstant(DW_AT_byte_size)) {
+    return *byte_size * 8;
+  } else if (auto bit_size = entry.MaybeGetUnsignedConstant(DW_AT_bit_size)) {
+    return *bit_size;
+  }
+  Die() << "Bit size was not found for " << EntryToString(entry);
+}
+
+Primitive::Encoding GetEncoding(Entry& entry) {
+  auto dwarf_encoding = entry.MaybeGetUnsignedConstant(DW_AT_encoding);
+  if (!dwarf_encoding) {
+    Die() << "Encoding was not found for " << EntryToString(entry);
+  }
+  switch (*dwarf_encoding) {
+    case DW_ATE_boolean:
+      return Primitive::Encoding::BOOLEAN;
+    case DW_ATE_complex_float:
+      return Primitive::Encoding::COMPLEX_NUMBER;
+    case DW_ATE_float:
+      return Primitive::Encoding::REAL_NUMBER;
+    case DW_ATE_signed:
+      return Primitive::Encoding::SIGNED_INTEGER;
+    case DW_ATE_signed_char:
+      return Primitive::Encoding::SIGNED_CHARACTER;
+    case DW_ATE_unsigned:
+      return Primitive::Encoding::UNSIGNED_INTEGER;
+    case DW_ATE_unsigned_char:
+      return Primitive::Encoding::UNSIGNED_CHARACTER;
+    case DW_ATE_UTF:
+      return Primitive::Encoding::UTF;
+    default:
+      Die() << "Unknown encoding 0x" << std::hex << *dwarf_encoding << " for "
+            << EntryToString(entry);
+  }
+}
+
+}  // namespace
 
 // Transforms DWARF entries to STG.
 class Processor {
@@ -55,6 +119,12 @@ class Processor {
 
   void ProcessBaseType(Entry& entry) {
     CheckNoChildren(entry);
+    auto type_name = GetName(entry);
+    size_t bit_size = GetBitSize(entry);
+    // Round up bit_size / 8 to get minimal needed storage size in bytes.
+    size_t byte_size = (bit_size + 7) / 8;
+    AddProcessedNode<Primitive>(entry, type_name, GetEncoding(entry), bit_size,
+                                byte_size);
   }
 
   // Allocate or get already allocated STG Id for Entry.
