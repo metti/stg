@@ -17,7 +17,7 @@
 //
 // Author: Siddharth Nayyar
 //
-// Protobuf definitions representing the graph and nodes defined in stg.h.
+// Protobuf definitions representing the graph and nodes defined in graph.h.
 //
 // The protobuf representations approximately mirror the internal STG
 // representataion. Keeping the representations as close as possible helps keep

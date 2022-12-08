@@ -26,8 +26,8 @@
 
 #include <catch2/catch.hpp>
 #include "abigail_reader.h"
+#include "graph.h"
 #include "reporting.h"
-#include "stg.h"
 
 struct CompareOptionsTestCase {
   const std::string name;

@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "dwarf.h"
-#include "stg.h"
+#include "graph.h"
 
 namespace stg {
 namespace dwarf {

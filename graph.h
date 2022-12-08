@@ -19,8 +19,8 @@
 // Author: Giuliano Procida
 // Author: Ignes Simeonova
 
-#ifndef STG_STG_H_
-#define STG_STG_H_
+#ifndef STG_GRAPH_H_
+#define STG_GRAPH_H_
 
 #include <cstdint>
 #include <cstddef>
@@ -519,4 +519,4 @@ Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) {
 
 }  // namespace stg
 
-#endif  // STG_STG_H_
+#endif  // STG_GRAPH_H_

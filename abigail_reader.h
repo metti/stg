@@ -27,7 +27,7 @@
 #include <utility>
 #include <vector>
 
-#include "stg.h"
+#include "graph.h"
 #include <libxml/tree.h>
 
 namespace stg {

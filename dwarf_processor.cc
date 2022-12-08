@@ -13,7 +13,7 @@
 
 #include "dwarf.h"
 #include "error.h"
-#include "stg.h"
+#include "graph.h"
 
 namespace stg {
 namespace dwarf {

@@ -23,8 +23,8 @@
 #include <ostream>
 
 #include "comparison.h"
+#include "graph.h"
 #include "naming.h"
-#include "stg.h"
 
 namespace stg {
 namespace reporting {

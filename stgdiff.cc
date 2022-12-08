@@ -40,8 +40,8 @@
 #include "elf_reader.h"
 #include "equality.h"
 #include "error.h"
+#include "graph.h"
 #include "reporting.h"
-#include "stg.h"
 #include "timing.h"
 
 namespace {

@@ -33,7 +33,7 @@
 #include "dwarf.h"
 #include "dwarf_processor.h"
 #include "elf_loader.h"
-#include "stg.h"
+#include "graph.h"
 
 namespace stg {
 namespace elf {

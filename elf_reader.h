@@ -20,7 +20,7 @@
 #ifndef STG_ELF_READER_H_
 #define STG_ELF_READER_H_
 
-#include "stg.h"
+#include "graph.h"
 
 namespace stg {
 namespace elf {

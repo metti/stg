@@ -27,8 +27,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "graph.h"
 #include "scc.h"
-#include "stg.h"
 
 namespace stg {
 

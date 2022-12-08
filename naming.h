@@ -25,7 +25,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "stg.h"
+#include "graph.h"
 
 namespace stg {
 

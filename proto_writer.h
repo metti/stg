@@ -20,7 +20,7 @@
 #ifndef STG_PROTO_WRITER_H_
 #define STG_PROTO_WRITER_H_
 
-#include "stg.h"
+#include "graph.h"
 
 namespace stg {
 namespace proto {

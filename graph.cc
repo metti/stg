@@ -19,7 +19,7 @@
 // Author: Giuliano Procida
 // Author: Ignes Simeonova
 
-#include "stg.h"
+#include "graph.h"
 
 #include <ostream>
 

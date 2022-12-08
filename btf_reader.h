@@ -30,7 +30,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "stg.h"
+#include "graph.h"
 #include <linux/btf.h>
 
 namespace stg {

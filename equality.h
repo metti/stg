@@ -24,8 +24,8 @@
 #include <vector>
 #include <utility>
 
+#include "graph.h"
 #include "scc.h"
-#include "stg.h"
 
 namespace stg {
 

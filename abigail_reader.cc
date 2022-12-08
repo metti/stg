@@ -38,7 +38,7 @@
 
 #include <libxml/parser.h>
 #include "error.h"
-#include "stg.h"
+#include "graph.h"
 
 namespace stg {
 namespace abixml {
