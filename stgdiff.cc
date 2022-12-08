@@ -22,12 +22,9 @@
 #include <getopt.h>
 
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
-#include <ctime>
 #include <deque>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -45,43 +42,15 @@
 #include "error.h"
 #include "reporting.h"
 #include "stg.h"
+#include "timing.h"
 
 namespace {
+
+stg::Times times;
 
 const int kAbiChange = 4;
 const size_t kMaxCrcOnlyChanges = 3;
 const stg::CompareOptions kAllCompareOptionsEnabled{true, true};
-
-class Time {
- public:
-  Time(const char* what) : what_(what) {
-    clock_gettime(CLOCK_MONOTONIC, &start_);
-  }
-
-  ~Time() {
-    struct timespec finish;
-    clock_gettime(CLOCK_MONOTONIC, &finish);
-    auto seconds = finish.tv_sec - start_.tv_sec;
-    auto nanos = finish.tv_nsec - start_.tv_nsec;
-    times_.emplace_back(what_, seconds * 1'000'000'000 + nanos);
-  }
-
-  static void report() {
-    for (const auto& [what, ns] : times_) {
-      auto millis = ns / 1'000'000;
-      auto nanos = ns % 1'000'000;
-      std::cerr << what << ": " << millis << '.' << std::setfill('0')
-                << std::setw(6) << nanos << std::setfill(' ') << " ms\n";
-    }
-  }
-
- private:
-  const char* what_;
-  struct timespec start_;
-  static std::vector<std::pair<const char*, uint64_t>> times_;
-};
-
-std::vector<std::pair<const char*, uint64_t>> Time::times_;
 
 enum class InputFormat { ABI, BTF, ELF };
 
@@ -94,17 +63,17 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph) {
   for (const auto& [format, filename] : inputs) {
     switch (format) {
       case InputFormat::ABI: {
-        Time read("read ABI");
+        stg::Time read(times, "read ABI");
         roots.push_back(stg::abixml::Read(graph, filename));
         break;
       }
       case InputFormat::BTF: {
-        Time read("read BTF");
+        stg::Time read(times, "read BTF");
         roots.push_back(stg::btf::ReadFile(graph, filename));
         break;
       }
       case InputFormat::ELF: {
-        Time read("read ELF");
+        stg::Time read(times, "read ELF");
         roots.push_back(stg::elf::Read(graph, filename));
         break;
       }
@@ -132,7 +101,7 @@ bool RunExact(const Inputs& inputs) {
     std::unordered_set<stg::Pair, stg::HashPair> equalities;
   };
 
-  Time compute("equality check");
+  stg::Time compute(times, "equality check");
   PairCache equalities;
   return stg::Equals<PairCache>(graph, equalities)(roots[0], roots[1]);
 }
@@ -147,7 +116,7 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
   stg::Compare compare{graph, compare_options};
   std::pair<bool, std::optional<stg::Comparison>> result;
   {
-    Time compute("compute diffs");
+    stg::Time compute(times, "compute diffs");
     result = compare(roots[0], roots[1]);
   }
   stg::Check(compare.scc.Empty()) << "internal error: SCC state broken";
@@ -158,7 +127,7 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
   for (const auto& [format, filename] : outputs) {
     std::ofstream output(filename);
     if (comparison) {
-      Time report("report diffs");
+      stg::Time report(times, "report diffs");
       stg::reporting::Options options{format, kMaxCrcOnlyChanges};
       stg::reporting::Reporting reporting{graph, compare.outcomes, options,
         names};
@@ -288,8 +257,9 @@ int main(int argc, char* argv[]) {
     const bool equals = opt_exact
                         ? RunExact(inputs)
                         : Run(inputs, outputs, compare_options);
-    if (opt_times)
-      Time::report();
+    if (opt_times) {
+      stg::Time::report(times, std::cerr);
+    }
     return equals ? 0 : kAbiChange;
   } catch (const stg::Exception& e) {
     std::cerr << e.what() << '\n';
