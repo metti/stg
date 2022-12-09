@@ -243,6 +243,7 @@ struct ElfSymbol : Node {
     std::string name;
   };
   struct CRC {
+    explicit CRC(uint32_t number) : number(number) {}
     // TODO: auto operator<=>(const bool&) const = default;
     bool operator==(const CRC& other) const {
       return number == other.number;

@@ -155,13 +155,13 @@ std::optional<ElfSymbol::Visibility> Parse<ElfSymbol::Visibility>(
 
 template <>
 std::optional<ElfSymbol::CRC> Parse<ElfSymbol::CRC>(const std::string& value) {
-  ElfSymbol::CRC result;
+  uint32_t number;
   std::istringstream is(value);
-  is >> std::noskipws >> std::hex >> result.number;
+  is >> std::noskipws >> std::hex >> number;
   if (!is || !is.eof())
-    return {};
+    return std::nullopt;
   else
-    return {result};
+    return std::make_optional<ElfSymbol::CRC>(number);
 }
 
 template <typename T>
