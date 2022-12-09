@@ -24,6 +24,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -33,6 +34,7 @@
 #include "elf_reader.h"
 #include "error.h"
 #include "graph.h"
+#include "proto_writer.h"
 #include "timing.h"
 
 namespace stg {
@@ -90,12 +92,18 @@ void Write(const Graph& graph, Id root, const char* output,
            bool stable, bool counters) {
   // stable = generate stable external ids and use these for ordering
   // counters = print stats about collisions
-  Time x(times, "write");
-  (void)graph;
-  (void)root;
-  (void)output;
   (void)stable;
   (void)counters;
+  std::ofstream os(output);
+  {
+    Time x(times, "write");
+    proto::Writer writer(graph);
+    writer.Write(root, os);
+    os << std::flush;
+  }
+  if (!os) {
+    Die() << "error writing to " << '\'' << output << '\'';
+  }
 }
 
 }  // namespace
