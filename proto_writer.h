@@ -20,7 +20,10 @@
 #ifndef STG_PROTO_WRITER_H_
 #define STG_PROTO_WRITER_H_
 
+#include <ostream>
+
 #include "graph.h"
+#include "stg.proto.h"
 
 namespace stg {
 namespace proto {
@@ -28,9 +31,10 @@ namespace proto {
 class Writer {
  public:
   Writer(const stg::Graph& graph) : graph_(graph) {}
+  void Write(const Id&, std::ostream&);
 
  private:
-  [[maybe_unused]] const stg::Graph& graph_;
+  const stg::Graph& graph_;
 };
 
 }  // namespace proto

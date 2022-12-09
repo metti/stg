@@ -17,10 +17,13 @@
 //
 // Author: Siddharth Nayyar
 
+#include "proto_writer.h"
+
 #include <cstdint>
 #include <functional>
 #include <iomanip>
 #include <ios>
+#include <ostream>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
@@ -364,6 +367,12 @@ void Print(const STG& stg, std::ostream& os) {
   std::string output;
   printer.PrintToString(stg, &output);
   os << output;
+}
+
+void Writer::Write(const Id& root, std::ostream& os) {
+  proto::STG stg;
+  Transform(graph_, stg)(root);
+  Print(stg, os);
 }
 
 }  // namespace proto
