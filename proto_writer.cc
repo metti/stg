@@ -19,9 +19,13 @@
 
 #include <cstdint>
 #include <functional>
+#include <iomanip>
+#include <ios>
+#include <sstream>
 #include <unordered_map>
 #include <vector>
 
+#include "third_party/protobuf/text_format.h"
 #include "graph.h"
 #include "stg.proto.h"
 
@@ -343,6 +347,24 @@ ElfSymbol::Visibility Transform::operator()(stg::ElfSymbol::Visibility x) {
 }
 
 }  // namespace
+
+class HexPrinter : public proto2::TextFormat::FastFieldValuePrinter {
+  void PrintUInt32(
+      uint32_t value,
+      proto2::TextFormat::BaseTextGenerator* generator) const override {
+    std::ostringstream os;
+    os << "0x" << std::hex << std::setw(8) << std::setfill('0') << value;
+    generator->PrintString(os.str());
+  }
+};
+
+void Print(const STG& stg, std::ostream& os) {
+  proto2::TextFormat::Printer printer;
+  printer.SetDefaultFieldValuePrinter(new HexPrinter());
+  std::string output;
+  printer.PrintToString(stg, &output);
+  os << output;
+}
 
 }  // namespace proto
 }  // namespace stg
