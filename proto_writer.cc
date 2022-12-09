@@ -371,7 +371,7 @@ void Print(const STG& stg, std::ostream& os) {
 
 void Writer::Write(const Id& root, std::ostream& os) {
   proto::STG stg;
-  Transform(graph_, stg)(root);
+  stg.set_root_id(Transform(graph_, stg)(root));
   Print(stg, os);
 }
 
