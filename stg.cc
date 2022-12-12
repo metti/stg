@@ -19,14 +19,11 @@
 
 #include <getopt.h>
 
-#include <cstddef>
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <memory>
 #include <ostream>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "abigail_reader.h"
