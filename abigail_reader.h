@@ -35,9 +35,7 @@ namespace abixml {
 
 // Parser for libabigail's ABI XML format, creating a Symbol-Type Graph.
 //
-// On construction Abigail consumes a libxml node tree and builds a graph. If
-// verbose is set, it gives a running account on stderr of the graph nodes
-// created.
+// On construction Abigail consumes a libxml node tree and builds a graph.
 //
 // The parser supports C types only, with C++ types to be added later.
 //
@@ -74,7 +72,7 @@ namespace abixml {
 // 4. XML anonymous types also have unhelpful names, these are ignored.
 class Abigail {
  public:
-  explicit Abigail(Graph& graph, bool verbose = false);
+  explicit Abigail(Graph& graph);
   Id ProcessRoot(xmlNodePtr root);
 
  private:
@@ -85,8 +83,6 @@ class Abigail {
   };
 
   Graph& graph_;
-
-  const bool verbose_;
 
   // The STG IR uses a distinct node type for the variadic parameter type; if
   // allocated, this is its STG node id.
@@ -145,7 +141,7 @@ class Abigail {
   Id BuildSymbols();
 };
 
-Id Read(Graph& graph, const std::string& path, bool verbose = false);
+Id Read(Graph& graph, const std::string& path);
 
 }  // namespace abixml
 }  // namespace stg

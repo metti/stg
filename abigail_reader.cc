@@ -236,8 +236,7 @@ class PushScopeName {
 
 }  // namespace
 
-Abigail::Abigail(Graph& graph, bool verbose)
-    : graph_(graph), verbose_(verbose) { }
+Abigail::Abigail(Graph& graph) : graph_(graph) {}
 
 Id Abigail::GetNode(const std::string& type_id) {
   const auto [it, inserted] = type_ids_.insert({type_id, Id(0)});
@@ -253,8 +252,6 @@ Id Abigail::GetEdge(xmlNodePtr element) {
 Id Abigail::GetVariadic() {
   if (!variadic_) {
     variadic_ = {graph_.Add<Variadic>()};
-    if (verbose_)
-      std::cerr << *variadic_ << " variadic parameter\n";
   }
   return *variadic_;
 }
@@ -277,18 +274,8 @@ Function Abigail::MakeFunctionType(xmlNodePtr function) {
             << " child element '" << child_name << "'";
     }
   }
-  if (!return_type)
+  if (!return_type) {
     Die() << "missing return-type";
-  if (verbose_) {
-    std::cerr << "  made function type (";
-    bool comma = false;
-    for (const auto& p : parameters) {
-      if (comma)
-        std::cerr << ", ";
-      std::cerr << p;
-      comma = true;
-    }
-    std::cerr << ") -> " << *return_type << "\n";
   }
   return Function(*return_type, parameters);
 }
@@ -439,16 +426,13 @@ Id Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
   const auto symbol_id = GetAttribute(decl, "elf-symbol-id");
   const auto type = is_variable ? GetEdge(decl)
                                 : graph_.Add<Function>(MakeFunctionType(decl));
-  if (verbose_ && !is_variable)
-    std::cerr << type << " function type for function " << name << "\n";
   if (symbol_id) {
     // There's a link to an ELF symbol.
-    if (verbose_)
-      std::cerr << "ELF symbol " << *symbol_id << " of " << type << "\n";
     const auto [it, inserted] = symbol_id_and_full_name_.emplace(
         *symbol_id, std::make_pair(type, name));
-    if (!inserted && it->second.first != type)
+    if (!inserted && it->second.first != type) {
       Die() << "conflicting types for '" << *symbol_id << "'";
+    }
   }
   return type;
 }
@@ -461,8 +445,6 @@ void Abigail::ProcessTypedef(Id id, xmlNodePtr type_definition) {
   const auto name = scope_name_ + GetAttributeOrDie(type_definition, "name");
   const auto type = GetEdge(type_definition);
   graph_.Set<Typedef>(id, name, type);
-  if (verbose_)
-    std::cerr << id << " typedef " << name << " of " << type << "\n";
 }
 
 void Abigail::ProcessPointer(Id id, bool is_pointer, xmlNodePtr pointer) {
@@ -471,8 +453,6 @@ void Abigail::ProcessPointer(Id id, bool is_pointer, xmlNodePtr pointer) {
                                : ReadAttribute<PointerReference::Kind>(
                                      pointer, "kind", &ParseReferenceKind);
   graph_.Set<PointerReference>(id, kind, type);
-  if (verbose_)
-    std::cerr << id << " " << kind << " to " << type << "\n";
 }
 
 void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
@@ -487,22 +467,17 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
   Check(!qualifiers.empty()) << "qualified-type-def has no qualifiers";
   // Handle multiple qualifiers by unconditionally adding as new nodes all but
   // the last qualifier which is set into place.
-  if (verbose_)
-    std::cerr << id << " qualified";
   auto type = GetEdge(qualified);
   auto count = qualifiers.size();
   for (auto qualifier : qualifiers) {
     --count;
     Qualified node(qualifier, type);
-    if (count)
+    if (count) {
       type = graph_.Add<Qualified>(std::move(node));
-    else
+    } else {
       graph_.Set<Qualified>(id, std::move(node));
-    if (verbose_)
-      std::cerr << ' ' << qualifier;
+    }
   }
-  if (verbose_)
-    std::cerr << " of " << id << "\n";
 }
 
 void Abigail::ProcessArray(Id id, xmlNodePtr array) {
@@ -524,8 +499,6 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
   // and the last id is the old type in slot type
   //
   // Use the same approach as for qualifiers.
-  if (verbose_)
-    std::cerr << id << " array";
   auto type = GetEdge(array);
   auto count = dimensions.size();
   for (auto it = dimensions.crbegin(); it != dimensions.crend(); ++it) {
@@ -536,11 +509,7 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
       type = graph_.Add<Array>(std::move(node));
     else
       graph_.Set<Array>(id, std::move(node));
-    if (verbose_)
-      std::cerr << ' ' << size;
   }
-  if (verbose_)
-    std::cerr << " of " << id << "\n";
 }
 
 void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
@@ -555,8 +524,6 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
     // (which will not always work) in an attempt to reconstruct it.
     graph_.Set<Primitive>(id, name, /* encoding= */ std::nullopt, bits, bytes);
   }
-  if (verbose_)
-    std::cerr << id << " " << name << "\n";
 }
 
 void Abigail::ProcessStructUnion(Id id, bool is_struct,
@@ -586,9 +553,6 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
   PushScopeName push_scope_name(scope_name_, scope_name_os.str());
   if (forward) {
     graph_.Set<StructUnion>(id, kind, full_name);
-    if (verbose_)
-      std::cerr << id << " " << kind << " (forward-declared) " << full_name
-                << "\n";
     return;
   }
   const auto bits = ReadAttribute<size_t>(struct_union, "size-in-bits", 0);
@@ -617,8 +581,6 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
 
   graph_.Set<StructUnion>(id, kind, full_name, bytes, base_classes, methods,
                           members);
-  if (verbose_)
-    std::cerr << id << " " << kind << " " << full_name << "\n";
 }
 
 void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
@@ -628,8 +590,6 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
                     : scope_name_ + GetAttributeOrDie(enumeration, "name");
   if (forward) {
     graph_.Set<Enumeration>(id, name);
-    if (verbose_)
-      std::cerr << id << " enum (forward-declared) " << name << "\n";
     return;
   }
 
@@ -652,8 +612,6 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
   }
 
   graph_.Set<Enumeration>(id, name, 0, enumerators);
-  if (verbose_)
-    std::cerr << id << " enum " << name << "\n";
 }
 
 Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {
@@ -762,7 +720,7 @@ Id Abigail::BuildSymbols() {
   return graph_.Add<Symbols>(symbols);
 }
 
-Id Read(Graph& graph, const std::string& path, bool verbose) {
+Id Read(Graph& graph, const std::string& path) {
   // Open input for reading.
   const int fd = open(path.c_str(), O_RDONLY);
   if (fd < 0)
@@ -783,7 +741,7 @@ Id Read(Graph& graph, const std::string& path, bool verbose) {
   xmlNodePtr root = xmlDocGetRootElement(document.get());
   Check(root) << "XML document has no root element";
 
-  return Abigail(graph, verbose).ProcessRoot(root);
+  return Abigail(graph).ProcessRoot(root);
 }
 
 }  // namespace abixml

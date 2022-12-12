@@ -45,7 +45,7 @@ Id Read(Graph& graph, InputFormat format, const char* input, bool info) {
   switch (format) {
     case InputFormat::ABI: {
       Time read(times, "read ABI");
-      return abixml::Read(graph, input, info);
+      return abixml::Read(graph, input);
     }
     case InputFormat::BTF: {
       Time read(times, "read BTF");

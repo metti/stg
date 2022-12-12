@@ -80,7 +80,7 @@ int main(int argc, char* const argv[]) {
     stg::Graph graph;
     switch (format) {
       case InputFormat::ABI: {
-        (void)stg::abixml::Read(graph, filename, /* verbose = */ true);
+        (void)stg::abixml::Read(graph, filename);
         break;
       }
       case InputFormat::BTF: {
