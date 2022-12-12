@@ -74,10 +74,10 @@ If multiple (or zero) inputs are provided, then a merge operation is run.
 
 *   `-i|--info`
 
-    This causes the ABI parsers to dump information to stderr about the entities
-    processed. This is primarily useful for debugging. In the case of BTF input,
-    the output is intended to match the output of `bpftool btf dump file "$file"
-    format raw`.
+    This causes the BTF and ELF parsers to dump information to stdout about the
+    entities processed. This is primarily useful for debugging. In the case of
+    BTF input, the output is intended to match the output of `bpftool btf dump
+    file "$file" format raw`.
 
 *   `-c|--counters`
 
