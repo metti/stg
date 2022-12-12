@@ -128,14 +128,13 @@ int main(int argc, char* argv[]) {
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
-              << " [-i|--info]\n"
-              << " [-c|--counters]\n"
-              << " [-t|--times]\n"
-              << " [-u|--unstable]\n"
-              << " [-a|--abi|-b|--btf|-e|--elf] [file] ...\n"
-              << " [{-o|--output} {filename|-}] ...\n"
-              << "   implicit defaults: --abi\n"
-              << "\n";
+              << "  [-i|--info]\n"
+              << "  [-c|--counters]\n"
+              << "  [-t|--times]\n"
+              << "  [-u|--unstable]\n"
+              << "  [-a|--abi|-b|--btf|-e|--elf] [file] ...\n"
+              << "  [{-o|--output} {filename|-}] ...\n"
+              << "implicit defaults: --abi\n";
     return 1;
   };
   while (true) {

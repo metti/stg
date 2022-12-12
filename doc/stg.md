@@ -6,17 +6,17 @@ BTF and ELF/DWARF.
 NOTE: This is a work in progress and should be considered *experimental*. All
 arguments and behaviour are subject to change.
 
-## Usage
+## Synopsis
 
 ```
 stg
- [-i|--info]
- [-c|--counters]
- [-t|--times]
- [-u|--unstable]
- [-a|--abi|-b|--btf|-e|--elf] [file] ...
- [{-o|--output} {filename|-}] ...
-   implicit defaults: --abi
+  [-i|--info]
+  [-c|--counters]
+  [-t|--times]
+  [-u|--unstable]
+  [-a|--abi|-b|--btf|-e|--elf] [file] ...
+  [{-o|--output} {filename|-}] ...
+implicit defaults: --abi
 ```
 
 ## Input
@@ -49,7 +49,9 @@ The tool can be passed any number of inputs to combine into a unified ABI.
 
 ## Merge
 
-If multiple (or zero) inputs are provided, then a merge operation is run.
+If multiple (or zero) inputs are provided, then a symbol merge operation is run.
+
+The resulting ABI has the union of the inputs' symbols, which must be disjoint.
 
 ## Output
 
