@@ -232,7 +232,7 @@ void Transform::operator()(const stg::Symbols& x, uint32_t id) {
   auto& symbols = *stg.mutable_symbols();
   symbols.set_id(id);
   for (const auto& [symbol, id] : x.symbols) {
-    (*symbols.mutable_symbols())[symbol] = (*this)(id);
+    (*symbols.mutable_symbol())[symbol] = (*this)(id);
   }
 }
 

@@ -234,7 +234,7 @@ message ElfSymbol {
 
 message Symbols {
   fixed32 id = 1;
-  map<string, fixed32> symbols = 2;
+  map<string, fixed32> symbol = 2;
 }
 
 message STG {

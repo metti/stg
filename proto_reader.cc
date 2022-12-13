@@ -220,7 +220,7 @@ void Transformer::AddNode(const ElfSymbol& x) {
 
 void Transformer::AddNode(const Symbols& x) {
   std::map<std::string, Id> symbols;
-  for (const auto& [symbol, id] : x.symbols()) {
+  for (const auto& [symbol, id] : x.symbol()) {
     symbols.emplace(symbol, GetId(id));
   }
   AddNode<stg::Symbols>(GetId(x.id()), symbols);
