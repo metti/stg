@@ -33,7 +33,7 @@
 namespace stg {
 namespace proto {
 
-Id Read(Graph&, const std::string&, bool);
+Id Read(Graph&, const std::string&);
 
 }  // namespace proto
 }  // namespace stg

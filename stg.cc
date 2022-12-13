@@ -31,6 +31,7 @@
 #include "elf_reader.h"
 #include "error.h"
 #include "graph.h"
+#include "proto_reader.h"
 #include "proto_writer.h"
 #include "timing.h"
 
@@ -39,7 +40,7 @@ namespace {
 
 Times times;
 
-enum class InputFormat { ABI, BTF, ELF };
+enum class InputFormat { ABI, BTF, ELF, STG };
 
 Id Read(Graph& graph, InputFormat format, const char* input, bool info) {
   switch (format) {
@@ -54,6 +55,10 @@ Id Read(Graph& graph, InputFormat format, const char* input, bool info) {
     case InputFormat::ELF: {
       Time read(times, "read ELF");
       return elf::Read(graph, input, info);
+    }
+    case InputFormat::STG: {
+      Time read(times, "read STG");
+      return proto::Read(graph, input);
     }
   }
 }
@@ -123,6 +128,7 @@ int main(int argc, char* argv[]) {
       {"abi",             no_argument,       nullptr, 'a'},
       {"btf",             no_argument,       nullptr, 'b'},
       {"elf",             no_argument,       nullptr, 'e'},
+      {"stg",             no_argument,       nullptr, 's'},
       {"output",          required_argument, nullptr, 'o'},
       {nullptr,           0,                 nullptr, 0  },
   };
@@ -132,14 +138,14 @@ int main(int argc, char* argv[]) {
               << "  [-c|--counters]\n"
               << "  [-t|--times]\n"
               << "  [-u|--unstable]\n"
-              << "  [-a|--abi|-b|--btf|-e|--elf] [file] ...\n"
+              << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...\n"
               << "  [{-o|--output} {filename|-}] ...\n"
               << "implicit defaults: --abi\n";
     return 1;
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-ictuabeo:", opts, &ix);
+    int c = getopt_long(argc, argv, "-ictuabeso:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
@@ -164,6 +170,9 @@ int main(int argc, char* argv[]) {
         break;
       case 'e':
         opt_input_format = stg::InputFormat::ELF;
+        break;
+      case 's':
+        opt_input_format = stg::InputFormat::STG;
         break;
       case 1:
         inputs.push_back(argument);

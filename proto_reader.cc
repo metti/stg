@@ -402,7 +402,7 @@ Type Transformer::Transform(const Type& x) {
 
 }  // namespace
 
-Id Read(Graph& graph, const std::string& path, bool) {
+Id Read(Graph& graph, const std::string& path) {
   std::ifstream ifs(path);
   proto2::io::IstreamInputStream is(&ifs);
   proto::STG stg;

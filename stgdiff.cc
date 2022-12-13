@@ -41,6 +41,7 @@
 #include "equality.h"
 #include "error.h"
 #include "graph.h"
+#include "proto_reader.h"
 #include "reporting.h"
 #include "timing.h"
 
@@ -52,7 +53,7 @@ const int kAbiChange = 4;
 const size_t kMaxCrcOnlyChanges = 3;
 const stg::CompareOptions kAllCompareOptionsEnabled{true, true};
 
-enum class InputFormat { ABI, BTF, ELF };
+enum class InputFormat { ABI, BTF, ELF, STG };
 
 using Inputs = std::vector<std::pair<InputFormat, const char*>>;
 using Outputs =
@@ -75,6 +76,11 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph) {
       case InputFormat::ELF: {
         stg::Time read(times, "read ELF");
         roots.push_back(stg::elf::Read(graph, filename));
+        break;
+      }
+      case InputFormat::STG: {
+        stg::Time read(times, "read STG");
+        roots.push_back(stg::proto::Read(graph, filename));
         break;
       }
     }
@@ -173,6 +179,7 @@ int main(int argc, char* argv[]) {
       {"abi",             no_argument,       nullptr, 'a'},
       {"btf",             no_argument,       nullptr, 'b'},
       {"elf",             no_argument,       nullptr, 'e'},
+      {"stg",             no_argument,       nullptr, 's'},
       {"exact",           no_argument,       nullptr, 'x'},
       {"compare-options", required_argument, nullptr, 'c'},
       {"format",          required_argument, nullptr, 'f'},
@@ -182,8 +189,8 @@ int main(int argc, char* argv[]) {
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
               << " [-t|--times]\n"
-              << " [-a|--abi|-b|--btf|-e|--elf] file1\n"
-              << " [-a|--abi|-b|--btf|-e|--elf] file2\n"
+              << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
+              << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
               << " [{-x|--exact}]\n"
               << " [{-c|--compare-options} "
                  "{ignore_symbol_type_presence_changes|"
@@ -199,7 +206,7 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-tabexc:f:o:", opts, &ix);
+    int c = getopt_long(argc, argv, "-tabesxc:f:o:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
@@ -215,6 +222,9 @@ int main(int argc, char* argv[]) {
         break;
       case 'e':
         opt_input_format = InputFormat::ELF;
+        break;
+      case 's':
+        opt_input_format = InputFormat::STG;
         break;
       case 'x':
         opt_exact = true;
