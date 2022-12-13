@@ -50,8 +50,8 @@ struct Transform {
   void operator()(const stg::Primitive&, uint32_t);
   void operator()(const stg::Array&, uint32_t);
   void operator()(const stg::BaseClass&, uint32_t);
-  void operator()(const stg::Member&, uint32_t);
   void operator()(const stg::Method&, uint32_t);
+  void operator()(const stg::Member&, uint32_t);
   void operator()(const stg::StructUnion&, uint32_t);
   void operator()(const stg::Enumeration&, uint32_t);
   void operator()(const stg::Function&, uint32_t);
@@ -136,15 +136,6 @@ void Transform::operator()(const stg::BaseClass& x, uint32_t id) {
   base_class.set_inheritance((*this)(x.inheritance));
 }
 
-void Transform::operator()(const stg::Member& x, uint32_t id) {
-  auto& member = *stg.add_member();
-  member.set_id(id);
-  member.set_name(x.name);
-  member.set_type_id((*this)(x.type_id));
-  member.set_offset(x.offset);
-  member.set_bitsize(x.bitsize);
-}
-
 void Transform::operator()(const stg::Method& x, uint32_t id) {
   auto& method = *stg.add_method();
   method.set_id(id);
@@ -155,6 +146,15 @@ void Transform::operator()(const stg::Method& x, uint32_t id) {
     method.set_vtable_offset(*x.vtable_offset);
   }
   method.set_type_id((*this)(x.type_id));
+}
+
+void Transform::operator()(const stg::Member& x, uint32_t id) {
+  auto& member = *stg.add_member();
+  member.set_id(id);
+  member.set_name(x.name);
+  member.set_type_id((*this)(x.type_id));
+  member.set_offset(x.offset);
+  member.set_bitsize(x.bitsize);
 }
 
 void Transform::operator()(const stg::StructUnion& x, uint32_t id) {
@@ -168,11 +168,11 @@ void Transform::operator()(const stg::StructUnion& x, uint32_t id) {
     for (const auto id : x.definition->base_classes) {
       definition.add_base_class_id((*this)(id));
     }
-    for (const auto id : x.definition->members) {
-      definition.add_member_id((*this)(id));
-    }
     for (const auto id : x.definition->methods) {
       definition.add_method_id((*this)(id));
+    }
+    for (const auto id : x.definition->members) {
+      definition.add_member_id((*this)(id));
     }
   }
 }

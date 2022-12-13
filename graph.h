@@ -159,16 +159,6 @@ struct BaseClass : Node {
 
 std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance);
 
-struct Member : Node {
-  Member(const std::string& name, Id type_id, uint64_t offset, uint64_t bitsize)
-      : name(name), type_id(type_id), offset(offset), bitsize(bitsize) {}
-
-  std::string name;
-  Id type_id;
-  uint64_t offset;
-  uint64_t bitsize;
-};
-
 struct Method : Node {
   enum class Kind { NON_VIRTUAL, STATIC, VIRTUAL };
   Method(const std::string& mangled_name, const std::string& name, Kind kind,
@@ -184,6 +174,16 @@ struct Method : Node {
 };
 
 std::ostream& operator<<(std::ostream& os, Method::Kind kind);
+
+struct Member : Node {
+  Member(const std::string& name, Id type_id, uint64_t offset, uint64_t bitsize)
+      : name(name), type_id(type_id), offset(offset), bitsize(bitsize) {}
+
+  std::string name;
+  Id type_id;
+  uint64_t offset;
+  uint64_t bitsize;
+};
 
 struct StructUnion : Node {
   enum class Kind { CLASS, STRUCT, UNION };
@@ -382,12 +382,12 @@ Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) const {
     return function(static_cast<const BaseClass&>(node),
                     std::forward<Args>(args)...);
   }
-  if (type_id == typeid(Member)) {
-    return function(static_cast<const Member&>(node),
-                    std::forward<Args>(args)...);
-  }
   if (type_id == typeid(Method)) {
     return function(static_cast<const Method&>(node),
+                    std::forward<Args>(args)...);
+  }
+  if (type_id == typeid(Member)) {
+    return function(static_cast<const Member&>(node),
                     std::forward<Args>(args)...);
   }
   if (type_id == typeid(StructUnion)) {
@@ -463,14 +463,14 @@ Result Graph::Apply2(
                     static_cast<const BaseClass&>(node2),
                     std::forward<Args>(args)...);
   }
-  if (type_id1 == typeid(Member)) {
-    return function(static_cast<const Member&>(node1),
-                    static_cast<const Member&>(node2),
-                    std::forward<Args>(args)...);
-  }
   if (type_id1 == typeid(Method)) {
     return function(static_cast<const Method&>(node1),
                     static_cast<const Method&>(node2),
+                    std::forward<Args>(args)...);
+  }
+  if (type_id1 == typeid(Member)) {
+    return function(static_cast<const Member&>(node1),
+                    static_cast<const Member&>(node2),
                     std::forward<Args>(args)...);
   }
   if (type_id1 == typeid(StructUnion)) {

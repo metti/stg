@@ -55,8 +55,8 @@ struct Transformer {
   void AddNode(const Primitive&);
   void AddNode(const Array&);
   void AddNode(const BaseClass&);
-  void AddNode(const Member&);
   void AddNode(const Method&);
+  void AddNode(const Member&);
   void AddNode(const StructUnion&);
   void AddNode(const Enumeration&);
   void AddNode(const Function&);
@@ -159,16 +159,16 @@ void Transformer::AddNode(const BaseClass& x) {
                           x.inheritance());
 }
 
-void Transformer::AddNode(const Member& x) {
-  AddNode<stg::Member>(GetId(x.id()), x.name(), GetId(x.type_id()), x.offset(),
-                       x.bitsize());
-}
-
 void Transformer::AddNode(const Method& x) {
   const auto& vtable_offset =
       Transform<uint64_t>(x.vtable_offset(), x.has_vtable_offset());
   AddNode<stg::Method>(GetId(x.id()), x.mangled_name(), x.name(), x.kind(),
                        vtable_offset, GetId(x.type_id()));
+}
+
+void Transformer::AddNode(const Member& x) {
+  AddNode<stg::Member>(GetId(x.id()), x.name(), GetId(x.type_id()), x.offset(),
+                       x.bitsize());
 }
 
 void Transformer::AddNode(const StructUnion& x) {

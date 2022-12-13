@@ -122,14 +122,6 @@ message BaseClass {
   Inheritance inheritance = 4;
 }
 
-message Member {
-  fixed32 id = 1;
-  string name = 2;
-  fixed32 type_id = 3;
-  uint64 offset = 4;
-  uint64 bitsize = 5;
-}
-
 message Method {
   enum Kind {
     KIND_UNSPECIFIED = 0;
@@ -146,6 +138,14 @@ message Method {
   fixed32 type_id = 6;
 }
 
+message Member {
+  fixed32 id = 1;
+  string name = 2;
+  fixed32 type_id = 3;
+  uint64 offset = 4;
+  uint64 bitsize = 5;
+}
+
 message StructUnion {
   enum Kind {
     KIND_UNSPECIFIED = 0;
@@ -157,8 +157,8 @@ message StructUnion {
   message Definition {
     uint64 bytesize = 1;
     repeated fixed32 base_class_id = 2;
-    repeated fixed32 member_id = 3;
-    repeated fixed32 method_id = 4;
+    repeated fixed32 method_id = 3;
+    repeated fixed32 member_id = 4;
   }
 
   fixed32 id = 1;
@@ -247,8 +247,8 @@ message STG {
   repeated Primitive primitive = 7;
   repeated Array array = 8;
   repeated BaseClass base_class = 9;
-  repeated Member member = 10;
-  repeated Method method = 11;
+  repeated Method method = 10;
+  repeated Member member = 11;
   repeated StructUnion struct_union = 12;
   repeated Enumeration enumeration = 13;
   repeated Function function = 14;
