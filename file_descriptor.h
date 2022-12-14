@@ -1,6 +1,8 @@
 #ifndef STG_FILE_DESCRIPTOR_H_
 #define STG_FILE_DESCRIPTOR_H_
 
+#include <sys/stat.h>  // for mode_t
+
 #include <utility>
 
 namespace stg {
