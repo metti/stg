@@ -34,6 +34,7 @@
 #include "dwarf_wrappers.h"
 #include "elf_loader.h"
 #include "graph.h"
+#include "naming.h"
 
 namespace stg {
 namespace elf {
@@ -144,6 +145,36 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   return true;
 }
 
+class Typing {
+ public:
+  Typing(Graph& graph, dwarf::Types types)
+      : graph_(graph), types_(std::move(types)) {
+  }
+
+
+  Id JoinAllIds() {
+    return graph_.Add<Function>(graph_.Add<Void>(), types_.all_ids);
+  }
+
+  // This hack is used to attach all processed DWARF entries to symbols map.
+  // This is temporary solution, until entries are matched to real ELF symbols.
+  // TODO: match STG from DWARF with ELF symbols
+  void AddFakeSymbols(std::map<std::string, Id>& symbols_map) {
+    std::unordered_map<std::string, size_t> keys_counter;
+    NameCache name_cache;
+    Describe describe(graph_, name_cache);
+    for (const auto& id : types_.all_ids) {
+      std::string key = describe(id).ToString();
+      std::string unique_key = key + "_" + std::to_string(keys_counter[key]++);
+      symbols_map.emplace(unique_key, id);
+    }
+  }
+
+ private:
+  Graph& graph_;
+  dwarf::Types types_;
+};
+
 Id Read(Graph& graph, elf::ElfLoader&& elf,
         std::optional<dwarf::Handler>&& dwarf, bool verbose) {
   const auto all_symbols = elf.GetElfSymbols();
@@ -172,10 +203,8 @@ Id Read(Graph& graph, elf::ElfLoader&& elf,
     }
   }
 
-  if (dwarf) {
-    // TODO: match STG from DWARF with ELF symbols
-    (void)dwarf::Process(*dwarf, graph);
-  }
+
+  Typing typing(graph, dwarf ? dwarf::Process(*dwarf, graph) : dwarf::Types{});
 
   std::map<std::string, Id> symbols_map;
   for (const auto& symbol : public_functions_and_variables) {
@@ -186,6 +215,7 @@ Id Read(Graph& graph, elf::ElfLoader&& elf,
                         graph.Add<ElfSymbol>(
                             SymbolTableEntryToElfSymbol(symbol, crc_values)));
   }
+  typing.AddFakeSymbols(symbols_map);
   return graph.Add<Symbols>(std::move(symbols_map));
 }
 
