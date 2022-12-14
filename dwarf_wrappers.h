@@ -17,8 +17,8 @@
 //
 // Author: Aleksei Vetrov
 
-#ifndef STG_DWARF_H_
-#define STG_DWARF_H_
+#ifndef STG_DWARF_WRAPPERS_H_
+#define STG_DWARF_WRAPPERS_H_
 
 #include <elf.h>
 #include <elfutils/libdw.h>
@@ -93,4 +93,4 @@ class Handler {
 }  // namespace dwarf
 }  // namespace stg
 
-#endif  // STG_DWARF_H_
+#endif  // STG_DWARF_WRAPPERS_H_

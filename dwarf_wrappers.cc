@@ -17,7 +17,7 @@
 //
 // Author: Aleksei Vetrov
 
-#include "dwarf.h"
+#include "dwarf_wrappers.h"
 
 #include <elf.h>
 #include <elfutils/libdw.h>

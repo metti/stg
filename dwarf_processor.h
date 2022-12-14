@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "dwarf.h"
+#include "dwarf_wrappers.h"
 #include "graph.h"
 
 namespace stg {

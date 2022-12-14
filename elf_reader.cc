@@ -30,8 +30,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "dwarf.h"
 #include "dwarf_processor.h"
+#include "dwarf_wrappers.h"
 #include "elf_loader.h"
 #include "graph.h"
 
