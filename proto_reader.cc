@@ -27,8 +27,8 @@
 #include <string>
 #include <vector>
 
-#include "net/proto2/public/text_format.h"
 #include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/text_format.h>
 #include "error.h"
 #include "graph.h"
 #include "stg.pb.h"
