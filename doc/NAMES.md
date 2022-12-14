@@ -3,6 +3,21 @@
 STG does not contain full type names for every type node in the graph. If full
 type names are needed then we need to generate them ourselves.
 
+## Implementation
+
+The STG type `Name` is the basic entity representing the human-friendly name of
+a graph node. Values of this type are computed recursively by `Describe` and are
+memoised in a `NameCache`.
+
+`Name` copes with the inside-out C type syntax in a fairly uniform fashion.
+There is some slightly special code for `Qualifier` decoration.
+
+Infinite recursion prevention in `Describe` is done in the most straightforward
+fashion possible. One consequence of this is that if there is a naming cycle,
+the memoised names for nodes in the cycle will depend on where it was entered.
+
+The rest of this document covers the concepts and design principles.
+
 ## Background
 
 In sensible operator grammars, composition can be done using precedence levels.
@@ -70,9 +85,8 @@ elements. They can be considered as transparent to precedence.
 
 ### User-defined types
 
-Struct, union and enum types can be named or anonymous, forward-declared or
-complete. The normal case is a named type and the rest can be flagged with
-special syntax.
+Struct, union and enum types can be named or anonymous. The normal case is a
+named type. Anonymous types are given structural descriptions.
 
 ### Pointer, array and function types
 
@@ -152,3 +166,6 @@ in typical output, this is a big win.
 NOTE: C type qualifiers are a significant extra complication and are omitted
 from this sketch. They must appear to the left or right of (the left part of) a
 type name. Which side can be determined by the current precendence.
+
+NOTE: Whitespace can be emitted sparingly as specific side / precedence contexts
+can imply the impossibility of inadvertently joining two words.

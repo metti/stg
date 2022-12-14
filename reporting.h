@@ -22,13 +22,16 @@
 
 #include <ostream>
 
-#include "stg.h"
+#include "comparison.h"
+#include "graph.h"
+#include "naming.h"
 
 namespace stg {
+namespace reporting {
 
 enum class OutputFormat { PLAIN, FLAT, SMALL, SHORT, VIZ };
 
-struct ReportingOptions {
+struct Options {
   const OutputFormat format;
   const size_t max_crc_only_changes;  // only for SHORT
 };
@@ -36,13 +39,14 @@ struct ReportingOptions {
 struct Reporting {
   const Graph& graph;
   const Outcomes& outcomes;
-  const ReportingOptions& options;
+  const Options& options;
   NameCache& names;
 };
 
 void Report(Reporting& reporting, const Comparison& comparison,
             std::ostream& output);
 
+}  // namespace reporting
 }  // namespace stg
 
 #endif  // STG_REPORTING_H_

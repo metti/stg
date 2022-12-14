@@ -24,15 +24,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
-#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
 
-#include "id.h"
-#include "stg.h"
+#include "graph.h"
 #include <linux/btf.h>
 
 namespace stg {
@@ -60,7 +58,7 @@ class Structs {
   std::optional<Id> void_;
   std::optional<Id> variadic_;
   std::unordered_map<uint32_t, Id> btf_type_ids_;
-  std::map<SymbolKey, Id> btf_symbols_;
+  std::map<std::string, Id> btf_symbols_;
 
   Id GetVoid();
   Id GetVariadic();
@@ -76,7 +74,9 @@ class Structs {
   std::vector<Id> BuildMembers(
       bool kflag, const btf_member* members, size_t vlen);
   Enumeration::Enumerators BuildEnums(
-      const struct btf_enum* enums, size_t vlen);
+      bool is_signed, const struct btf_enum* enums, size_t vlen);
+  Enumeration::Enumerators BuildEnums64(
+      bool is_signed, const struct btf_enum64* enums, size_t vlen);
   std::vector<Id> BuildParams(const struct btf_param* params, size_t vlen);
   std::string GetName(uint32_t name_off);
 

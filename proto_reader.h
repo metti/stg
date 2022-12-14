@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2021 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -15,32 +15,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Giuliano Procida
+// Author: Siddharth Nayyar
 
-#ifndef STG_CRC_H_
-#define STG_CRC_H_
+#ifndef STG_PROTO_READER_H_
+#define STG_PROTO_READER_H_
 
-#include <ios>
-#include <ostream>
+#include <cstdint>
+#include <istream>
+#include <optional>
+#include <unordered_map>
+#include <vector>
+
+#include <google/protobuf/repeated_field.h>
+#include "graph.h"
+#include "stg.pb.h"
 
 namespace stg {
+namespace proto {
 
-struct CRC {
-  uint64_t number;
-};
+Id Read(Graph&, const std::string&);
 
-inline bool operator==(CRC crc1, CRC crc2) {
-  return crc1.number == crc2.number;
-}
-
-inline bool operator!=(CRC crc1, CRC crc2) {
-  return crc1.number != crc2.number;
-}
-
-inline std::ostream& operator<<(std::ostream& os, CRC crc) {
-  return os << "0x" << std::hex << crc.number;
-}
-
+}  // namespace proto
 }  // namespace stg
 
-#endif  // STG_CRC_H_
+#endif  // STG_PROTO_READER_H_

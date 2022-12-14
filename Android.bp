@@ -49,6 +49,7 @@ cc_defaults {
         "libelf",
         "libicuuc",
         "libicuuc_stubdata",
+        "libprotobuf-cpp-full",
         "libxml2",
         "libz",
     ],
@@ -60,30 +61,55 @@ cc_defaults {
     },
 }
 
-cc_binary_host {
-    name: "stgdiff",
+cc_library_host_static {
+    name: "libstg",
     defaults: ["defaults"],
     srcs: [
         "abigail_reader.cc",
         "btf_reader.cc",
+        "comparison.cc",
+        "dwarf_processor.cc",
+        "dwarf_wrappers.cc",
         "elf_loader.cc",
         "elf_reader.cc",
+        "file_descriptor.cc",
+        "graph.cc",
+        "naming.cc",
         "post_processing.cc",
+        "proto_reader.cc",
+        "proto_writer.cc",
         "reporting.cc",
-        "stg.cc",
-        "stgdiff.cc"
+        "stg.proto",
     ],
+    proto: {
+        export_proto_headers: true,
+    },
+
+}
+
+cc_binary_host {
+    name: "stg",
+    defaults: ["defaults"],
+    srcs: [
+        "stg.cc",
+    ],
+    static_libs: ["libstg"],
+}
+
+cc_binary_host {
+    name: "stgdiff",
+    defaults: ["defaults"],
+    srcs: [
+        "stgdiff.cc",
+    ],
+    static_libs: ["libstg"],
 }
 
 cc_binary_host {
     name: "stginfo",
     defaults: ["defaults"],
     srcs: [
-        "abigail_reader.cc",
-        "btf_reader.cc",
-        "elf_loader.cc",
-        "elf_reader.cc",
-        "stg.cc",
         "stginfo.cc",
     ],
+    static_libs: ["libstg"],
 }

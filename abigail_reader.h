@@ -21,15 +21,13 @@
 #ifndef STG_ABIGAIL_READER_H_
 #define STG_ABIGAIL_READER_H_
 
-#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "id.h"
-#include "stg.h"
+#include "graph.h"
 #include <libxml/tree.h>
 
 namespace stg {
@@ -37,9 +35,7 @@ namespace abixml {
 
 // Parser for libabigail's ABI XML format, creating a Symbol-Type Graph.
 //
-// On construction Abigail consumes a libxml node tree and builds a graph. If
-// verbose is set, it gives a running account on stderr of the graph nodes
-// created.
+// On construction Abigail consumes a libxml node tree and builds a graph.
 //
 // The parser supports C types only, with C++ types to be added later.
 //
@@ -74,29 +70,10 @@ namespace abixml {
 // post-processing phase.
 //
 // 4. XML anonymous types also have unhelpful names, these are ignored.
-
-class Typing {
+class Abigail {
  public:
-  Typing(Graph& graph, bool verbose);
-  Id GetNode(const std::string& type_id);
-  Id GetEdge(xmlNodePtr element);
-  Id GetVariadic();
-
- private:
-  Graph& graph_;
-  const bool verbose_;
-  // The STG IR uses a distinct node type for the variadic parameter type; if
-  // allocated, this is its STG node id.
-  std::optional<Id> variadic_;
-  // Map from libabigail type ids to STG node ids; except for the type of
-  // variadic parameters.
-  std::unordered_map<std::string, Id> type_ids_;
-};
-
-class Corpus {
- public:
-  Corpus(Graph& graph, bool verbose, Typing& typing);
-  std::map<std::string, Id> ProcessCorpus(xmlNodePtr corpus);
+  explicit Abigail(Graph& graph);
+  Id ProcessRoot(xmlNodePtr root);
 
  private:
   struct SymbolInfo {
@@ -106,8 +83,13 @@ class Corpus {
   };
 
   Graph& graph_;
-  const bool verbose_;
-  Typing& typing_;
+
+  // The STG IR uses a distinct node type for the variadic parameter type; if
+  // allocated, this is its STG node id.
+  std::optional<Id> variadic_;
+  // Map from libabigail type ids to STG node ids; except for the type of
+  // variadic parameters.
+  std::unordered_map<std::string, Id> type_ids_;
 
   // symbol id to symbol information
   std::unordered_map<std::string, SymbolInfo> symbol_info_map_;
@@ -121,8 +103,13 @@ class Corpus {
   // Full name of the current scope.
   std::string scope_name_;
 
-  std::unique_ptr<Node> MakeFunctionType(xmlNodePtr function);
+  Id GetNode(const std::string& type_id);
+  Id GetEdge(xmlNodePtr element);
+  Id GetVariadic();
+  Function MakeFunctionType(xmlNodePtr function);
 
+  void ProcessCorpusGroup(xmlNodePtr group);
+  void ProcessCorpus(xmlNodePtr corpus);
   void ProcessSymbols(xmlNodePtr symbols);
   void ProcessSymbol(xmlNodePtr symbol);
 
@@ -151,20 +138,10 @@ class Corpus {
   Id BuildSymbol(const SymbolInfo& info,
                  std::optional<Id> type_id,
                  const std::optional<std::string>& name);
-  std::map<std::string, Id> BuildSymbols();
+  Id BuildSymbols();
 };
 
-class Abigail {
- public:
-  explicit Abigail(Graph& graph, bool verbose = false);
-  Id ProcessRoot(xmlNodePtr root);
-
- private:
-  Graph& graph_;
-  const bool verbose_;
-};
-
-Id Read(Graph& graph, const std::string& path, bool verbose = false);
+Id Read(Graph& graph, const std::string& path);
 
 }  // namespace abixml
 }  // namespace stg

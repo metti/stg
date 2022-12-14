@@ -1,8 +1,6 @@
 variable symbol changed from 'int c' to 'char c'
   CRC changed from 0x1e91976d to 0x10706189
   type changed from 'int' to 'char'
-    encoding changed from signed integer to signed character
-    bit size changed from 32 to 8
 
 variable symbol 'int b' changed
   CRC changed from 0xb70c2d59 to 0xb7c5b6f1
