@@ -28,10 +28,10 @@
 #include <vector>
 
 #include "net/proto2/public/text_format.h"
-#include "third_party/protobuf/io/zero_copy_stream_impl.h"
+#include <google/protobuf/io/zero_copy_stream_impl.h>
 #include "error.h"
 #include "graph.h"
-#include "stg.proto.h"
+#include "stg.pb.h"
 
 namespace stg {
 namespace proto {
@@ -46,7 +46,7 @@ struct Transformer {
   Id GetId(uint32_t);
 
   template <typename ProtoType>
-  void AddNodes(const proto2::RepeatedPtrField<ProtoType>&);
+  void AddNodes(const google::protobuf::RepeatedPtrField<ProtoType>&);
   void AddNode(const Void&);
   void AddNode(const Variadic&);
   void AddNode(const PointerReference&);
@@ -65,7 +65,7 @@ struct Transformer {
   template <typename STGType, typename... Args>
   void AddNode(Args&&...);
 
-  std::vector<Id> Transform(const proto2::RepeatedField<uint32_t>&);
+  std::vector<Id> Transform(const google::protobuf::RepeatedField<uint32_t>&);
   stg::PointerReference::Kind Transform(PointerReference::Kind);
   stg::Qualifier Transform(Qualified::Qualifier);
   stg::Primitive::Encoding Transform(Primitive::Encoding);
@@ -76,7 +76,7 @@ struct Transformer {
   stg::ElfSymbol::Binding Transform(ElfSymbol::Binding);
   stg::ElfSymbol::Visibility Transform(ElfSymbol::Visibility);
   stg::Enumeration::Enumerators Transform(
-      const proto2::RepeatedPtrField<Enumeration::Enumerator>&);
+      const google::protobuf::RepeatedPtrField<Enumeration::Enumerator>&);
   template <typename STGType, typename ProtoType>
   std::optional<STGType> Transform(bool, const ProtoType&);
   template <typename Type>
@@ -116,7 +116,7 @@ Id Transformer::GetId(uint32_t id) {
 }
 
 template <typename ProtoType>
-void Transformer::AddNodes(const proto2::RepeatedPtrField<ProtoType>& x) {
+void Transformer::AddNodes(const google::protobuf::RepeatedPtrField<ProtoType>& x) {
   for (const ProtoType& proto : x) {
     AddNode(proto);
   }
@@ -232,7 +232,7 @@ void Transformer::AddNode(Args&&... args) {
 }
 
 std::vector<Id> Transformer::Transform(
-    const proto2::RepeatedField<uint32_t>& ids) {
+    const google::protobuf::RepeatedField<uint32_t>& ids) {
   std::vector<Id> result;
   result.reserve(ids.size());
   for (uint32_t id : ids) {
@@ -379,7 +379,7 @@ stg::ElfSymbol::Visibility Transformer::Transform(ElfSymbol::Visibility x) {
 }
 
 stg::Enumeration::Enumerators Transformer::Transform(
-    const proto2::RepeatedPtrField<Enumeration::Enumerator>& x) {
+    const google::protobuf::RepeatedPtrField<Enumeration::Enumerator>& x) {
   stg::Enumeration::Enumerators enumerators;
   enumerators.reserve(x.size());
   for (const auto& enumerator : x) {
@@ -404,9 +404,9 @@ Type Transformer::Transform(const Type& x) {
 
 Id Read(Graph& graph, const std::string& path) {
   std::ifstream ifs(path);
-  proto2::io::IstreamInputStream is(&ifs);
+  google::protobuf::io::IstreamInputStream is(&ifs);
   proto::STG stg;
-  proto2::TextFormat::Parse(&is, &stg);
+  google::protobuf::TextFormat::Parse(&is, &stg);
   return Transformer(graph).Transform(stg);
 }
 

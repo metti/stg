@@ -28,7 +28,7 @@
 
 #include "net/proto2/public/repeated_field.h"
 #include "graph.h"
-#include "stg.proto.h"
+#include "stg.pb.h"
 
 namespace stg {
 namespace proto {
