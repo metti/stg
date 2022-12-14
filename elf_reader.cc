@@ -144,8 +144,8 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   return true;
 }
 
-Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&& dwarf,
-        bool verbose) {
+Id Read(Graph& graph, elf::ElfLoader&& elf,
+        std::optional<dwarf::Handler>&& dwarf, bool verbose) {
   const auto all_symbols = elf.GetElfSymbols();
   if (verbose) {
     std::cout << "Parsed " << all_symbols.size() << " symbols\n";
@@ -172,8 +172,10 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&& dwarf,
     }
   }
 
-  // TODO: match STG from DWARF with ELF symbols
-  (void)dwarf::Process(dwarf, graph);
+  if (dwarf) {
+    // TODO: match STG from DWARF with ELF symbols
+    (void)dwarf::Process(*dwarf, graph);
+  }
 
   std::map<std::string, Id> symbols_map;
   for (const auto& symbol : public_functions_and_variables) {
@@ -189,22 +191,28 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&& dwarf,
 
 }  // namespace
 
-Id Read(Graph& graph, const std::string& path, bool verbose) {
+Id Read(Graph& graph, const std::string& path, bool process_dwarf,
+        bool verbose) {
   if (verbose) {
     std::cout << "Parsing ELF: " << path << '\n';
   }
 
-  return Read(graph, elf::ElfLoader(path, verbose), dwarf::Handler(path),
+  return Read(graph, elf::ElfLoader(path, verbose),
+              process_dwarf ? dwarf::Handler(path)
+                            : std::optional<dwarf::Handler>(),
               verbose);
 }
 
-Id Read(Graph& graph, char* data, size_t size, bool verbose) {
+Id Read(Graph& graph, char* data, size_t size, bool process_dwarf,
+        bool verbose) {
   if (verbose) {
     std::cout << "Parsing ELF from memory\n";
   }
 
   return Read(graph, elf::ElfLoader(data, size, verbose),
-              dwarf::Handler(data, size), verbose);
+              process_dwarf ? dwarf::Handler(data, size)
+                            : std::optional<dwarf::Handler>(),
+              verbose);
 }
 
 }  // namespace elf

@@ -31,7 +31,8 @@ extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
     // Luckily, such trivial copy can be easily tracked by fuzzer.
     std::vector<char> data_copy(data, data + size);
     stg::Graph graph;
-    stg::elf::Read(graph, data_copy.data(), size, /* verbose= */ false);
+    stg::elf::Read(graph, data_copy.data(), size, /* process_dwarf= */ true,
+                   /* verbose= */ false);
   } catch (const stg::Exception&) {
     // Pass as this is us catching invalid ELF properly.
   }

@@ -42,7 +42,8 @@ Times times;
 
 enum class InputFormat { ABI, BTF, ELF, STG };
 
-Id Read(Graph& graph, InputFormat format, const char* input, bool info) {
+Id Read(Graph& graph, InputFormat format, const char* input, bool process_dwarf,
+        bool info) {
   switch (format) {
     case InputFormat::ABI: {
       Time read(times, "read ABI");
@@ -54,7 +55,7 @@ Id Read(Graph& graph, InputFormat format, const char* input, bool info) {
     }
     case InputFormat::ELF: {
       Time read(times, "read ELF");
-      return elf::Read(graph, input, info);
+      return elf::Read(graph, input, process_dwarf, info);
     }
     case InputFormat::STG: {
       Time read(times, "read STG");
@@ -111,26 +112,32 @@ void Write(const Graph& graph, Id root, const char* output,
 }  // namespace
 }  // namespace stg
 
+enum LongOptions {
+  kProcessDwarf = 256,
+};
+
 int main(int argc, char* argv[]) {
   // Process arguments.
   bool opt_info = false;
   bool opt_counters = false;
   bool opt_times = false;
   bool opt_unstable = false;
+  bool opt_process_dwarf = false;
   stg::InputFormat opt_input_format = stg::InputFormat::ABI;
   std::vector<const char*> inputs;
   std::vector<const char*> outputs;
   static option opts[] = {
-      {"info",            no_argument,       nullptr, 'i'},
-      {"counters",        no_argument,       nullptr, 'c'},
-      {"times",           no_argument,       nullptr, 't'},
-      {"unstable",        no_argument,       nullptr, 'u'},
-      {"abi",             no_argument,       nullptr, 'a'},
-      {"btf",             no_argument,       nullptr, 'b'},
-      {"elf",             no_argument,       nullptr, 'e'},
-      {"stg",             no_argument,       nullptr, 's'},
-      {"output",          required_argument, nullptr, 'o'},
-      {nullptr,           0,                 nullptr, 0  },
+      {"info",            no_argument,       nullptr, 'i'          },
+      {"counters",        no_argument,       nullptr, 'c'          },
+      {"times",           no_argument,       nullptr, 't'          },
+      {"unstable",        no_argument,       nullptr, 'u'          },
+      {"abi",             no_argument,       nullptr, 'a'          },
+      {"btf",             no_argument,       nullptr, 'b'          },
+      {"elf",             no_argument,       nullptr, 'e'          },
+      {"stg",             no_argument,       nullptr, 's'          },
+      {"output",          required_argument, nullptr, 'o'          },
+      {"process-dwarf",   no_argument,       nullptr, kProcessDwarf},
+      {nullptr,           0,                 nullptr, 0            },
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
@@ -138,6 +145,7 @@ int main(int argc, char* argv[]) {
               << "  [-c|--counters]\n"
               << "  [-t|--times]\n"
               << "  [-u|--unstable]\n"
+              << "  [--process-dwarf]\n"
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...\n"
               << "  [{-o|--output} {filename|-}] ...\n"
               << "implicit defaults: --abi\n";
@@ -182,6 +190,9 @@ int main(int argc, char* argv[]) {
           argument = "/dev/stdout";
         outputs.push_back(argument);
         break;
+      case kProcessDwarf:
+        opt_process_dwarf = true;
+        break;
       default:
         return usage();
     }
@@ -192,7 +203,8 @@ int main(int argc, char* argv[]) {
     std::vector<stg::Id> roots;
     roots.reserve(inputs.size());
     for (auto input : inputs) {
-      roots.push_back(stg::Read(graph, opt_input_format, input, opt_info));
+      roots.push_back(stg::Read(graph, opt_input_format, input,
+                                opt_process_dwarf, opt_info));
     }
     stg::Id root = stg::Merge(graph, roots);
     for (auto output : outputs) {

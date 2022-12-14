@@ -32,15 +32,22 @@
 enum class InputFormat { BTF, ELF };
 using Input = std::pair<InputFormat, std::string>;
 
+enum LongOptions {
+  kProcessDwarf = 256,
+};
+
 int main(int argc, char* const argv[]) {
+  bool opt_process_dwarf = false;
   static option opts[] = {
-      {"btf",    required_argument, nullptr, 'b'},
-      {"elf",    required_argument, nullptr, 'e'},
-      {nullptr,  0,                 nullptr, 0  },
+      {"btf",           required_argument, nullptr, 'b'          },
+      {"elf",           required_argument, nullptr, 'e'          },
+      {"process-dwarf", no_argument,       nullptr, kProcessDwarf},
+      {nullptr,         0,                 nullptr, 0            },
   };
   auto usage = [&]() {
     std::cerr << "Parse BTF or ELF with verbose logging.\n"
-              << "usage: " << argv[0] << " -b|--btf|-e|--elf file\n";
+              << "usage: " << argv[0]
+              << " [--process-dwarf] -b|--btf|-e|--elf file\n";
     return 1;
   };
 
@@ -57,6 +64,9 @@ int main(int argc, char* const argv[]) {
         break;
       case 'e':
         input_format = InputFormat::ELF;
+        break;
+      case kProcessDwarf:
+        opt_process_dwarf = true;
         break;
       default:
         return usage();
@@ -80,7 +90,8 @@ int main(int argc, char* const argv[]) {
         break;
       }
       case InputFormat::ELF: {
-        (void)stg::elf::Read(graph, filename, /* verbose = */ true);
+        (void)stg::elf::Read(graph, filename, opt_process_dwarf,
+                             /* verbose = */ true);
         break;
       }
     }

@@ -59,7 +59,8 @@ using Inputs = std::vector<std::pair<InputFormat, const char*>>;
 using Outputs =
     std::vector<std::pair<stg::reporting::OutputFormat, const char*>>;
 
-std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph) {
+std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
+                          bool process_dwarf) {
   std::vector<stg::Id> roots;
   for (const auto& [format, filename] : inputs) {
     switch (format) {
@@ -75,7 +76,8 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph) {
       }
       case InputFormat::ELF: {
         stg::Time read(times, "read ELF");
-        roots.push_back(stg::elf::Read(graph, filename));
+        roots.push_back(stg::elf::Read(graph, filename, process_dwarf,
+                                       /* verbose = */ false));
         break;
       }
       case InputFormat::STG: {
@@ -88,9 +90,9 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph) {
   return roots;
 }
 
-bool RunExact(const Inputs& inputs) {
+bool RunExact(const Inputs& inputs, bool process_dwarf) {
   stg::Graph graph;
-  const auto roots = Read(inputs, graph);
+  const auto roots = Read(inputs, graph, process_dwarf);
 
   struct PairCache {
     std::optional<bool> Query(const stg::Pair& comparison) const {
@@ -113,10 +115,11 @@ bool RunExact(const Inputs& inputs) {
 }
 
 bool Run(const Inputs& inputs, const Outputs& outputs,
-         const stg::CompareOptions& compare_options) {
+         const stg::CompareOptions& compare_options,
+         bool process_dwarf) {
   // Read inputs.
   stg::Graph graph;
-  const auto roots = Read(inputs, graph);
+  const auto roots = Read(inputs, graph, process_dwarf);
 
   // Compute differences.
   stg::Compare compare{graph, compare_options};
@@ -164,10 +167,15 @@ bool ParseCompareOptions(const char* opts_arg, stg::CompareOptions& opts) {
   return true;
 }
 
+enum LongOptions {
+  kProcessDwarf = 256,
+};
+
 int main(int argc, char* argv[]) {
   // Process arguments.
   bool opt_times = false;
   bool opt_exact = false;
+  bool opt_process_dwarf = false;
   stg::CompareOptions compare_options;
   InputFormat opt_input_format = InputFormat::ABI;
   stg::reporting::OutputFormat opt_output_format =
@@ -175,16 +183,17 @@ int main(int argc, char* argv[]) {
   Inputs inputs;
   Outputs outputs;
   static option opts[] = {
-      {"times",           no_argument,       nullptr, 't'},
-      {"abi",             no_argument,       nullptr, 'a'},
-      {"btf",             no_argument,       nullptr, 'b'},
-      {"elf",             no_argument,       nullptr, 'e'},
-      {"stg",             no_argument,       nullptr, 's'},
-      {"exact",           no_argument,       nullptr, 'x'},
-      {"compare-options", required_argument, nullptr, 'c'},
-      {"format",          required_argument, nullptr, 'f'},
-      {"output",          required_argument, nullptr, 'o'},
-      {nullptr,           0,                 nullptr, 0  },
+      {"times",           no_argument,       nullptr, 't'          },
+      {"abi",             no_argument,       nullptr, 'a'          },
+      {"btf",             no_argument,       nullptr, 'b'          },
+      {"elf",             no_argument,       nullptr, 'e'          },
+      {"stg",             no_argument,       nullptr, 's'          },
+      {"exact",           no_argument,       nullptr, 'x'          },
+      {"compare-options", required_argument, nullptr, 'c'          },
+      {"format",          required_argument, nullptr, 'f'          },
+      {"output",          required_argument, nullptr, 'o'          },
+      {"process-dwarf",   no_argument,       nullptr, kProcessDwarf},
+      {nullptr,           0,                 nullptr, 0            },
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
@@ -192,6 +201,7 @@ int main(int argc, char* argv[]) {
               << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
               << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
               << " [{-x|--exact}]\n"
+              << " [--process-dwarf]\n"
               << " [{-c|--compare-options} "
                  "{ignore_symbol_type_presence_changes|"
                  "ignore_type_declaration_status_changes|all}]\n"
@@ -255,6 +265,9 @@ int main(int argc, char* argv[]) {
           argument = "/dev/stdout";
         outputs.push_back({opt_output_format, argument});
         break;
+      case kProcessDwarf:
+        opt_process_dwarf = true;
+        break;
       default:
         return usage();
     }
@@ -264,9 +277,9 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    const bool equals = opt_exact
-                        ? RunExact(inputs)
-                        : Run(inputs, outputs, compare_options);
+    const bool equals =
+        opt_exact ? RunExact(inputs, opt_process_dwarf)
+                  : Run(inputs, outputs, compare_options, opt_process_dwarf);
     if (opt_times) {
       stg::Time::report(times, std::cerr);
     }

@@ -171,6 +171,9 @@ symbol table nodes.
 
 *   `-t|--times`: print duration of ABI parsing, comparison and reporting.
 
+*   `--process-dwarf`: enable DWARF processing, when reading ELF files. For
+    other formats this options does nothing.
+
 ## Return code
 
 If input files' ABIs are equivalent, `stgdiff` will return 0. Otherwise:

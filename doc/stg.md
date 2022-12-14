@@ -47,6 +47,13 @@ The tool can be passed any number of inputs to combine into a unified ABI.
     NOTE: Only ELF symbol information, and not DWARF type information, is
     currently processed.
 
+## Reading options
+
+*   `--process-dwarf`
+
+    Enable DWARF processing, when reading ELF files. For other formats this
+    options does nothing.
+
 ## Merge
 
 If multiple (or zero) inputs are provided, then a symbol merge operation is run.
