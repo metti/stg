@@ -57,4 +57,13 @@ Time::~Time() {
   metrics_[index_].value.emplace<1>(seconds * 1'000'000'000 + nanos);
 }
 
+Counter::Counter(Metrics& metrics, const char* name)
+    : metrics_(metrics), index_(metrics.size()), value_(0) {
+  metrics_.push_back(Metric{name, std::monostate()});
+}
+
+Counter::~Counter() {
+  metrics_[index_].value = value_;
+}
+
 }  // namespace stg

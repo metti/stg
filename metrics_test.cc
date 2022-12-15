@@ -37,9 +37,10 @@ TEST_CASE("empty") {
 TEST_CASE("incomplete") {
   stg::Metrics metrics;
   std::ostringstream os;
-  stg::Time x(metrics, "time");
+  stg::Time x(metrics, "a");
+  stg::Counter y(metrics, "b");
   stg::Report(metrics, os);
-  const std::string expected = "time: <incomplete>\n";
+  const std::string expected = "a: <incomplete>\nb: <incomplete>\n";
   CHECK(os.str() == expected);
 }
 
@@ -78,6 +79,27 @@ TEST_CASE("times") {
   is >> junk;
   CHECK(junk.empty());
   CHECK(is.eof());
+}
+
+TEST_CASE("counters") {
+  stg::Metrics metrics;
+  {
+    stg::Counter a(metrics, "a");
+    stg::Counter b(metrics, "b");
+    stg::Counter c(metrics, "c");
+    stg::Counter d(metrics, "d");
+    stg::Counter e(metrics, "e");
+    c = 17;
+    ++b;
+    ++b;
+    e = 1;
+    a = 3;
+    c += 2;
+  }
+  std::ostringstream os;
+  Report(metrics, os);
+  const std::string expected = "a: 3\nb: 2\nc: 19\nd: 0\ne: 1\n";
+  CHECK(os.str() == expected);
 }
 
 }  // namespace Test

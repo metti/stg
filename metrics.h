@@ -35,7 +35,7 @@ struct Nanoseconds {
 
 struct Metric {
   const char* name;
-  std::variant<std::monostate, Nanoseconds> value;
+  std::variant<std::monostate, Nanoseconds, size_t> value;
 };
 
 using Metrics = std::vector<Metric>;
@@ -53,6 +53,32 @@ class Time {
   Metrics& metrics_;
   size_t index_;
   struct timespec start_;
+};
+
+class Counter {
+ public:
+  Counter(Metrics& metrics, const char* name);
+  ~Counter();
+
+  Counter& operator=(size_t x) {
+    value_ = x;
+    return *this;
+  }
+
+  Counter& operator+=(size_t x) {
+    value_ += x;
+    return *this;
+  }
+
+  Counter& operator++() {
+    ++value_;
+    return *this;
+  }
+
+ private:
+  Metrics& metrics_;
+  size_t index_;
+  size_t value_;
 };
 
 }  // namespace stg
