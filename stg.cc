@@ -31,14 +31,14 @@
 #include "elf_reader.h"
 #include "error.h"
 #include "graph.h"
+#include "metrics.h"
 #include "proto_reader.h"
 #include "proto_writer.h"
-#include "timing.h"
 
 namespace stg {
 namespace {
 
-Times times;
+Metrics metrics;
 
 enum class InputFormat { ABI, BTF, ELF, STG };
 
@@ -46,19 +46,19 @@ Id Read(Graph& graph, InputFormat format, const char* input, bool process_dwarf,
         bool info) {
   switch (format) {
     case InputFormat::ABI: {
-      Time read(times, "read ABI");
+      Time read(metrics, "read ABI");
       return abixml::Read(graph, input);
     }
     case InputFormat::BTF: {
-      Time read(times, "read BTF");
+      Time read(metrics, "read BTF");
       return btf::ReadFile(graph, input, info);
     }
     case InputFormat::ELF: {
-      Time read(times, "read ELF");
+      Time read(metrics, "read ELF");
       return elf::Read(graph, input, process_dwarf, info);
     }
     case InputFormat::STG: {
-      Time read(times, "read STG");
+      Time read(metrics, "read STG");
       return proto::Read(graph, input);
     }
   }
@@ -99,7 +99,7 @@ void Write(const Graph& graph, Id root, const char* output,
   (void)counters;
   std::ofstream os(output);
   {
-    Time x(times, "write");
+    Time x(metrics, "write");
     proto::Writer writer(graph);
     writer.Write(root, os);
     os << std::flush;
@@ -211,7 +211,7 @@ int main(int argc, char* argv[]) {
       stg::Write(graph, root, output, !opt_unstable, opt_counters);
     }
     if (opt_times) {
-      stg::Time::report(stg::times, std::cerr);
+      stg::Report(stg::metrics, std::cerr);
     }
     return 0;
   } catch (const stg::Exception& e) {

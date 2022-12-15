@@ -41,13 +41,13 @@
 #include "equality.h"
 #include "error.h"
 #include "graph.h"
+#include "metrics.h"
 #include "proto_reader.h"
 #include "reporting.h"
-#include "timing.h"
 
 namespace {
 
-stg::Times times;
+stg::Metrics metrics;
 
 const int kAbiChange = 4;
 const size_t kMaxCrcOnlyChanges = 3;
@@ -65,23 +65,23 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
   for (const auto& [format, filename] : inputs) {
     switch (format) {
       case InputFormat::ABI: {
-        stg::Time read(times, "read ABI");
+        stg::Time read(metrics, "read ABI");
         roots.push_back(stg::abixml::Read(graph, filename));
         break;
       }
       case InputFormat::BTF: {
-        stg::Time read(times, "read BTF");
+        stg::Time read(metrics, "read BTF");
         roots.push_back(stg::btf::ReadFile(graph, filename));
         break;
       }
       case InputFormat::ELF: {
-        stg::Time read(times, "read ELF");
+        stg::Time read(metrics, "read ELF");
         roots.push_back(stg::elf::Read(graph, filename, process_dwarf,
                                        /* verbose = */ false));
         break;
       }
       case InputFormat::STG: {
-        stg::Time read(times, "read STG");
+        stg::Time read(metrics, "read STG");
         roots.push_back(stg::proto::Read(graph, filename));
         break;
       }
@@ -109,7 +109,7 @@ bool RunExact(const Inputs& inputs, bool process_dwarf) {
     std::unordered_set<stg::Pair, stg::HashPair> equalities;
   };
 
-  stg::Time compute(times, "equality check");
+  stg::Time compute(metrics, "equality check");
   PairCache equalities;
   return stg::Equals<PairCache>(graph, equalities)(roots[0], roots[1]);
 }
@@ -125,7 +125,7 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
   stg::Compare compare{graph, compare_options};
   std::pair<bool, std::optional<stg::Comparison>> result;
   {
-    stg::Time compute(times, "compute diffs");
+    stg::Time compute(metrics, "compute diffs");
     result = compare(roots[0], roots[1]);
   }
   stg::Check(compare.scc.Empty()) << "internal error: SCC state broken";
@@ -136,7 +136,7 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
   for (const auto& [format, filename] : outputs) {
     std::ofstream output(filename);
     if (comparison) {
-      stg::Time report(times, "report diffs");
+      stg::Time report(metrics, "report diffs");
       stg::reporting::Options options{format, kMaxCrcOnlyChanges};
       stg::reporting::Reporting reporting{graph, compare.outcomes, options,
         names};
@@ -281,7 +281,7 @@ int main(int argc, char* argv[]) {
         opt_exact ? RunExact(inputs, opt_process_dwarf)
                   : Run(inputs, outputs, compare_options, opt_process_dwarf);
     if (opt_times) {
-      stg::Time::report(times, std::cerr);
+      stg::Report(metrics, std::cerr);
     }
     return equals ? 0 : kAbiChange;
   } catch (const stg::Exception& e) {
