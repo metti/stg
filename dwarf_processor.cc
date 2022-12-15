@@ -75,12 +75,17 @@ Primitive::Encoding GetEncoding(Entry& entry) {
   }
 }
 
+std::optional<Entry> MaybeGetReferredType(Entry& entry) {
+  return entry.MaybeGetReference(DW_AT_type);
+}
+
 }  // namespace
 
 // Transforms DWARF entries to STG.
 class Processor {
  public:
-  Processor(Graph &graph, Types& result) : graph_(graph), result_(result) {}
+  Processor(Graph& graph, Id void_id, Types& result)
+      : graph_(graph), void_id_(void_id), result_(result) {}
 
   void Process(Entry& entry) {
     ++result_.processed_entries;
@@ -88,6 +93,9 @@ class Processor {
     switch (tag) {
       case DW_TAG_compile_unit:
         ProcessCompileUnit(entry);
+        break;
+      case DW_TAG_typedef:
+        ProcessTypedef(entry);
         break;
       case DW_TAG_base_type:
         ProcessBaseType(entry);
@@ -98,6 +106,16 @@ class Processor {
         // all expected tags
         break;
     }
+  }
+
+  std::vector<Id> GetUnresolvedIds() {
+    std::vector<Id> result;
+    for (const auto& [offset, id] : id_map_) {
+      if (!graph_.Is(id)) {
+        result.push_back(id);
+      }
+    }
+    return result;
   }
 
  private:
@@ -127,6 +145,12 @@ class Processor {
                                 byte_size);
   }
 
+  void ProcessTypedef(Entry& entry) {
+    std::string type_name = GetName(entry);
+    auto referred_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
+    AddProcessedNode<Typedef>(entry, std::move(type_name), referred_type_id);
+  }
+
   // Allocate or get already allocated STG Id for Entry.
   Id GetIdForEntry(Entry& entry) {
     const auto offset = entry.GetOffset();
@@ -135,6 +159,12 @@ class Processor {
       it->second = graph_.Allocate();
     }
     return it->second;
+  }
+
+  // Same as GetIdForEntry, but returns "void_id_" for "unspecified" references,
+  // because it is normal for DWARF (5.2 Unspecified Type Entries).
+  Id GetIdForReferredType(std::optional<Entry> referred_type) {
+    return referred_type ? GetIdForEntry(*referred_type) : void_id_;
   }
 
   // Populate Id from method above with processed Node.
@@ -147,16 +177,23 @@ class Processor {
   }
 
   Graph& graph_;
+  Id void_id_;
   Types& result_;
   std::unordered_map<Dwarf_Off, Id> id_map_;
 };
 
 Types ProcessEntries(std::vector<Entry> entries, Graph& graph) {
   Types result;
-  Processor processor(graph, result);
+  Id void_id = graph.Add<Void>();
+  Processor processor(graph, void_id, result);
   for (auto& entry : entries) {
     processor.Process(entry);
   }
+  for (const auto& id : processor.GetUnresolvedIds()) {
+    // TODO: replace with "Die"
+    graph.Set<Variadic>(id);
+  }
+
   return result;
 }
 
