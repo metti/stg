@@ -22,6 +22,7 @@ FileDescriptor::~FileDescriptor() noexcept(false) {
   if (fd_ >= 0 && close(fd_) != 0 && !std::uncaught_exception()) {
     Die() << "close failed: " << ErrnoToString(errno);
   }
+  fd_ = -1;
 }
 
 

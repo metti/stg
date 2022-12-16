@@ -17,10 +17,7 @@ class FileDescriptor {
   FileDescriptor(FileDescriptor&& other) {
     std::swap(fd_, other.fd_);
   }
-  FileDescriptor& operator=(FileDescriptor&& other) {
-    std::swap(fd_, other.fd_);
-    return *this;
-  }
+  FileDescriptor& operator=(FileDescriptor&& other) = delete;
   ~FileDescriptor() noexcept(false);
 
   int Value() const;
