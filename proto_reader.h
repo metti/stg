@@ -26,7 +26,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <google/protobuf/repeated_field.h>
 #include "graph.h"
 #include "stg.pb.h"
 

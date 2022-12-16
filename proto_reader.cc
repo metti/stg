@@ -28,6 +28,7 @@
 #include <vector>
 
 #include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/repeated_field.h>
 #include <google/protobuf/text_format.h>
 #include "error.h"
 #include "graph.h"
@@ -209,7 +210,8 @@ void Transformer::AddNode(const ElfSymbol& x) {
                         ? std::make_optional<stg::ElfSymbol::CRC>(x.crc())
                         : std::nullopt;
   const auto& ns = Transform<std::string>(x.has_namespace_(), x.namespace_());
-  const auto& type_id = Transform<Id>(x.has_type_id(), x.type_id());
+  const auto& type_id =
+      x.has_type_id() ? std::make_optional(GetId(x.type_id())) : std::nullopt;
   const auto& full_name =
       Transform<std::string>(x.has_full_name(), x.full_name());
 
