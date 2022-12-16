@@ -11,7 +11,6 @@ arguments and behaviour are subject to change.
 ```
 stg
   [-i|--info]
-  [-c|--counters]
   [-t|--times]
   [-u|--unstable]
   [-a|--abi|-b|--btf|-e|--elf] [file] ...
@@ -88,10 +87,6 @@ The resulting ABI has the union of the inputs' symbols, which must be disjoint.
     BTF input, the output is intended to match the output of `bpftool btf dump
     file "$file" format raw`.
 
-*   `-c|--counters`
-
-    Report various internal counters and metrics.
-
 *   `-t|--times`
 
-    Print the durations of various processing phases.
+    Print various internal timing and other metrics.

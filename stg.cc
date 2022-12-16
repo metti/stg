@@ -91,12 +91,9 @@ Id Merge(Graph& graph, const std::vector<Id>& roots) {
   return graph.Add<Symbols>(symbols);
 }
 
-void Write(const Graph& graph, Id root, const char* output,
-           bool stable, bool counters) {
+void Write(const Graph& graph, Id root, const char* output, bool stable) {
   // stable = generate stable external ids and use these for ordering
-  // counters = print stats about collisions
   (void)stable;
-  (void)counters;
   std::ofstream os(output);
   {
     Time x(metrics, "write");
@@ -119,7 +116,6 @@ enum LongOptions {
 int main(int argc, char* argv[]) {
   // Process arguments.
   bool opt_info = false;
-  bool opt_counters = false;
   bool opt_times = false;
   bool opt_unstable = false;
   bool opt_process_dwarf = false;
@@ -128,7 +124,6 @@ int main(int argc, char* argv[]) {
   std::vector<const char*> outputs;
   static option opts[] = {
       {"info",            no_argument,       nullptr, 'i'          },
-      {"counters",        no_argument,       nullptr, 'c'          },
       {"times",           no_argument,       nullptr, 't'          },
       {"unstable",        no_argument,       nullptr, 'u'          },
       {"abi",             no_argument,       nullptr, 'a'          },
@@ -137,12 +132,11 @@ int main(int argc, char* argv[]) {
       {"stg",             no_argument,       nullptr, 's'          },
       {"output",          required_argument, nullptr, 'o'          },
       {"process-dwarf",   no_argument,       nullptr, kProcessDwarf},
-      {nullptr,           0,                 nullptr, 0            },
+      {nullptr,           0,                 nullptr, 0  },
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
               << "  [-i|--info]\n"
-              << "  [-c|--counters]\n"
               << "  [-t|--times]\n"
               << "  [-u|--unstable]\n"
               << "  [--process-dwarf]\n"
@@ -153,16 +147,13 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-ictuabeso:", opts, &ix);
+    int c = getopt_long(argc, argv, "-ituabeso:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
     switch (c) {
       case 'i':
         opt_info = true;
-        break;
-      case 'c':
-        opt_counters = true;
         break;
       case 't':
         opt_times = true;
@@ -208,7 +199,7 @@ int main(int argc, char* argv[]) {
     }
     stg::Id root = stg::Merge(graph, roots);
     for (auto output : outputs) {
-      stg::Write(graph, root, output, !opt_unstable, opt_counters);
+      stg::Write(graph, root, output, !opt_unstable);
     }
     if (opt_times) {
       stg::Report(stg::metrics, std::cerr);
