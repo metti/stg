@@ -91,6 +91,18 @@ class Processor {
     ++result_.processed_entries;
     auto tag = entry.GetTag();
     switch (tag) {
+      case DW_TAG_pointer_type:
+        ProcessReference<PointerReference>(
+            entry, PointerReference::Kind::POINTER);
+        break;
+      case DW_TAG_reference_type:
+        ProcessReference<PointerReference>(
+            entry, PointerReference::Kind::LVALUE_REFERENCE);
+        break;
+      case DW_TAG_rvalue_reference_type:
+        ProcessReference<PointerReference>(
+            entry, PointerReference::Kind::RVALUE_REFERENCE);
+        break;
       case DW_TAG_compile_unit:
         ProcessCompileUnit(entry);
         break;
@@ -99,6 +111,15 @@ class Processor {
         break;
       case DW_TAG_base_type:
         ProcessBaseType(entry);
+        break;
+      case DW_TAG_const_type:
+        ProcessReference<Qualified>(entry, Qualifier::CONST);
+        break;
+      case DW_TAG_volatile_type:
+        ProcessReference<Qualified>(entry, Qualifier::VOLATILE);
+        break;
+      case DW_TAG_restrict_type:
+        ProcessReference<Qualified>(entry, Qualifier::RESTRICT);
         break;
 
       default:
@@ -149,6 +170,12 @@ class Processor {
     std::string type_name = GetName(entry);
     auto referred_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
     AddProcessedNode<Typedef>(entry, std::move(type_name), referred_type_id);
+  }
+
+  template<typename Node, typename KindType>
+  void ProcessReference(Entry& entry, KindType kind) {
+    auto referred_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
+    AddProcessedNode<Node>(entry, kind, referred_type_id);
   }
 
   // Allocate or get already allocated STG Id for Entry.
