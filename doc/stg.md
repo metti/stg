@@ -10,8 +10,8 @@ arguments and behaviour are subject to change.
 
 ```
 stg
+  [-m|--metrics]
   [-i|--info]
-  [-t|--times]
   [-u|--unstable]
   [-a|--abi|-b|--btf|-e|--elf] [file] ...
   [{-o|--output} {filename|-}] ...
@@ -80,13 +80,13 @@ The resulting ABI has the union of the inputs' symbols, which must be disjoint.
 
 ## Diagnostics
 
+*   `-m|--metrics`
+
+    Print various internal timing and other metrics.
+
 *   `-i|--info`
 
     This causes the BTF and ELF parsers to dump information to stdout about the
     entities processed. This is primarily useful for debugging. In the case of
     BTF input, the output is intended to match the output of `bpftool btf dump
     file "$file" format raw`.
-
-*   `-t|--times`
-
-    Print various internal timing and other metrics.

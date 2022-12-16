@@ -173,7 +173,7 @@ enum LongOptions {
 
 int main(int argc, char* argv[]) {
   // Process arguments.
-  bool opt_times = false;
+  bool opt_metrics = false;
   bool opt_exact = false;
   bool opt_process_dwarf = false;
   stg::CompareOptions compare_options;
@@ -183,7 +183,7 @@ int main(int argc, char* argv[]) {
   Inputs inputs;
   Outputs outputs;
   static option opts[] = {
-      {"times",           no_argument,       nullptr, 't'          },
+      {"metrics",         no_argument,       nullptr, 'm'          },
       {"abi",             no_argument,       nullptr, 'a'          },
       {"btf",             no_argument,       nullptr, 'b'          },
       {"elf",             no_argument,       nullptr, 'e'          },
@@ -193,11 +193,11 @@ int main(int argc, char* argv[]) {
       {"format",          required_argument, nullptr, 'f'          },
       {"output",          required_argument, nullptr, 'o'          },
       {"process-dwarf",   no_argument,       nullptr, kProcessDwarf},
-      {nullptr,           0,                 nullptr, 0            },
+      {nullptr,           0,                 nullptr, 0  },
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
-              << " [-t|--times]\n"
+              << " [-m|--metrics]\n"
               << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
               << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
               << " [{-x|--exact}]\n"
@@ -216,13 +216,13 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-tabesxc:f:o:", opts, &ix);
+    int c = getopt_long(argc, argv, "-mabesxc:f:o:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
     switch (c) {
-      case 't':
-        opt_times = true;
+      case 'm':
+        opt_metrics = true;
         break;
       case 'a':
         opt_input_format = InputFormat::ABI;
@@ -280,7 +280,7 @@ int main(int argc, char* argv[]) {
     const bool equals =
         opt_exact ? RunExact(inputs, opt_process_dwarf)
                   : Run(inputs, outputs, compare_options, opt_process_dwarf);
-    if (opt_times) {
+    if (opt_metrics) {
       stg::Report(metrics, std::cerr);
     }
     return equals ? 0 : kAbiChange;

@@ -115,16 +115,16 @@ enum LongOptions {
 
 int main(int argc, char* argv[]) {
   // Process arguments.
+  bool opt_metrics = false;
   bool opt_info = false;
-  bool opt_times = false;
   bool opt_unstable = false;
   bool opt_process_dwarf = false;
   stg::InputFormat opt_input_format = stg::InputFormat::ABI;
   std::vector<const char*> inputs;
   std::vector<const char*> outputs;
   static option opts[] = {
+      {"metrics",         no_argument,       nullptr, 'm'          },
       {"info",            no_argument,       nullptr, 'i'          },
-      {"times",           no_argument,       nullptr, 't'          },
       {"unstable",        no_argument,       nullptr, 'u'          },
       {"abi",             no_argument,       nullptr, 'a'          },
       {"btf",             no_argument,       nullptr, 'b'          },
@@ -136,8 +136,8 @@ int main(int argc, char* argv[]) {
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
+              << "  [-m|--metrics]\n"
               << "  [-i|--info]\n"
-              << "  [-t|--times]\n"
               << "  [-u|--unstable]\n"
               << "  [--process-dwarf]\n"
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...\n"
@@ -147,16 +147,16 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-ituabeso:", opts, &ix);
+    int c = getopt_long(argc, argv, "-miuabeso:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
     switch (c) {
+      case 'm':
+        opt_metrics = true;
+        break;
       case 'i':
         opt_info = true;
-        break;
-      case 't':
-        opt_times = true;
         break;
       case 'u':
         opt_unstable = true;
@@ -201,7 +201,7 @@ int main(int argc, char* argv[]) {
     for (auto output : outputs) {
       stg::Write(graph, root, output, !opt_unstable);
     }
-    if (opt_times) {
+    if (opt_metrics) {
       stg::Report(stg::metrics, std::cerr);
     }
     return 0;
