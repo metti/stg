@@ -175,6 +175,18 @@ std::optional<uint64_t> Entry::MaybeGetUnsignedConstant(
   return result;
 }
 
+bool Entry::GetFlag(uint32_t attribute) {
+  bool result = false;
+  auto dwarf_attribute = GetAttribute(&die, attribute);
+  if (!dwarf_attribute) {
+    return result;
+  }
+
+  Check(dwarf_formflag(&dwarf_attribute.value(), &result) == kReturnOk)
+      << "dwarf_formflag returned error";
+  return result;
+}
+
 std::optional<Entry> Entry::MaybeGetReference(uint32_t attribute) {
   std::optional<Entry> result;
   auto dwarf_attribute = GetAttribute(&die, attribute);
