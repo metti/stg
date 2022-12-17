@@ -25,6 +25,7 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <google/protobuf/io/zero_copy_stream_impl.h>
@@ -409,6 +410,12 @@ Id Read(Graph& graph, const std::string& path) {
   google::protobuf::io::IstreamInputStream is(&ifs);
   proto::STG stg;
   google::protobuf::TextFormat::Parse(&is, &stg);
+  return Transformer(graph).Transform(stg);
+}
+
+Id ReadFromString(Graph& graph, const std::string_view input) {
+  proto::STG stg;
+  google::protobuf::TextFormat::ParseFromString(input, &stg);
   return Transformer(graph).Transform(stg);
 }
 

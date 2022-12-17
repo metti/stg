@@ -15,29 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Siddharth Nayyar
+// Author: Matthias Maennich
 
-#ifndef STG_PROTO_READER_H_
-#define STG_PROTO_READER_H_
-
-#include <cstdint>
-#include <istream>
-#include <optional>
 #include <string>
-#include <string_view>
-#include <unordered_map>
-#include <vector>
 
-#include "graph.h"
-#include "stg.pb.h"
+#include "proto_reader.h"
 
-namespace stg {
-namespace proto {
-
-Id Read(Graph&, const std::string&);
-Id ReadFromString(Graph&, std::string_view);
-
-}  // namespace proto
-}  // namespace stg
-
-#endif  // STG_PROTO_READER_H_
+extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
+  try {
+    stg::Graph graph;
+    stg::proto::ReadFromString(graph, std::string_view(data, size));
+  } catch (const stg::Exception&) {
+    // Pass as this is us catching invalid proto properly.
+  }
+  return 0;
+}
