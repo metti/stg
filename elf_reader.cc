@@ -223,10 +223,6 @@ Id Read(Graph& graph, elf::ElfLoader&& elf,
 
 Id Read(Graph& graph, const std::string& path, bool process_dwarf,
         bool verbose) {
-  if (verbose) {
-    std::cout << "Parsing ELF: " << path << '\n';
-  }
-
   return Read(graph, elf::ElfLoader(path, verbose),
               process_dwarf ? dwarf::Handler(path)
                             : std::optional<dwarf::Handler>(),
@@ -235,10 +231,6 @@ Id Read(Graph& graph, const std::string& path, bool process_dwarf,
 
 Id Read(Graph& graph, char* data, size_t size, bool process_dwarf,
         bool verbose) {
-  if (verbose) {
-    std::cout << "Parsing ELF from memory\n";
-  }
-
   return Read(graph, elf::ElfLoader(data, size, verbose),
               process_dwarf ? dwarf::Handler(data, size)
                             : std::optional<dwarf::Handler>(),
