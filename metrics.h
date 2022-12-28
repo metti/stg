@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <ctime>
+#include <map>
 #include <ostream>
 #include <variant>
 #include <vector>
@@ -35,7 +36,12 @@ struct Nanoseconds {
 
 struct Metric {
   const char* name;
-  std::variant<std::monostate, Nanoseconds, size_t> value;
+  std::variant<
+      std::monostate,
+      Nanoseconds,
+      size_t,
+      std::map<size_t, size_t>
+      > value;
 };
 
 using Metrics = std::vector<Metric>;
@@ -79,6 +85,21 @@ class Counter {
   Metrics& metrics_;
   size_t index_;
   size_t value_;
+};
+
+class Histogram {
+ public:
+  Histogram(Metrics& metrics, const char* name);
+  ~Histogram();
+
+  void Add(size_t item) {
+    ++frequencies_[item];
+  }
+
+ private:
+  Metrics& metrics_;
+  size_t index_;
+  std::map<size_t, size_t> frequencies_;
 };
 
 }  // namespace stg

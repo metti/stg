@@ -23,8 +23,24 @@
 
 namespace stg {
 
+namespace {
+
 std::ostream& operator<<(std::ostream& os, std::monostate) {
   return os << "<incomplete>";
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const std::map<size_t, size_t>& frequencies) {
+  bool separate = false;
+  for (const auto& [item, frequency] : frequencies) {
+    if (separate) {
+      os << ' ';
+    } else {
+      separate = true;
+    }
+    os << '[' << item << "]=" << frequency;
+  }
+  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Nanoseconds& value) {
@@ -34,6 +50,8 @@ std::ostream& operator<<(std::ostream& os, const Nanoseconds& value) {
   return os << millis << '.' << std::setfill('0') << std::setw(6) << nanos
             << std::setfill(' ') << " ms";
 }
+
+}  // namespace
 
 void Report(const Metrics& metrics, std::ostream& os) {
   for (const auto& metric : metrics) {
@@ -64,6 +82,15 @@ Counter::Counter(Metrics& metrics, const char* name)
 
 Counter::~Counter() {
   metrics_[index_].value = value_;
+}
+
+Histogram::Histogram(Metrics& metrics, const char* name)
+    : metrics_(metrics), index_(metrics.size()) {
+  metrics_.push_back(Metric{name, std::monostate()});
+}
+
+Histogram::~Histogram() {
+  metrics_[index_].value.emplace<3>(std::move(frequencies_));
 }
 
 }  // namespace stg

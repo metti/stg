@@ -37,10 +37,12 @@ TEST_CASE("empty") {
 TEST_CASE("incomplete") {
   stg::Metrics metrics;
   std::ostringstream os;
-  stg::Time x(metrics, "a");
-  stg::Counter y(metrics, "b");
+  stg::Time a(metrics, "a");
+  stg::Counter b(metrics, "b");
+  stg::Histogram c(metrics, "c");
   stg::Report(metrics, os);
-  const std::string expected = "a: <incomplete>\nb: <incomplete>\n";
+  const std::string expected =
+      "a: <incomplete>\nb: <incomplete>\nc: <incomplete>\n";
   CHECK(os.str() == expected);
 }
 
@@ -99,6 +101,21 @@ TEST_CASE("counters") {
   std::ostringstream os;
   Report(metrics, os);
   const std::string expected = "a: 3\nb: 2\nc: 19\nd: 0\ne: 1\n";
+  CHECK(os.str() == expected);
+}
+
+TEST_CASE("histogram") {
+  stg::Metrics metrics;
+  {
+    stg::Histogram h(metrics, "h");
+    h.Add(13);
+    h.Add(14);
+    h.Add(13);
+    h.Add(12);
+  }
+  std::ostringstream os;
+  Report(metrics, os);
+  const std::string expected = "h: [12]=1 [13]=2 [14]=1\n";
   CHECK(os.str() == expected);
 }
 
