@@ -163,7 +163,7 @@ void Transformer::AddNode(const BaseClass& x) {
 
 void Transformer::AddNode(const Method& x) {
   const auto& vtable_offset =
-      Transform<uint64_t>(x.vtable_offset(), x.has_vtable_offset());
+      Transform<uint64_t>(x.has_vtable_offset(), x.vtable_offset());
   AddNode<stg::Method>(GetId(x.id()), x.mangled_name(), x.name(), x.kind(),
                        vtable_offset, GetId(x.type_id()));
 }
