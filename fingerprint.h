@@ -21,41 +21,21 @@
 #define STG_FINGERPRINT_H_
 
 #include <cstdint>
-#include <iostream>
-#include <map>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 
 #include "graph.h"
 #include "scc.h"
+#include "metrics.h"
 
 namespace stg {
 
-// Fingerprint is a node hasher that hashes all nodes reachable from a given
-// root node. It will almost always succeed in distinguishing unequal nodes.
-//
-// Given any mutual dependencies between hashes, it falls back to a very poor
-// but safe hash for the affected nodes: the size of the SCC.
-class Fingerprint {
- public:
-  Fingerprint(const Graph& graph, std::unordered_map<Id, uint64_t>& hashes)
-      : graph(graph), hashes(hashes) {}
-
-  void Process(Id root) {
-    todo.insert(root);
-    while (!todo.empty()) {
-      for (auto id : std::exchange(todo, {})) {
-        (*this)(id);
-      }
-    }
-  }
-
-  void DumpStats(std::ostream& os) const {
-    for (const auto& [size, count] : non_trivial_scc_count) {
-      os << "non_trivial_scc_count[" << size << "]=" << count << '\n';
-    }
-  }
+struct Hasher {
+  Hasher(const Graph& graph, std::unordered_map<Id, uint64_t>& hashes,
+         std::unordered_set<Id>& todo, Metrics& metrics)
+      : graph(graph), hashes(hashes), todo(todo),
+        non_trivial_scc_size(metrics, "fingerprint.non_trivial_scc_size") {}
 
   // Graph function implementation
   uint64_t operator()(const Void&) {
@@ -177,7 +157,7 @@ class Fingerprint {
     return Hash('Z');
   }
 
- private:
+  // main entry point
   uint64_t operator()(Id id) {
     // Check if the id already has a fingerprint.
     const auto it = hashes.find(id);
@@ -214,7 +194,7 @@ class Fingerprint {
     const auto size = ids.size();
     if (size > 1) {
       result = size;
-      ++non_trivial_scc_count[size];
+      non_trivial_scc_size.Add(size);
     }
     for (auto id : ids) {
       hashes.insert({id, result});
@@ -246,11 +226,30 @@ class Fingerprint {
 
   const Graph& graph;
   std::unordered_map<Id, uint64_t>& hashes;
-  std::unordered_set<Id> todo;
+  std::unordered_set<Id> &todo;
+  Histogram non_trivial_scc_size;
   SCC<Id> scc;
-
-  std::map<size_t, size_t> non_trivial_scc_count;
 };
+
+// Fingerprint is a node hasher that hashes all nodes reachable from a given
+// root node. It will almost always succeed in distinguishing unequal nodes.
+//
+// Given any mutual dependencies between hashes, it falls back to a very poor
+// but safe hash for the affected nodes: the size of the SCC.
+inline std::unordered_map<Id, uint64_t> Fingerprint(
+    const Graph& graph, Id root, Metrics& metrics) {
+  Time x(metrics, "hash nodes");
+  std::unordered_map<Id, uint64_t> hashes;
+  std::unordered_set<Id> todo;
+  Hasher hasher(graph, hashes, todo, metrics);
+  todo.insert(root);
+  while (!todo.empty()) {
+    for (auto id : std::exchange(todo, {})) {
+      hasher(id);
+    }
+  }
+  return hashes;
+}
 
 }  // namespace stg
 
