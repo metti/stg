@@ -43,10 +43,7 @@ struct Hasher {
   }
 
   uint32_t operator()(const PointerReference& x) {
-    return Hash(x.kind == PointerReference::Kind::POINTER ? 'P'
-                : x.kind == PointerReference::Kind::LVALUE_REFERENCE ? 'L'
-                : 'R',
-                (*this)(x.pointee_type_id));
+    return Hash('P', static_cast<uint32_t>(x.kind), (*this)(x.pointee_type_id));
   }
 
   uint32_t operator()(const Typedef& x) {
@@ -55,9 +52,7 @@ struct Hasher {
   }
 
   uint32_t operator()(const Qualified& x) {
-    return Hash(x.qualifier == Qualifier::CONST ? 'c'
-                : x.qualifier == Qualifier::VOLATILE ? 'v'
-                : 'r',
+    return Hash('Q', static_cast<uint32_t>(x.qualifier),
                 (*this)(x.qualified_type_id));
   }
 
@@ -82,9 +77,7 @@ struct Hasher {
   }
 
   uint32_t operator()(const StructUnion& x) {
-    auto kind = Hash(x.kind == StructUnion::Kind::STRUCT ? 's'
-                     : x.kind == StructUnion::Kind::UNION ? 'u'
-                     : 'k');
+    auto kind = Hash('U', static_cast<uint32_t>(x.kind));
     if (x.name.empty()) {
       auto h = kind;
       if (x.definition.has_value()) {
