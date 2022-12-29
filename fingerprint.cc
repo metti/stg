@@ -205,12 +205,19 @@ struct Hasher {
     return Hash(lo, hi);
   }
 
+  // see https://github.com/skeeto/hash-prospector
   constexpr uint32_t Hash(uint32_t x) const {
+    x ^= x >> 16;
+    x *= 0x21f0aaad;
+    x ^= x >> 15;
+    x *= 0xd35a2d97;
+    x ^= x >> 15;
     return x;
   }
 
+  // hash 8 bits by zero extending to 32 bits
   constexpr uint32_t Hash(char x) const {
-    return x;
+    return Hash(static_cast<uint32_t>(static_cast<unsigned char>(x)));
   }
 
   // 32-bit FNV-1a
@@ -223,6 +230,7 @@ struct Hasher {
     return h;
   }
 
+  // Boost hash_combine (must be used with good hashes)
   template <typename Arg, typename... Args>
   constexpr uint32_t Hash(uint32_t h, Arg arg, Args... args) const {
     return Hash(h ^ (Hash(arg) + 0x9e3779b9 + (h << 6) + (h >> 2)), args...);
