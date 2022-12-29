@@ -35,6 +35,8 @@
 namespace stg {
 namespace reporting {
 
+namespace {
+
 std::string GetResolvedDescription(
     const Graph& graph, NameCache& names, Id id) {
   std::ostringstream os;
@@ -321,7 +323,6 @@ void VizPrint(Reporting& reporting, const Comparison& comparison,
   }
 }
 
-
 void ReportViz(Reporting& reporting, const Comparison& comparison,
                std::ostream& output) {
   output << "digraph \"ABI diff\" {\n";
@@ -330,6 +331,8 @@ void ReportViz(Reporting& reporting, const Comparison& comparison,
   VizPrint(reporting, comparison, seen, ids, output);
   output << "}\n";
 }
+
+}  // namespace
 
 void Report(Reporting& reporting, const Comparison& comparison,
             std::ostream& output) {
