@@ -199,22 +199,22 @@ struct Hasher {
   }
 
   // hash 64 bits by splitting, hashing and combining
-  uint32_t Hash(uint64_t x) const {
+  constexpr uint32_t Hash(uint64_t x) const {
     uint32_t lo = x;
     uint32_t hi = x >> 32;
     return Hash(lo, hi);
   }
 
-  uint32_t Hash(uint32_t x) const {
+  constexpr uint32_t Hash(uint32_t x) const {
     return x;
   }
 
-  uint32_t Hash(char x) const {
+  constexpr uint32_t Hash(char x) const {
     return x;
   }
 
   // 32-bit FNV-1a
-  uint32_t Hash(const std::string& x) const {
+  constexpr uint32_t Hash(const std::string& x) const {
     uint32_t h = 0x811c9dc5;
     for (auto ch : x) {
       h ^= static_cast<unsigned char>(ch);
@@ -224,7 +224,7 @@ struct Hasher {
   }
 
   template <typename Arg, typename... Args>
-  uint32_t Hash(uint32_t h, Arg arg, Args... args) const {
+  constexpr uint32_t Hash(uint32_t h, Arg arg, Args... args) const {
     return Hash(h ^ (Hash(arg) + 0x9e3779b9 + (h << 6) + (h >> 2)), args...);
   }
 
