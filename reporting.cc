@@ -91,55 +91,72 @@ bool PrintComparison(Reporting& reporting, const Comparison& comparison,
 
 static constexpr size_t INDENT_INCREMENT = 2;
 
-// unvisited (absent) -> started (false) -> finished (true)
-using Seen = std::unordered_map<Comparison, bool, HashComparison>;
+class Plain {
+  // unvisited (absent) -> started (false) -> finished (true)
+  using Seen = std::unordered_map<Comparison, bool, HashComparison>;
 
-void PlainPrint(Reporting& reporting, const Comparison& comparison, Seen& seen,
-                std::ostream& os, size_t indent, const std::string& prefix) {
-  if (PrintComparison(reporting, comparison, os, indent, prefix)) {
+ public:
+  Plain(Reporting& reporting, std::ostream& output)
+      : reporting_(reporting), output_(output) {}
+
+  void Report(const Comparison&);
+
+ private:
+  Reporting& reporting_;
+  std::ostream& output_;
+  Seen seen_;
+
+  void Print(const Comparison&, size_t, const std::string&);
+};
+
+void Plain::Print(const Comparison& comparison, size_t indent,
+           const std::string& prefix) {
+  if (PrintComparison(reporting_, comparison, output_, indent, prefix)) {
     return;
   }
 
   indent += INDENT_INCREMENT;
-  const auto it = reporting.outcomes.find(comparison);
-  Check(it != reporting.outcomes.end()) << "internal error: missing comparison";
+  const auto it = reporting_.outcomes.find(comparison);
+  Check(it != reporting_.outcomes.end())
+      << "internal error: missing comparison";
   const auto& diff = it->second;
 
   const bool holds_changes = diff.holds_changes;
   std::pair<Seen::iterator, bool> insertion;
 
-  if (holds_changes)
-    insertion = seen.insert({comparison, false});
+  if (holds_changes) {
+    insertion = seen_.insert({comparison, false});
+  }
 
   if (holds_changes && !insertion.second) {
-    if (!insertion.first->second)
-      os << std::string(indent, ' ') << "(being reported)\n";
-    else if (!diff.details.empty())
-      os << std::string(indent, ' ') << "(already reported)\n";
+    if (!insertion.first->second) {
+      output_ << std::string(indent, ' ') << "(being reported)\n";
+    } else if (!diff.details.empty()) {
+      output_ << std::string(indent, ' ') << "(already reported)\n";
+    }
     return;
   }
 
   for (const auto& detail : diff.details) {
     if (!detail.edge_) {
-      os << std::string(indent, ' ') << detail.text_ << '\n';
+      output_ << std::string(indent, ' ') << detail.text_ << '\n';
     } else {
-      PlainPrint(reporting, *detail.edge_, seen, os, indent, detail.text_);
+      Print(*detail.edge_, indent, detail.text_);
     }
   }
 
-  if (holds_changes)
+  if (holds_changes) {
     insertion.first->second = true;
+  }
 }
 
-void ReportPlain(Reporting& reporting, const Comparison& comparison,
-                 std::ostream& output) {
+void Plain::Report(const Comparison& comparison) {
   // unpack then print - want symbol diff forest rather than symbols diff tree
-  const auto& diff = reporting.outcomes.at(comparison);
-  Seen seen;
+  const auto& diff = reporting_.outcomes.at(comparison);
   for (const auto& detail : diff.details) {
-    PlainPrint(reporting, *detail.edge_, seen, output, 0, {});
+    Print(*detail.edge_, 0, {});
     // paragraph spacing
-    output << '\n';
+    output_ << '\n';
   }
 }
 
@@ -318,7 +335,7 @@ void Report(Reporting& reporting, const Comparison& comparison,
             std::ostream& output) {
   switch (reporting.options.format) {
     case OutputFormat::PLAIN: {
-      ReportPlain(reporting, comparison, output);
+      Plain(reporting, output).Report(comparison);
       break;
     }
     case OutputFormat::FLAT:
