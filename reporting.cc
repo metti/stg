@@ -21,12 +21,14 @@
 
 #include <cstddef>
 #include <deque>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
+#include "comparison.h"
 #include "error.h"
 #include "post_processing.h"
 
@@ -146,32 +148,51 @@ void ReportPlain(Reporting& reporting, const Comparison& comparison,
 // printing. Optionally, avoid printing "uninteresting" nodes - those that have
 // no diff and no path to a diff that does not pass through a node that can hold
 // diffs. Return whether the diff node's tree was intrinisically interesting.
-bool FlatPrint(Reporting& reporting, const Comparison& comparison,
-               std::unordered_set<Comparison, HashComparison>& seen,
-               std::deque<Comparison>& todo, bool full, bool stop,
-               std::ostream& os, size_t indent, const std::string& prefix) {
+class Flat {
+ public:
+  Flat(Reporting& reporting, bool full, std::ostream& output)
+      : reporting_(reporting), full_(full), output_(output) {}
+
+  void Report(const Comparison&);
+
+ private:
+  Reporting& reporting_;
+  const bool full_;
+  std::ostream& output_;
+  std::unordered_set<Comparison, HashComparison> seen_;
+  std::deque<Comparison> todo_;
+
+  bool Print(const Comparison&, bool, std::ostream&, size_t,
+             const std::string&);
+};
+
+bool Flat::Print(const Comparison& comparison, bool stop, std::ostream& os,
+                 size_t indent, const std::string& prefix) {
   // Nodes that represent additions or removal are always interesting and no
   // recursion is possible.
-  if (PrintComparison(reporting, comparison, os, indent, prefix)) {
+  if (PrintComparison(reporting_, comparison, os, indent, prefix)) {
     return true;
   }
 
   // Look up the diff (including node and edge changes).
-  const auto it = reporting.outcomes.find(comparison);
-  Check(it != reporting.outcomes.end()) << "internal error: missing comparison";
+  const auto it = reporting_.outcomes.find(comparison);
+  Check(it != reporting_.outcomes.end())
+      << "internal error: missing comparison";
   const auto& diff = it->second;
 
   // Check the stopping condition.
   if (diff.holds_changes && stop) {
     // If it's a new diff-holding node, queue it.
-    if (seen.insert(comparison).second)
-      todo.push_back(comparison);
+    if (seen_.insert(comparison).second) {
+      todo_.push_back(comparison);
+    }
     return false;
   }
   // The stop flag can only be false on a non-recursive call which should be for
   // a diff-holding node.
-  if (!diff.holds_changes && !stop)
+  if (!diff.holds_changes && !stop) {
     Die() << "internal error: FlatPrint called on inappropriate node";
+  }
 
   // Indent before describing diff details.
   indent += INDENT_INCREMENT;
@@ -186,39 +207,36 @@ bool FlatPrint(Reporting& reporting, const Comparison& comparison,
       std::ostringstream sub_os;
       // Set the stop flag to prevent recursion past diff-holding nodes.
       bool sub_interesting =
-          FlatPrint(reporting, *detail.edge_, seen, todo, full, true, sub_os,
-                    indent, detail.text_);
+          Print(*detail.edge_, true, sub_os, indent, detail.text_);
       // If the sub-tree was interesting, add it.
-      if (sub_interesting || full)
+      if (sub_interesting || full_) {
         os << sub_os.str();
+      }
       interesting |= sub_interesting;
     }
   }
   return interesting;
 }
 
-void ReportFlat(Reporting& reporting, const Comparison& comparison, bool full,
-                std::ostream& output) {
+void Flat::Report(const Comparison& comparison) {
   // We want a symbol diff forest rather than a symbol table diff tree, so
   // unpack the symbol table and then print the symbols specially.
-  const auto& diff = reporting.outcomes.at(comparison);
-  std::unordered_set<Comparison, HashComparison> seen;
-  std::deque<Comparison> todo;
+  const auto& diff = reporting_.outcomes.at(comparison);
   for (const auto& detail : diff.details) {
     std::ostringstream os;
-    const bool interesting =
-        FlatPrint(reporting, *detail.edge_, seen, todo, full, true, os, 0, {});
-    if (interesting || full)
-      output << os.str() << '\n';
+    const bool interesting = Print(*detail.edge_, true, os, 0, {});
+    if (interesting || full_) {
+      output_ << os.str() << '\n';
+    }
   }
-  while (!todo.empty()) {
-    auto comp = todo.front();
-    todo.pop_front();
+  while (!todo_.empty()) {
+    auto comp = todo_.front();
+    todo_.pop_front();
     std::ostringstream os;
-    const bool interesting =
-        FlatPrint(reporting, comp, seen, todo, full, false, os, 0, {});
-    if (interesting || full)
-      output << os.str() << '\n';
+    const bool interesting = Print(comp, false, os, 0, {});
+    if (interesting || full_) {
+      output_ << os.str() << '\n';
+    }
   }
 }
 
@@ -306,12 +324,12 @@ void Report(Reporting& reporting, const Comparison& comparison,
     case OutputFormat::FLAT:
     case OutputFormat::SMALL: {
       bool full = reporting.options.format == OutputFormat::FLAT;
-      ReportFlat(reporting, comparison, full, output);
+      Flat(reporting, full, output).Report(comparison);
       break;
     }
     case OutputFormat::SHORT: {
       std::stringstream report;
-      ReportFlat(reporting, comparison, false, report);
+      Flat(reporting, false, report).Report(comparison);
       std::vector<std::string> report_lines;
       std::string line;
       while (std::getline(report, line))
