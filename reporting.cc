@@ -53,7 +53,7 @@ std::string GetResolvedDescription(
 // empty.
 //
 // It returns true if the comparison denotes addition or removal of a node.
-bool PrintComparison(Reporting& reporting, const Comparison& comparison,
+bool PrintComparison(const Reporting& reporting, const Comparison& comparison,
                      std::ostream& os, size_t indent,
                      const std::string& prefix) {
   os << std::string(indent, ' ');
@@ -98,13 +98,13 @@ class Plain {
   using Seen = std::unordered_map<Comparison, bool, HashComparison>;
 
  public:
-  Plain(Reporting& reporting, std::ostream& output)
+  Plain(const Reporting& reporting, std::ostream& output)
       : reporting_(reporting), output_(output) {}
 
   void Report(const Comparison&);
 
  private:
-  Reporting& reporting_;
+  const Reporting& reporting_;
   std::ostream& output_;
   Seen seen_;
 
@@ -169,13 +169,13 @@ void Plain::Report(const Comparison& comparison) {
 // diffs. Return whether the diff node's tree was intrinisically interesting.
 class Flat {
  public:
-  Flat(Reporting& reporting, bool full, std::ostream& output)
+  Flat(const Reporting& reporting, bool full, std::ostream& output)
       : reporting_(reporting), full_(full), output_(output) {}
 
   void Report(const Comparison&);
 
  private:
-  Reporting& reporting_;
+  const Reporting& reporting_;
   const bool full_;
   std::ostream& output_;
   std::unordered_set<Comparison, HashComparison> seen_;
@@ -264,7 +264,7 @@ size_t VizId(std::unordered_map<Comparison, size_t, HashComparison>& ids,
   return ids.insert({comparison, ids.size()}).first->second;
 }
 
-void VizPrint(Reporting& reporting, const Comparison& comparison,
+void VizPrint(const Reporting& reporting, const Comparison& comparison,
               std::unordered_set<Comparison, HashComparison>& seen,
               std::unordered_map<Comparison, size_t, HashComparison>& ids,
               std::ostream& os) {
@@ -323,7 +323,7 @@ void VizPrint(Reporting& reporting, const Comparison& comparison,
   }
 }
 
-void ReportViz(Reporting& reporting, const Comparison& comparison,
+void ReportViz(const Reporting& reporting, const Comparison& comparison,
                std::ostream& output) {
   output << "digraph \"ABI diff\" {\n";
   std::unordered_set<Comparison, HashComparison> seen;
@@ -334,7 +334,7 @@ void ReportViz(Reporting& reporting, const Comparison& comparison,
 
 }  // namespace
 
-void Report(Reporting& reporting, const Comparison& comparison,
+void Report(const Reporting& reporting, const Comparison& comparison,
             std::ostream& output) {
   switch (reporting.options.format) {
     case OutputFormat::PLAIN: {

@@ -43,8 +43,7 @@ struct Reporting {
   NameCache& names;
 };
 
-void Report(Reporting& reporting, const Comparison& comparison,
-            std::ostream& output);
+void Report(const Reporting&, const Comparison&, std::ostream&);
 
 }  // namespace reporting
 }  // namespace stg
