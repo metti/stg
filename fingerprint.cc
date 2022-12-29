@@ -28,60 +28,60 @@ namespace stg {
 namespace {
 
 struct Hasher {
-  Hasher(const Graph& graph, std::unordered_map<Id, uint64_t>& hashes,
+  Hasher(const Graph& graph, std::unordered_map<Id, uint32_t>& hashes,
          std::unordered_set<Id>& todo, Metrics& metrics)
       : graph(graph), hashes(hashes), todo(todo),
         non_trivial_scc_size(metrics, "fingerprint.non_trivial_scc_size") {}
 
   // Graph function implementation
-  uint64_t operator()(const Void&) {
+  uint32_t operator()(const Void&) {
     return Hash('O');
   }
 
-  uint64_t operator()(const Variadic&) {
+  uint32_t operator()(const Variadic&) {
     return Hash('V');
   }
 
-  uint64_t operator()(const PointerReference& x) {
+  uint32_t operator()(const PointerReference& x) {
     return Hash(x.kind == PointerReference::Kind::POINTER ? 'P'
                 : x.kind == PointerReference::Kind::LVALUE_REFERENCE ? 'L'
                 : 'R',
                 (*this)(x.pointee_type_id));
   }
 
-  uint64_t operator()(const Typedef& x) {
+  uint32_t operator()(const Typedef& x) {
     todo.insert(x.referred_type_id);
     return Hash('T', x.name);
   }
 
-  uint64_t operator()(const Qualified& x) {
+  uint32_t operator()(const Qualified& x) {
     return Hash(x.qualifier == Qualifier::CONST ? 'c'
                 : x.qualifier == Qualifier::VOLATILE ? 'v'
                 : 'r',
                 (*this)(x.qualified_type_id));
   }
 
-  uint64_t operator()(const Primitive& x) {
+  uint32_t operator()(const Primitive& x) {
     return Hash('i', x.name);
   }
 
-  uint64_t operator()(const Array& x) {
+  uint32_t operator()(const Array& x) {
     return Hash('A', x.number_of_elements, (*this)(x.element_type_id));
   }
 
-  uint64_t operator()(const BaseClass& x) {
+  uint32_t operator()(const BaseClass& x) {
     return Hash('B', (*this)(x.type_id));
   }
 
-  uint64_t operator()(const Method& x) {
+  uint32_t operator()(const Method& x) {
     return Hash('M', x.mangled_name, x.name, (*this)(x.type_id));
   }
 
-  uint64_t operator()(const Member& x) {
+  uint32_t operator()(const Member& x) {
     return Hash('D', x.name, x.offset, (*this)(x.type_id));
   }
 
-  uint64_t operator()(const StructUnion& x) {
+  uint32_t operator()(const StructUnion& x) {
     auto kind = Hash(x.kind == StructUnion::Kind::STRUCT ? 's'
                      : x.kind == StructUnion::Kind::UNION ? 'u'
                      : 'k');
@@ -117,7 +117,7 @@ struct Hasher {
     }
   }
 
-  uint64_t operator()(const Enumeration& x) {
+  uint32_t operator()(const Enumeration& x) {
     if (x.name.empty()) {
       auto h = Hash('e');
       if (x.definition) {
@@ -131,7 +131,7 @@ struct Hasher {
     }
   }
 
-  uint64_t operator()(const Function& x) {
+  uint32_t operator()(const Function& x) {
     auto h = Hash('F', (*this)(x.return_type_id));
     for (const auto& parameter : x.parameters) {
       h = Hash(h, (*this)(parameter));
@@ -139,14 +139,14 @@ struct Hasher {
     return h;
   }
 
-  uint64_t operator()(const ElfSymbol& x) {
+  uint32_t operator()(const ElfSymbol& x) {
     if (x.type_id.has_value()) {
       todo.insert(x.type_id.value());
     }
     return Hash('S', x.symbol_name);
   }
 
-  uint64_t operator()(const Symbols& x) {
+  uint32_t operator()(const Symbols& x) {
     for (const auto& [name, symbol] : x.symbols) {
       todo.insert(symbol);
     }
@@ -154,7 +154,7 @@ struct Hasher {
   }
 
   // main entry point
-  uint64_t operator()(Id id) {
+  uint32_t operator()(Id id) {
     // Check if the id already has a fingerprint.
     const auto it = hashes.find(id);
     if (it != hashes.end()) {
@@ -171,7 +171,7 @@ struct Hasher {
     }
     // Comparison opened, need to close it before returning.
 
-    uint64_t result = graph.Apply<uint64_t>(*this, id);
+    uint32_t result = graph.Apply<uint32_t>(*this, id);
 
     // Check for a complete Strongly-Connected Component.
     auto ids = scc.Close(*handle);
@@ -198,30 +198,38 @@ struct Hasher {
     return result;
   }
 
-  uint64_t Hash(uint64_t x) const {
+  // hash 64 bits by splitting, hashing and combining
+  uint32_t Hash(uint64_t x) const {
+    uint32_t lo = x;
+    uint32_t hi = x >> 32;
+    return Hash(lo, hi);
+  }
+
+  uint32_t Hash(uint32_t x) const {
     return x;
   }
 
-  uint64_t Hash(char x) const {
+  uint32_t Hash(char x) const {
     return x;
   }
 
-  uint64_t Hash(const std::string& x) const {
-    uint64_t h = 0xcbf29ce484222325ull;
+  // 32-bit FNV-1a
+  uint32_t Hash(const std::string& x) const {
+    uint32_t h = 0x811c9dc5;
     for (auto ch : x) {
       h ^= static_cast<unsigned char>(ch);
-      h *= 0x00000100000001B3ull;
+      h *= 0x01000193;
     }
     return h;
   }
 
   template <typename Arg, typename... Args>
-  uint64_t Hash(uint64_t h, Arg arg, Args... args) const {
+  uint32_t Hash(uint32_t h, Arg arg, Args... args) const {
     return Hash(h ^ (Hash(arg) + 0x9e3779b9 + (h << 6) + (h >> 2)), args...);
   }
 
   const Graph& graph;
-  std::unordered_map<Id, uint64_t>& hashes;
+  std::unordered_map<Id, uint32_t>& hashes;
   std::unordered_set<Id> &todo;
   Histogram non_trivial_scc_size;
   SCC<Id> scc;
@@ -229,10 +237,10 @@ struct Hasher {
 
 }  // namespace
 
-std::unordered_map<Id, uint64_t> Fingerprint(
+std::unordered_map<Id, uint32_t> Fingerprint(
     const Graph& graph, Id root, Metrics& metrics) {
   Time x(metrics, "hash nodes");
-  std::unordered_map<Id, uint64_t> hashes;
+  std::unordered_map<Id, uint32_t> hashes;
   std::unordered_set<Id> todo;
   Hasher hasher(graph, hashes, todo, metrics);
   todo.insert(root);
