@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "graph.h"
+#include "metrics.h"
 #include <libxml/tree.h>
 
 namespace stg {
@@ -141,7 +142,7 @@ class Abigail {
   Id BuildSymbols();
 };
 
-Id Read(Graph& graph, const std::string& path);
+Id Read(Graph& graph, const std::string& path, Metrics& metrics);
 
 }  // namespace abixml
 }  // namespace stg

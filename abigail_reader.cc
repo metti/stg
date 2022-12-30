@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -720,17 +721,21 @@ Id Abigail::BuildSymbols() {
   return graph_.Add<Symbols>(symbols);
 }
 
-Id Read(Graph& graph, const std::string& path) {
+Id Read(Graph& graph, const std::string& path, Metrics& metrics) {
   // Open input for reading.
   FileDescriptor fd(path.c_str(), O_RDONLY);
 
   // Read the XML.
-  std::unique_ptr<
-      std::remove_pointer<xmlParserCtxtPtr>::type, void(*)(xmlParserCtxtPtr)>
-      context(xmlNewParserCtxt(), xmlFreeParserCtxt);
   std::unique_ptr<std::remove_pointer<xmlDocPtr>::type, void(*)(xmlDocPtr)>
-      document(xmlCtxtReadFd(context.get(), fd.Value(), nullptr, nullptr, 0),
-               xmlFreeDoc);
+      document(nullptr, xmlFreeDoc);
+  {
+    Time t(metrics, "abigail.libxml_parse");
+    std::unique_ptr<
+        std::remove_pointer<xmlParserCtxtPtr>::type, void(*)(xmlParserCtxtPtr)>
+        context(xmlNewParserCtxt(), xmlFreeParserCtxt);
+    document.reset(
+        xmlCtxtReadFd(context.get(), fd.Value(), nullptr, nullptr, 0));
+  }
   Check(document != nullptr) << "failed to parse input as XML";
 
   // Get the root element.

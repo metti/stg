@@ -66,7 +66,7 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
     switch (format) {
       case InputFormat::ABI: {
         stg::Time read(metrics, "read ABI");
-        roots.push_back(stg::abixml::Read(graph, filename));
+        roots.push_back(stg::abixml::Read(graph, filename, metrics));
         break;
       }
       case InputFormat::BTF: {

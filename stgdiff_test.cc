@@ -27,6 +27,7 @@
 #include <catch2/catch.hpp>
 #include "abigail_reader.h"
 #include "graph.h"
+#include "metrics.h"
 #include "reporting.h"
 
 struct CompareOptionsTestCase {
@@ -70,10 +71,14 @@ TEST_CASE("compare options") {
                                        true}));
 
   SECTION(test_case.name) {
+    stg::Metrics metrics;
+
     // Read inputs.
     stg::Graph graph;
-    const auto id0 = stg::abixml::Read(graph, filename_to_path(test_case.xml0));
-    const auto id1 = stg::abixml::Read(graph, filename_to_path(test_case.xml1));
+    const auto id0 =
+        stg::abixml::Read(graph, filename_to_path(test_case.xml0), metrics);
+    const auto id1 =
+        stg::abixml::Read(graph, filename_to_path(test_case.xml1), metrics);
 
     // Compute differences.
     stg::Compare compare{graph, test_case.compare_options};
@@ -123,10 +128,14 @@ TEST_CASE("short report") {
                            "added_removed_symbols_only_short_diff"}));
 
   SECTION(test_case.name) {
+    stg::Metrics metrics;
+
     // Read inputs.
     stg::Graph graph;
-    const auto id0 = stg::abixml::Read(graph, filename_to_path(test_case.xml0));
-    const auto id1 = stg::abixml::Read(graph, filename_to_path(test_case.xml1));
+    const auto id0 =
+        stg::abixml::Read(graph, filename_to_path(test_case.xml0), metrics);
+    const auto id1 =
+        stg::abixml::Read(graph, filename_to_path(test_case.xml1), metrics);
 
     // Compute differences.
     stg::Compare compare{graph, {}};

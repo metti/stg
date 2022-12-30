@@ -43,11 +43,11 @@ Metrics metrics;
 enum class InputFormat { ABI, BTF, ELF, STG };
 
 Id Read(Graph& graph, InputFormat format, const char* input, bool process_dwarf,
-        bool info) {
+        bool info, Metrics& metrics) {
   switch (format) {
     case InputFormat::ABI: {
       Time read(metrics, "read ABI");
-      return abixml::Read(graph, input);
+      return abixml::Read(graph, input, metrics);
     }
     case InputFormat::BTF: {
       Time read(metrics, "read BTF");
@@ -195,7 +195,7 @@ int main(int argc, char* argv[]) {
     roots.reserve(inputs.size());
     for (auto input : inputs) {
       roots.push_back(stg::Read(graph, opt_input_format, input,
-                                opt_process_dwarf, opt_info));
+                                opt_process_dwarf, opt_info, stg::metrics));
     }
     stg::Id root = stg::Merge(graph, roots);
     for (auto output : outputs) {
