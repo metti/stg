@@ -223,10 +223,11 @@ struct Hasher {
     return h;
   }
 
-  // Boost hash_combine (must be used with good hashes)
+  // reverse order Boost hash_combine (must be used with good hashes)
   template <typename Arg, typename... Args>
-  constexpr uint32_t Hash(uint32_t h, Arg arg, Args... args) const {
-    return Hash(h ^ (Hash(arg) + 0x9e3779b9 + (h << 6) + (h >> 2)), args...);
+  constexpr uint32_t Hash(Arg arg, Args... args) const {
+    auto seed = Hash(args...);
+    return seed ^ (Hash(arg) + 0x9e3779b9 + (seed << 6) + (seed >> 2));
   }
 
   const Graph& graph;
