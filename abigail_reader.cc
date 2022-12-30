@@ -23,7 +23,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -38,6 +37,7 @@
 
 #include <libxml/parser.h>
 #include "error.h"
+#include "file_descriptor.h"
 #include "graph.h"
 
 namespace stg {
@@ -722,22 +722,18 @@ Id Abigail::BuildSymbols() {
 
 Id Read(Graph& graph, const std::string& path) {
   // Open input for reading.
-  const int fd = open(path.c_str(), O_RDONLY);
-  if (fd < 0)
-    Die() << "could not open '" << path << "' for reading: " << strerror(errno);
-  xmlParserCtxtPtr parser_context = xmlNewParserCtxt();
+  FileDescriptor fd(path.c_str(), O_RDONLY);
 
   // Read the XML.
-  const auto document =
-      std::unique_ptr<std::remove_pointer<xmlDocPtr>::type, void(*)(xmlDocPtr)>(
-          xmlCtxtReadFd(parser_context, fd, nullptr, nullptr, 0), xmlFreeDoc);
-
-  // Close input.
-  xmlFreeParserCtxt(parser_context);
-  close(fd);
+  std::unique_ptr<
+      std::remove_pointer<xmlParserCtxtPtr>::type, void(*)(xmlParserCtxtPtr)>
+      context(xmlNewParserCtxt(), xmlFreeParserCtxt);
+  std::unique_ptr<std::remove_pointer<xmlDocPtr>::type, void(*)(xmlDocPtr)>
+      document(xmlCtxtReadFd(context.get(), fd.Value(), nullptr, nullptr, 0),
+               xmlFreeDoc);
+  Check(document != nullptr) << "failed to parse input as XML";
 
   // Get the root element.
-  Check(document != nullptr) << "failed to parse input as XML";
   xmlNodePtr root = xmlDocGetRootElement(document.get());
   Check(root) << "XML document has no root element";
 
