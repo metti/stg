@@ -329,6 +329,21 @@ class Graph {
     return id;
   }
 
+  void Deallocate(Id) {
+    // don't actually do anything, not supported
+  }
+
+  void Unset(Id id) {
+    auto& reference = nodes_[id.ix_];
+    Check(reference != nullptr) << "node value already unset";
+    reference = nullptr;
+  }
+
+  void Remove(Id id) {
+    Unset(id);
+    Deallocate(id);
+  }
+
   template <typename Result, typename FunctionObject, typename... Args>
   Result Apply(FunctionObject& function, Id id, Args&&... args) const;
 
