@@ -81,7 +81,7 @@ TEST_CASE("compare options") {
         stg::abixml::Read(graph, filename_to_path(test_case.xml1), metrics);
 
     // Compute differences.
-    stg::Compare compare{graph, test_case.compare_options};
+    stg::Compare compare{graph, test_case.compare_options, metrics};
     const auto& [equals, comparison] = compare(id0, id1);
 
     // Write SMALL reports.
@@ -138,7 +138,7 @@ TEST_CASE("short report") {
         stg::abixml::Read(graph, filename_to_path(test_case.xml1), metrics);
 
     // Compute differences.
-    stg::Compare compare{graph, {}};
+    stg::Compare compare{graph, {}, metrics};
     const auto& [equals, comparison] = compare(id0, id1);
 
     // Write SHORT reports.

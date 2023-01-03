@@ -60,7 +60,7 @@ using Outputs =
     std::vector<std::pair<stg::reporting::OutputFormat, const char*>>;
 
 std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
-                          bool process_dwarf) {
+                          bool process_dwarf, stg::Metrics& metrics) {
   std::vector<stg::Id> roots;
   for (const auto& [format, filename] : inputs) {
     switch (format) {
@@ -90,9 +90,9 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
   return roots;
 }
 
-bool RunExact(const Inputs& inputs, bool process_dwarf) {
+bool RunExact(const Inputs& inputs, bool process_dwarf, stg::Metrics& metrics) {
   stg::Graph graph;
-  const auto roots = Read(inputs, graph, process_dwarf);
+  const auto roots = Read(inputs, graph, process_dwarf, metrics);
 
   struct PairCache {
     std::optional<bool> Query(const stg::Pair& comparison) const {
@@ -115,14 +115,14 @@ bool RunExact(const Inputs& inputs, bool process_dwarf) {
 }
 
 bool Run(const Inputs& inputs, const Outputs& outputs,
-         const stg::CompareOptions& compare_options,
-         bool process_dwarf) {
+         const stg::CompareOptions& compare_options, bool process_dwarf,
+         stg::Metrics& metrics) {
   // Read inputs.
   stg::Graph graph;
-  const auto roots = Read(inputs, graph, process_dwarf);
+  const auto roots = Read(inputs, graph, process_dwarf, metrics);
 
   // Compute differences.
-  stg::Compare compare{graph, compare_options};
+  stg::Compare compare{graph, compare_options, metrics};
   std::pair<bool, std::optional<stg::Comparison>> result;
   {
     stg::Time compute(metrics, "compute diffs");
@@ -146,6 +146,7 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
     if (!output)
       stg::Die() << "error writing to " << '\'' << filename << '\'';
   }
+
   return equals;
 }
 
@@ -277,9 +278,9 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    const bool equals =
-        opt_exact ? RunExact(inputs, opt_process_dwarf)
-                  : Run(inputs, outputs, compare_options, opt_process_dwarf);
+    const bool equals = opt_exact
+        ? RunExact(inputs, opt_process_dwarf, metrics)
+        : Run(inputs, outputs, compare_options, opt_process_dwarf, metrics);
     if (opt_metrics) {
       stg::Report(metrics, std::cerr);
     }
