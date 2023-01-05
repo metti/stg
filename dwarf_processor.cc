@@ -38,6 +38,14 @@ std::string GetName(Entry& entry) {
   return std::move(*result);
 }
 
+std::string GetNameOrEmpty(Entry& entry) {
+  auto result = MaybeGetName(entry);
+  if (!result.has_value()) {
+    return std::string();
+  }
+  return std::move(*result);
+}
+
 size_t GetBitSize(Entry& entry) {
   if (auto byte_size = entry.MaybeGetUnsignedConstant(DW_AT_byte_size)) {
     return *byte_size * 8;
@@ -89,6 +97,14 @@ std::optional<Entry> MaybeGetReferredType(Entry& entry) {
   return entry.MaybeGetReference(DW_AT_type);
 }
 
+Entry GetReferredType(Entry& entry) {
+  auto result = MaybeGetReferredType(entry);
+  if (!result.has_value()) {
+    Die() << "Type reference was not found in " << EntryToString(entry);
+  }
+  return std::move(*result);
+}
+
 }  // namespace
 
 // Transforms DWARF entries to STG.
@@ -109,6 +125,9 @@ class Processor {
         break;
       case DW_TAG_union_type:
         ProcessStructUnion(entry, StructUnion::Kind::UNION);
+        break;
+      case DW_TAG_member:
+        ProcessMember(entry);
         break;
       case DW_TAG_pointer_type:
         ProcessReference<PointerReference>(
@@ -199,8 +218,7 @@ class Processor {
 
   void ProcessStructUnion(Entry& entry, StructUnion::Kind kind) {
     // TODO: add scoping
-    std::optional<std::string> name_optional = MaybeGetName(entry);
-    std::string name = name_optional ? *name_optional : std::string();
+    std::string name = GetNameOrEmpty(entry);
 
     if (entry.GetFlag(DW_AT_declaration)) {
       // It is expected to have only name and no children in declaration.
@@ -212,13 +230,14 @@ class Processor {
     }
 
     auto byte_size = GetByteSize(entry);
+    std::vector<Id> members;
 
     for (auto& child : entry.GetChildren()) {
       auto child_tag = child.GetTag();
       // All possible children of struct/class/union
       switch (child_tag) {
         case DW_TAG_member:
-          // TODO: process members
+          members.push_back(GetIdForEntry(child));
           break;
         case DW_TAG_subprogram:
           // TODO: process methods
@@ -240,13 +259,22 @@ class Processor {
       Process(child);
     }
 
-    // TODO: support members
     // TODO: support base classes
     // TODO: support methods
     AddProcessedNode<StructUnion>(entry, kind, std::move(name), byte_size,
                                   /* base_classes = */ std::vector<Id>{},
                                   /* methods = */ std::vector<Id>{},
-                                  /* members = */ std::vector<Id>{});
+                                  std::move(members));
+  }
+
+  void ProcessMember(Entry& entry) {
+    std::string name = GetNameOrEmpty(entry);
+    auto referred_type = GetReferredType(entry);
+    auto referred_type_id = GetIdForEntry(referred_type);
+    // TODO: support offset and bitsize from DWARF
+    AddProcessedNode<Member>(entry, std::move(name), referred_type_id,
+                             /* offset = */ 0,
+                             /* bitsize = */ 0);
   }
 
   // Allocate or get already allocated STG Id for Entry.
