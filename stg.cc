@@ -79,9 +79,6 @@ struct GetSymbols {
 };
 
 Id Merge(Graph& graph, const std::vector<Id>& roots) {
-  if (roots.size() == 1) {
-    return roots[0];
-  }
   std::map<std::string, Id> symbols;
   GetSymbols get;
   for (auto root : roots) {
@@ -90,6 +87,7 @@ Id Merge(Graph& graph, const std::vector<Id>& roots) {
         Die() << "merge failed with duplicate symbol: " << x.first;
       }
     }
+    graph.Remove(root);
   }
   return graph.Add<Symbols>(symbols);
 }
@@ -204,7 +202,7 @@ int main(int argc, char* argv[]) {
       roots.push_back(stg::Read(graph, opt_input_format, input,
                                 opt_process_dwarf, opt_info, stg::metrics));
     }
-    stg::Id root = stg::Merge(graph, roots);
+    stg::Id root = roots.size() == 1 ? roots[0] : stg::Merge(graph, roots);
     if (!opt_keep_duplicates) {
       const auto hashes = stg::Fingerprint(graph, root, stg::metrics);
       root = stg::Deduplicate(graph, root, hashes, stg::metrics);
