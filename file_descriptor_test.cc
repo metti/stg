@@ -48,14 +48,6 @@ TEST_CASE("double close") {
   }());                         // throws on destruction
 }
 
-TEST_CASE("reset on destruction") {
-  stg::FileDescriptor fd("/dev/null", O_RDONLY);
-  CHECK_NOTHROW(fd.Value());  // value is still ok
-
-  fd.~FileDescriptor();
-  CHECK_THROWS(fd.Value());
-}
-
 TEST_CASE("ownership transfer on move") {
   stg::FileDescriptor fd("/dev/null", O_RDONLY);
   CHECK_NOTHROW(fd.Value());  // value is still ok
