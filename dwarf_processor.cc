@@ -105,6 +105,33 @@ Entry GetReferredType(Entry& entry) {
   return std::move(*result);
 }
 
+size_t GetNumberOfElements(Entry& entry) {
+  // DWARF standard says, that array dimensions could be an entry with
+  // either DW_TAG_subrange_type or DW_TAG_enumeration_type. However, this
+  // code supports only the DW_TAG_subrange_type.
+  Check(entry.GetTag() == DW_TAG_subrange_type)
+      << "Array's dimensions should be an entry of DW_TAG_subrange_type";
+  std::optional<size_t> lower_bound_optional =
+      entry.MaybeGetUnsignedConstant(DW_AT_lower_bound);
+  Check(!lower_bound_optional.has_value() || *lower_bound_optional == 0)
+      << "Non-zero DW_AT_lower_bound is not supported";
+  std::optional<size_t> upper_bound_optional =
+      entry.MaybeGetUnsignedConstant(DW_AT_upper_bound);
+  std::optional<size_t> number_of_elements_optional =
+      entry.MaybeGetUnsignedConstant(DW_AT_count);
+  if (upper_bound_optional && number_of_elements_optional) {
+    Die() << "Both DW_AT_upper_bound and DW_AT_count given";
+  } else if (upper_bound_optional) {
+    return *upper_bound_optional + 1;
+  } else if (number_of_elements_optional) {
+    return *number_of_elements_optional;
+  } else {
+    // If a subrange has no DW_AT_count and no DW_AT_upper_bound attribue, its
+    // size is unknown.
+    return 0;
+  }
+}
+
 }  // namespace
 
 // Transforms DWARF entries to STG.
@@ -117,6 +144,9 @@ class Processor {
     ++result_.processed_entries;
     auto tag = entry.GetTag();
     switch (tag) {
+      case DW_TAG_array_type:
+        ProcessArray(entry);
+        break;
       case DW_TAG_class_type:
         ProcessStructUnion(entry, StructUnion::Kind::CLASS);
         break;
@@ -275,6 +305,31 @@ class Processor {
     AddProcessedNode<Member>(entry, std::move(name), referred_type_id,
                              /* offset = */ 0,
                              /* bitsize = */ 0);
+  }
+
+  void ProcessArray(Entry& entry) {
+    auto referred_type = GetReferredType(entry);
+    auto referred_type_id = GetIdForEntry(referred_type);
+    auto children = entry.GetChildren();
+    // Multiple children in array describe multiple dimensions of this array.
+    // For example, int[M][N] contains two children, M located in the first
+    // child, N located in the second child. But in STG multidimensional arrays
+    // are represented as chain of arrays: int[M][N] is array[M] of array[N] of
+    // int.
+    //
+    // We need to chain children as types together in reversed order.
+    // "referred_type_id" is updated every time to contain the top element in
+    // the chain. Rightmost chldren refers to the original "referred_type_id".
+    for (auto it = children.rbegin(); it != children.rend(); ++it) {
+      auto& child = *it;
+      // All subarrays except the first (last in the reversed order) are
+      // attached to the corresponding child. First subarray (last in the
+      // reversed order) is attached to the original entry itself.
+      auto& entry_to_attach = (it + 1 == children.rend()) ? entry : child;
+      // Update referred_type_id so next array in chain points there.
+      referred_type_id = AddProcessedNode<Array>(
+          entry_to_attach, GetNumberOfElements(child), referred_type_id);
+    }
   }
 
   // Allocate or get already allocated STG Id for Entry.
