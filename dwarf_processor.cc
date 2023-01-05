@@ -47,6 +47,16 @@ size_t GetBitSize(Entry& entry) {
   Die() << "Bit size was not found for " << EntryToString(entry);
 }
 
+size_t GetByteSize(Entry& entry) {
+  if (auto byte_size = entry.MaybeGetUnsignedConstant(DW_AT_byte_size)) {
+    return *byte_size;
+  } else if (auto bit_size = entry.MaybeGetUnsignedConstant(DW_AT_bit_size)) {
+    // Round up bit_size / 8 to get minimal needed storage size in bytes.
+    return (*bit_size + 7) / 8;
+  }
+  Die() << "Byte size was not found for " << EntryToString(entry);
+}
+
 Primitive::Encoding GetEncoding(Entry& entry) {
   auto dwarf_encoding = entry.MaybeGetUnsignedConstant(DW_AT_encoding);
   if (!dwarf_encoding) {
@@ -91,6 +101,15 @@ class Processor {
     ++result_.processed_entries;
     auto tag = entry.GetTag();
     switch (tag) {
+      case DW_TAG_class_type:
+        ProcessStructUnion(entry, StructUnion::Kind::CLASS);
+        break;
+      case DW_TAG_structure_type:
+        ProcessStructUnion(entry, StructUnion::Kind::STRUCT);
+        break;
+      case DW_TAG_union_type:
+        ProcessStructUnion(entry, StructUnion::Kind::UNION);
+        break;
       case DW_TAG_pointer_type:
         ProcessReference<PointerReference>(
             entry, PointerReference::Kind::POINTER);
@@ -176,6 +195,58 @@ class Processor {
   void ProcessReference(Entry& entry, KindType kind) {
     auto referred_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
     AddProcessedNode<Node>(entry, kind, referred_type_id);
+  }
+
+  void ProcessStructUnion(Entry& entry, StructUnion::Kind kind) {
+    // TODO: add scoping
+    std::optional<std::string> name_optional = MaybeGetName(entry);
+    std::string name = name_optional ? *name_optional : std::string();
+
+    if (entry.GetFlag(DW_AT_declaration)) {
+      // It is expected to have only name and no children in declaration.
+      // However, it is not guaranteed and we should do something if we find an
+      // example.
+      CheckNoChildren(entry);
+      AddProcessedNode<StructUnion>(entry, kind, std::move(name));
+      return;
+    }
+
+    auto byte_size = GetByteSize(entry);
+
+    for (auto& child : entry.GetChildren()) {
+      auto child_tag = child.GetTag();
+      // All possible children of struct/class/union
+      switch (child_tag) {
+        case DW_TAG_member:
+          // TODO: process members
+          break;
+        case DW_TAG_subprogram:
+          // TODO: process methods
+          break;
+        case DW_TAG_inheritance:
+          // TODO: process base classes
+          break;
+        case DW_TAG_structure_type:
+        case DW_TAG_class_type:
+        case DW_TAG_union_type:
+        case DW_TAG_enumeration_type:
+        case DW_TAG_typedef:
+        case DW_TAG_variable:
+          break;
+        default:
+          Die() << "Unexpected tag for child of struct/class/union: 0x"
+                << std::hex << child_tag;
+      }
+      Process(child);
+    }
+
+    // TODO: support members
+    // TODO: support base classes
+    // TODO: support methods
+    AddProcessedNode<StructUnion>(entry, kind, std::move(name), byte_size,
+                                  /* base_classes = */ std::vector<Id>{},
+                                  /* methods = */ std::vector<Id>{},
+                                  /* members = */ std::vector<Id>{});
   }
 
   // Allocate or get already allocated STG Id for Entry.
