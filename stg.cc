@@ -24,11 +24,14 @@
 #include <iostream>
 #include <ostream>
 #include <string>
+#include <map>
 #include <vector>
 
 #include "abigail_reader.h"
 #include "btf_reader.h"
+#include "deduplication.h"
 #include "elf_reader.h"
+#include "fingerprint.h"
 #include "error.h"
 #include "graph.h"
 #include "metrics.h"
@@ -117,6 +120,7 @@ int main(int argc, char* argv[]) {
   // Process arguments.
   bool opt_metrics = false;
   bool opt_info = false;
+  bool opt_keep_duplicates = false;
   bool opt_unstable = false;
   bool opt_process_dwarf = false;
   stg::InputFormat opt_input_format = stg::InputFormat::ABI;
@@ -125,6 +129,7 @@ int main(int argc, char* argv[]) {
   static option opts[] = {
       {"metrics",         no_argument,       nullptr, 'm'          },
       {"info",            no_argument,       nullptr, 'i'          },
+      {"keep-duplicates", no_argument,       nullptr, 'd'          },
       {"unstable",        no_argument,       nullptr, 'u'          },
       {"abi",             no_argument,       nullptr, 'a'          },
       {"btf",             no_argument,       nullptr, 'b'          },
@@ -138,6 +143,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "usage: " << argv[0] << '\n'
               << "  [-m|--metrics]\n"
               << "  [-i|--info]\n"
+              << "  [-d|--keep-duplicates]\n"
               << "  [-u|--unstable]\n"
               << "  [--process-dwarf]\n"
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...\n"
@@ -147,7 +153,7 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-miuabeso:", opts, &ix);
+    int c = getopt_long(argc, argv, "-miduabeso:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
@@ -157,6 +163,9 @@ int main(int argc, char* argv[]) {
         break;
       case 'i':
         opt_info = true;
+        break;
+      case 'd':
+        opt_keep_duplicates = true;
         break;
       case 'u':
         opt_unstable = true;
@@ -198,6 +207,10 @@ int main(int argc, char* argv[]) {
                                 opt_process_dwarf, opt_info, stg::metrics));
     }
     stg::Id root = stg::Merge(graph, roots);
+    if (!opt_keep_duplicates) {
+      const auto hashes = stg::Fingerprint(graph, root, stg::metrics);
+      root = stg::Deduplicate(graph, root, hashes, stg::metrics);
+    }
     for (auto output : outputs) {
       stg::Write(graph, root, output, !opt_unstable);
     }

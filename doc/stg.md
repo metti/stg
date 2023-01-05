@@ -12,6 +12,7 @@ arguments and behaviour are subject to change.
 stg
   [-m|--metrics]
   [-i|--info]
+  [-d|--keep-duplicates]
   [-u|--unstable]
   [-a|--abi|-b|--btf|-e|--elf] [file] ...
   [{-o|--output} {filename|-}] ...
@@ -58,6 +59,15 @@ The tool can be passed any number of inputs to combine into a unified ABI.
 If multiple (or zero) inputs are provided, then a symbol merge operation is run.
 
 The resulting ABI has the union of the inputs' symbols, which must be disjoint.
+
+## Deduplication
+
+ABI representations, particularly merged ones, almost always have some sets of
+nodes that are recursively equal. By default, duplicate nodes are eliminated.
+
+*   `-d|--keep-duplicates`
+
+    Skip the deduplication pass.
 
 ## Output
 
