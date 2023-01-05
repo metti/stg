@@ -85,6 +85,14 @@ Handler::Handler(const std::string& path) : dwfl_(dwfl_begin(&kDwflCallbacks)) {
 
 Handler::Handler(char* data, size_t size) : dwfl_(dwfl_begin(&kDwflCallbacks)) {
   CheckOrDwflError(dwfl_.get(), "dwfl_begin");
+
+  // Check if ELF can be opened from input data, because DWFL couldn't handle
+  // memory, that is not ELF.
+  // TODO: remove this workaround
+  Elf* elf = elf_memory(data, size);
+  Check(elf != nullptr) << "Input data is not ELF";
+  elf_end(elf);
+
   // Add data to process to dwfl
   dwfl_module_ = dwfl_report_offline_memory(dwfl_.get(), "<memory>", "<memory>",
                                             data, size);
