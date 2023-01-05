@@ -19,6 +19,7 @@
 
 #include "proto_writer.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <iomanip>
@@ -29,6 +30,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include <google/protobuf/repeated_ptr_field.h>
 #include <google/protobuf/text_format.h>
 #include "graph.h"
 #include "stable_id.h"
@@ -395,6 +397,31 @@ ElfSymbol::Visibility Transform<MapId>::operator()(
   }
 }
 
+template <typename ProtoNode>
+void SortNodes(google::protobuf::RepeatedPtrField<ProtoNode>& nodes) {
+  auto comparator = [](const ProtoNode& lhs, const ProtoNode& rhs) {
+    return lhs.id() < rhs.id();
+  };
+  std::sort(nodes.begin(), nodes.end(), comparator);
+}
+
+void SortNodes(STG& stg) {
+  SortNodes(*stg.mutable_void_());
+  SortNodes(*stg.mutable_variadic());
+  SortNodes(*stg.mutable_pointer_reference());
+  SortNodes(*stg.mutable_typedef_());
+  SortNodes(*stg.mutable_qualified());
+  SortNodes(*stg.mutable_primitive());
+  SortNodes(*stg.mutable_array());
+  SortNodes(*stg.mutable_base_class());
+  SortNodes(*stg.mutable_method());
+  SortNodes(*stg.mutable_member());
+  SortNodes(*stg.mutable_struct_union());
+  SortNodes(*stg.mutable_enumeration());
+  SortNodes(*stg.mutable_function());
+  SortNodes(*stg.mutable_elf_symbol());
+}
+
 }  // namespace
 
 class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
@@ -420,6 +447,7 @@ void Writer::Write(const Id& root, std::ostream& os) {
   if (stable) {
     StableId stable_id(graph_);
     stg.set_root_id(Transform<StableId>(graph_, stg, stable_id)(root));
+    SortNodes(stg);
   } else {
     auto get_id = [](Id id) { return id.ix_; };
     stg.set_root_id(Transform<decltype(get_id)>(graph_, stg, get_id)(root));
