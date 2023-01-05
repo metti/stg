@@ -26,6 +26,7 @@
 #include <ostream>
 #include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <google/protobuf/text_format.h>
@@ -73,6 +74,7 @@ struct Transform {
   const Graph& graph;
   proto::STG& stg;
   std::unordered_map<Id, uint32_t> external_id;
+  std::unordered_set<uint32_t> used_ids;
 
   // Function object: Id -> uint32_t
   MapId& map_id;
@@ -82,8 +84,16 @@ template <typename MapId>
 uint32_t Transform<MapId>::operator()(Id id) {
   auto [it, inserted] = external_id.emplace(id, 0);
   if (inserted) {
-    it->second = map_id(id);
-    graph.Apply<void>(*this, id, it->second);
+    uint32_t mapped_id = map_id(id);
+
+    // Ensure uniqueness of external ids. It is best to probe here since id
+    // generators will not in general guarantee that the mapping from internal
+    // ids to external ids will be injective.
+    while (!used_ids.insert(mapped_id).second) {
+      ++mapped_id;
+    }
+    it->second = mapped_id;
+    graph.Apply<void>(*this, id, mapped_id);
   }
   return it->second;
 }
