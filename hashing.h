@@ -23,15 +23,30 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace stg {
 
 struct Hash {
-  // Hash 64 bits by splitting, hashing and combining.
+  constexpr uint32_t operator()() const {
+    return 0;
+  }
+
+  // Hash boolean by converting to int.
+  constexpr uint32_t operator()(bool x) const {
+    return x ? (*this)(1) : (*this)(0);
+  }
+
+  // Hash unsigned 64 bits by splitting, hashing and combining.
   constexpr uint32_t operator()(uint64_t x) const {
     uint32_t lo = x;
     uint32_t hi = x >> 32;
     return (*this)(lo, hi);
+  }
+
+  // Hash signed 64 bits by casting to unsigned 64 bits.
+  constexpr uint32_t operator()(int64_t x) const {
+    return (*this)(static_cast<uint64_t>(x));
   }
 
   // See https://github.com/skeeto/hash-prospector.
@@ -44,19 +59,34 @@ struct Hash {
     return x;
   }
 
+  // Hash signed 32 bits by casting to unsigned 32 bits.
+  constexpr uint32_t operator()(int32_t x) const {
+    return (*this)(static_cast<uint32_t>(x));
+  }
+
   // Hash 8 bits by zero extending to 32 bits.
   constexpr uint32_t operator()(char x) const {
     return (*this)(static_cast<uint32_t>(static_cast<unsigned char>(x)));
   }
 
   // 32-bit FNV-1a. See https://wikipedia.org/wiki/Fowler-Noll-Vo_hash_function.
-  constexpr uint32_t operator()(const std::string& x) const {
+  constexpr uint32_t operator()(const std::string_view x) const {
     uint32_t h = 0x811c9dc5;
     for (auto ch : x) {
       h ^= static_cast<unsigned char>(ch);
       h *= 0x01000193;
     }
     return h;
+  }
+
+  // Hash std::string by constructing a std::string_view.
+  constexpr uint32_t operator()(const std::string& x) const {
+    return (*this)(std::string_view(x));
+  }
+
+  // Hash C string by constructing a std::string_view.
+  constexpr uint32_t operator()(const char* x) const {
+    return (*this)(std::string_view(x));
   }
 
   // Reverse order Boost hash_combine (must be used with good hashes).
