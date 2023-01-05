@@ -22,6 +22,9 @@
 
 #include "btf_reader.h"
 
+#include <fcntl.h>
+#include <libelf.h>
+
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -32,6 +35,7 @@
 
 #include "elf_loader.h"
 #include "error.h"
+#include "file_descriptor.h"
 
 namespace stg {
 
@@ -526,8 +530,24 @@ Id Structs::BuildSymbols() {
 }
 
 Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
-  elf::ElfLoader elf(path);
-  return Structs(graph, verbose).Process(elf.GetBtfRawData());
+  Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
+  struct ElfDeleter {
+    void operator()(Elf* elf) { elf_end(elf); }
+  };
+  FileDescriptor fd(path.c_str(), O_RDONLY);
+  std::unique_ptr<Elf, ElfDeleter> elf(
+      elf_begin(fd.Value(), ELF_C_READ, nullptr));
+  if (!elf) {
+    const int error_code = elf_errno();
+    const char* error = elf_errmsg(error_code);
+    if (error != nullptr) {
+      Die() << "elf_begin returned error: " << error;
+    } else {
+      Die() << "elf_begin returned error: " << error_code;
+    }
+  }
+  elf::ElfLoader loader(elf.get());
+  return Structs(graph, verbose).Process(loader.GetBtfRawData());
 }
 
 }  // namespace btf

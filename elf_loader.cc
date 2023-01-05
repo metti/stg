@@ -21,8 +21,6 @@
 
 #include "elf_loader.h"
 
-#include <fcntl.h>
-
 #include <elf.h>
 #include <gelf.h>
 #include <libelf.h>
@@ -35,7 +33,6 @@
 #include <utility>
 
 #include "error.h"
-#include "file_descriptor.h"
 #include "graph.h"
 
 namespace stg {
@@ -316,29 +313,18 @@ std::ostream& operator<<(std::ostream& os,
   }
 }
 
-ElfLoader::ElfLoader(const std::string& path, bool verbose)
-    : verbose_(verbose), fd_(path.c_str(), O_RDONLY) {
-  Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
-  elf_ = std::unique_ptr<Elf, ElfDeleter>(
-      elf_begin(fd_.Value(), ELF_C_READ, nullptr));
-  Check(elf_ != nullptr) << "ELF data not found in " << path;
-  InitializeElfInformation();
-}
-
-ElfLoader::ElfLoader(char* data, size_t size, bool verbose)
-    : verbose_(verbose) {
-  Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
-  elf_ = std::unique_ptr<Elf, ElfDeleter>(elf_memory(data, size));
-  Check(elf_ != nullptr) << "Cannot initialize libelf with provided memory";
+ElfLoader::ElfLoader(Elf* elf, bool verbose)
+    : verbose_(verbose), elf_(elf) {
+  Check(elf_ != nullptr) << "No ELF was provided";
   InitializeElfInformation();
 }
 
 void ElfLoader::InitializeElfInformation() {
-  is_linux_kernel_binary_ = elf::IsLinuxKernelBinary(elf_.get());
+  is_linux_kernel_binary_ = elf::IsLinuxKernelBinary(elf_);
 }
 
 std::string_view ElfLoader::GetBtfRawData() const {
-  Elf_Scn* btf_section = GetSectionByName(elf_.get(), ".BTF");
+  Elf_Scn* btf_section = GetSectionByName(elf_, ".BTF");
   Check(btf_section != nullptr) << ".BTF section is invalid";
   Elf_Data* elf_data = elf_rawdata(btf_section, 0);
   Check(elf_data != nullptr) << ".BTF section data is invalid";
@@ -349,7 +335,7 @@ std::string_view ElfLoader::GetBtfRawData() const {
 
 std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
   Elf_Scn* symbol_table_section =
-      GetSymbolTableSection(elf_.get(), is_linux_kernel_binary_, verbose_);
+      GetSymbolTableSection(elf_, is_linux_kernel_binary_, verbose_);
   Check(symbol_table_section != nullptr)
       << "failed to find symbol table section";
 
@@ -366,7 +352,7 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
         << "symbol (i = " << i << ") was not found";
 
     const auto name =
-        GetString(elf_.get(), symbol_table_header.sh_link, symbol.st_name);
+        GetString(elf_, symbol_table_header.sh_link, symbol.st_name);
     result.push_back(SymbolTableEntry{
         .name = name,
         .value = symbol.st_value,
@@ -391,7 +377,7 @@ ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(
   Check(symbol.value_type == SymbolTableEntry::ValueType::RELATIVE_TO_SECTION)
       << "CRC symbol is expected to be absolute or relative to a section";
 
-  const auto section = GetSectionByIndex(elf_.get(), symbol.section_index);
+  const auto section = GetSectionByIndex(elf_, symbol.section_index);
   const auto [header, data] = GetSectionInfo(section);
   Check(data->d_buf != nullptr) << "Section has no data buffer";
 

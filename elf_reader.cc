@@ -180,25 +180,28 @@ class Reader {
   Reader(Graph& graph, const std::string& path, bool process_dwarf,
          bool verbose)
       : graph_(graph),
-        elf_(path, verbose),
-        dwarf_(process_dwarf ? dwarf::Handler(path)
-                             : std::optional<dwarf::Handler>()),
+        dwarf_(path),
+        elf_(dwarf_.GetElf(), verbose),
+        process_dwarf_(process_dwarf),
         verbose_(verbose) {}
 
   Reader(Graph& graph, char* data, size_t size, bool process_dwarf,
          bool verbose)
       : graph_(graph),
-        elf_(data, size, verbose),
-        dwarf_(process_dwarf ? dwarf::Handler(data, size)
-                             : std::optional<dwarf::Handler>()),
+        dwarf_(data, size),
+        elf_(dwarf_.GetElf(), verbose),
+        process_dwarf_(process_dwarf),
         verbose_(verbose) {}
 
   Id Read();
 
  private:
   Graph& graph_;
+  // The order of the following two fields is important because ElfLoader uses
+  // an Elf* from dwarf::Handler without owning it.
+  dwarf::Handler dwarf_;
   elf::ElfLoader elf_;
-  std::optional<dwarf::Handler> dwarf_;
+  bool process_dwarf_;
   bool verbose_;
 };
 
@@ -231,7 +234,7 @@ Id Reader::Read() {
   }
 
   Typing typing(
-      graph_, dwarf_ ? dwarf::Process(*dwarf_, graph_) : dwarf::Types{});
+      graph_, process_dwarf_ ? dwarf::Process(dwarf_, graph_) : dwarf::Types{});
 
   std::map<std::string, Id> symbols_map;
   for (const auto& symbol : public_functions_and_variables) {

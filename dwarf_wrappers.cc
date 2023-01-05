@@ -109,6 +109,13 @@ void Handler::InitialiseDwarf() {
   CheckOrDwflError(dwarf_, "dwfl_module_getdwarf");
 }
 
+Elf* Handler::GetElf() {
+  GElf_Addr loadbase = 0;  // output argument for dwfl, unused by us
+  Elf* elf = dwfl_module_getelf(dwfl_module_, &loadbase);
+  CheckOrDwflError(elf, "dwfl_module_getelf");
+  return elf;
+}
+
 std::vector<Entry> Handler::GetCompilationUnits() {
   std::vector<Entry> result;
   Dwarf_Off offset = 0;
