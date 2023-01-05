@@ -22,6 +22,7 @@
 #include <string>
 #include <unordered_set>
 
+#include "hashing.h"
 #include "scc.h"
 
 namespace stg {
@@ -35,49 +36,49 @@ struct Hasher {
 
   // Graph function implementation
   uint32_t operator()(const Void&) {
-    return Hash('O');
+    return hash('O');
   }
 
   uint32_t operator()(const Variadic&) {
-    return Hash('V');
+    return hash('V');
   }
 
   uint32_t operator()(const PointerReference& x) {
-    return Hash('P', static_cast<uint32_t>(x.kind), (*this)(x.pointee_type_id));
+    return hash('P', static_cast<uint32_t>(x.kind), (*this)(x.pointee_type_id));
   }
 
   uint32_t operator()(const Typedef& x) {
     todo.insert(x.referred_type_id);
-    return Hash('T', x.name);
+    return hash('T', x.name);
   }
 
   uint32_t operator()(const Qualified& x) {
-    return Hash('Q', static_cast<uint32_t>(x.qualifier),
+    return hash('Q', static_cast<uint32_t>(x.qualifier),
                 (*this)(x.qualified_type_id));
   }
 
   uint32_t operator()(const Primitive& x) {
-    return Hash('i', x.name);
+    return hash('i', x.name);
   }
 
   uint32_t operator()(const Array& x) {
-    return Hash('A', x.number_of_elements, (*this)(x.element_type_id));
+    return hash('A', x.number_of_elements, (*this)(x.element_type_id));
   }
 
   uint32_t operator()(const BaseClass& x) {
-    return Hash('B', (*this)(x.type_id));
+    return hash('B', (*this)(x.type_id));
   }
 
   uint32_t operator()(const Method& x) {
-    return Hash('M', x.mangled_name, x.name, (*this)(x.type_id));
+    return hash('M', x.mangled_name, x.name, (*this)(x.type_id));
   }
 
   uint32_t operator()(const Member& x) {
-    return Hash('D', x.name, x.offset, (*this)(x.type_id));
+    return hash('D', x.name, x.offset, (*this)(x.type_id));
   }
 
   uint32_t operator()(const StructUnion& x) {
-    auto kind = Hash('U', static_cast<uint32_t>(x.kind));
+    auto kind = hash('U', static_cast<uint32_t>(x.kind));
     if (x.name.empty()) {
       auto h = kind;
       if (x.definition.has_value()) {
@@ -89,7 +90,7 @@ struct Hasher {
           todo.insert(id);
         }
         for (auto id : definition.members) {
-          h = Hash(h, (*this)(id));
+          h = hash(h, (*this)(id));
         }
       }
       return h;
@@ -106,28 +107,28 @@ struct Hasher {
           todo.insert(id);
         }
       }
-      return Hash(kind, x.name, x.definition ? '1' : '0');
+      return hash(kind, x.name, x.definition ? '1' : '0');
     }
   }
 
   uint32_t operator()(const Enumeration& x) {
     if (x.name.empty()) {
-      auto h = Hash('e');
+      auto h = hash('e');
       if (x.definition) {
         for (const auto& e : x.definition->enumerators) {
-          h = Hash(h, e.first);
+          h = hash(h, e.first);
         }
       }
       return h;
     } else {
-      return Hash('E', x.name, x.definition ? '1' : '0');
+      return hash('E', x.name, x.definition ? '1' : '0');
     }
   }
 
   uint32_t operator()(const Function& x) {
-    auto h = Hash('F', (*this)(x.return_type_id));
+    auto h = hash('F', (*this)(x.return_type_id));
     for (const auto& parameter : x.parameters) {
-      h = Hash(h, (*this)(parameter));
+      h = hash(h, (*this)(parameter));
     }
     return h;
   }
@@ -136,14 +137,14 @@ struct Hasher {
     if (x.type_id.has_value()) {
       todo.insert(x.type_id.value());
     }
-    return Hash('S', x.symbol_name);
+    return hash('S', x.symbol_name);
   }
 
   uint32_t operator()(const Symbols& x) {
     for (const auto& [name, symbol] : x.symbols) {
       todo.insert(symbol);
     }
-    return Hash('Z');
+    return hash('Z');
   }
 
   // main entry point
@@ -191,50 +192,14 @@ struct Hasher {
     return result;
   }
 
-  // hash 64 bits by splitting, hashing and combining
-  constexpr uint32_t Hash(uint64_t x) const {
-    uint32_t lo = x;
-    uint32_t hi = x >> 32;
-    return Hash(lo, hi);
-  }
-
-  // see https://github.com/skeeto/hash-prospector
-  constexpr uint32_t Hash(uint32_t x) const {
-    x ^= x >> 16;
-    x *= 0x21f0aaad;
-    x ^= x >> 15;
-    x *= 0xd35a2d97;
-    x ^= x >> 15;
-    return x;
-  }
-
-  // hash 8 bits by zero extending to 32 bits
-  constexpr uint32_t Hash(char x) const {
-    return Hash(static_cast<uint32_t>(static_cast<unsigned char>(x)));
-  }
-
-  // 32-bit FNV-1a
-  constexpr uint32_t Hash(const std::string& x) const {
-    uint32_t h = 0x811c9dc5;
-    for (auto ch : x) {
-      h ^= static_cast<unsigned char>(ch);
-      h *= 0x01000193;
-    }
-    return h;
-  }
-
-  // reverse order Boost hash_combine (must be used with good hashes)
-  template <typename Arg, typename... Args>
-  constexpr uint32_t Hash(Arg arg, Args... args) const {
-    auto seed = Hash(args...);
-    return seed ^ (Hash(arg) + 0x9e3779b9 + (seed << 6) + (seed >> 2));
-  }
-
   const Graph& graph;
   std::unordered_map<Id, uint32_t>& hashes;
   std::unordered_set<Id> &todo;
   Histogram non_trivial_scc_size;
   SCC<Id> scc;
+
+  // Function object: (Args...) -> uint32_t
+  Hash hash;
 };
 
 }  // namespace
