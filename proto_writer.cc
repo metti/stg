@@ -31,6 +31,7 @@
 
 #include <google/protobuf/text_format.h>
 #include "graph.h"
+#include "stable_id.h"
 #include "stg.pb.h"
 
 namespace stg {
@@ -416,8 +417,13 @@ void Print(const STG& stg, std::ostream& os) {
 
 void Writer::Write(const Id& root, std::ostream& os) {
   proto::STG stg;
-  auto get_id = [](Id id) { return id.ix_; };
-  stg.set_root_id(Transform<decltype(get_id)>(graph_, stg, get_id)(root));
+  if (stable) {
+    StableId stable_id(graph_);
+    stg.set_root_id(Transform<StableId>(graph_, stg, stable_id)(root));
+  } else {
+    auto get_id = [](Id id) { return id.ix_; };
+    stg.set_root_id(Transform<decltype(get_id)>(graph_, stg, get_id)(root));
+  }
   Print(stg, os);
 }
 

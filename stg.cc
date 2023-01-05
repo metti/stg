@@ -95,12 +95,10 @@ Id Merge(Graph& graph, const std::vector<Id>& roots) {
 }
 
 void Write(const Graph& graph, Id root, const char* output, bool stable) {
-  // stable = generate stable external ids and use these for ordering
-  (void)stable;
   std::ofstream os(output);
   {
     Time x(metrics, "write");
-    proto::Writer writer(graph);
+    proto::Writer writer(graph, stable);
     writer.Write(root, os);
     os << std::flush;
   }
