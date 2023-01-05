@@ -63,6 +63,7 @@ struct SymbolTableEntry {
   SymbolType symbol_type;
   Binding binding;
   Visibility visibility;
+  size_t section_index;
   ValueType value_type;
 };
 
@@ -78,6 +79,7 @@ class ElfLoader final {
 
   std::string_view GetBtfRawData() const;
   std::vector<SymbolTableEntry> GetElfSymbols() const;
+  ElfSymbol::CRC GetElfSymbolCRC(const SymbolTableEntry& symbol) const;
   bool IsLinuxKernelBinary() const;
 
  private:

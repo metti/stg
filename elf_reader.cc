@@ -60,7 +60,7 @@ ElfSymbol::SymbolType ConvertSymbolType(
   }
 }
 
-CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols) {
+CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols, const ElfLoader& elf) {
   constexpr std::string_view kCRCPrefix = "__crc_";
 
   CRCValuesMap crc_values;
@@ -69,8 +69,8 @@ CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols) {
     const std::string_view name = symbol.name;
     if (name.substr(0, kCRCPrefix.size()) == kCRCPrefix) {
       std::string_view name_suffix = name.substr(kCRCPrefix.size());
-      ElfSymbol::CRC crc{static_cast<uint32_t>(symbol.value)};
-      if (!crc_values.emplace(name_suffix, crc).second) {
+      if (!crc_values.emplace(name_suffix, elf.GetElfSymbolCRC(symbol))
+               .second) {
         Die() << "Multiple CRC values for symbol '" << name_suffix << '\'';
       }
     }
@@ -189,8 +189,9 @@ Id Read(Graph& graph, elf::ElfLoader&& elf,
                IsPublicFunctionOrVariable);
   public_functions_and_variables.shrink_to_fit();
 
-  const CRCValuesMap crc_values =
-      elf.IsLinuxKernelBinary() ? GetCRCValuesMap(all_symbols) : CRCValuesMap{};
+  const CRCValuesMap crc_values = elf.IsLinuxKernelBinary()
+                                      ? GetCRCValuesMap(all_symbols, elf)
+                                      : CRCValuesMap{};
 
   if (verbose) {
     std::cout << "File has " << public_functions_and_variables.size()

@@ -201,6 +201,12 @@ Elf_Scn* GetSectionByType(Elf* elf, Elf64_Word type) {
   return section;
 }
 
+Elf_Scn* GetSectionByIndex(Elf* elf, size_t index) {
+  Elf_Scn* section = elf_getscn(elf, index);
+  Check(section != nullptr) << "no section found with index " << index;
+  return section;
+}
+
 struct SectionInfo {
   GElf_Shdr header;
   Elf_Data* data;
@@ -369,11 +375,36 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
         .binding = ParseSymbolBinding(GELF_ST_BIND(symbol.st_info)),
         .visibility =
             ParseSymbolVisibility(GELF_ST_VISIBILITY(symbol.st_other)),
+        .section_index = symbol.st_shndx,
         .value_type = ParseSymbolValueType(symbol.st_shndx),
     });
   }
 
   return result;
+}
+
+ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(
+    const SymbolTableEntry& symbol) const {
+  if (symbol.value_type == SymbolTableEntry::ValueType::ABSOLUTE) {
+    return ElfSymbol::CRC{static_cast<uint32_t>(symbol.value)};
+  }
+  Check(symbol.value_type == SymbolTableEntry::ValueType::RELATIVE_TO_SECTION)
+      << "CRC symbol is expected to be absolute or relative to a section";
+
+  const auto section = GetSectionByIndex(elf_.get(), symbol.section_index);
+  const auto [header, data] = GetSectionInfo(section);
+  Check(data->d_buf != nullptr) << "Section has no data buffer";
+
+  Check(symbol.value >= header.sh_addr)
+      << "CRC symbol value is below CRC section start";
+
+  size_t offset = symbol.value - header.sh_addr;
+  size_t offset_end = offset + sizeof(uint32_t);
+  Check(offset_end <= data->d_size && offset_end <= header.sh_size)
+      << "CRC symbol value is above CRC section end";
+
+  return ElfSymbol::CRC{*reinterpret_cast<uint32_t*>(
+      reinterpret_cast<char*>(data->d_buf) + offset)};
 }
 
 bool ElfLoader::IsLinuxKernelBinary() const {
