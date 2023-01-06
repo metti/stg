@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2021-2022 Google LLC
+// Copyright 2021-2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -27,9 +27,9 @@
 #include <utility>
 #include <vector>
 
+#include <libxml/tree.h>
 #include "graph.h"
 #include "metrics.h"
-#include <libxml/tree.h>
 
 namespace stg {
 namespace abixml {

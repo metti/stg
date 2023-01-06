@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2022 Google LLC
+// Copyright 2022-2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -22,17 +22,17 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <ostream>
 #include <string>
-#include <map>
 #include <vector>
 
 #include "abigail_reader.h"
 #include "btf_reader.h"
 #include "deduplication.h"
 #include "elf_reader.h"
-#include "fingerprint.h"
 #include "error.h"
+#include "fingerprint.h"
 #include "graph.h"
 #include "metrics.h"
 #include "proto_reader.h"

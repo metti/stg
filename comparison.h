@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020-2022 Google LLC
+// Copyright 2020-2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -35,8 +35,8 @@
 #include <vector>
 
 #include "graph.h"
-#include "scc.h"
 #include "metrics.h"
+#include "scc.h"
 
 namespace stg {
 
