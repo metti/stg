@@ -415,7 +415,7 @@ Id Read(Graph& graph, const std::string& path) {
 
 Id ReadFromString(Graph& graph, const std::string_view input) {
   proto::STG stg;
-  google::protobuf::TextFormat::ParseFromString(input, &stg);
+  google::protobuf::TextFormat::ParseFromString(std::string(input), &stg);
   return Transformer(graph).Transform(stg);
 }
 
