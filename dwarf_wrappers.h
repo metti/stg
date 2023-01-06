@@ -22,6 +22,7 @@
 
 #include <elf.h>
 #include <elfutils/libdw.h>
+#include <elfutils/libdwfl.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -29,8 +30,6 @@
 #include <optional>
 #include <string>
 #include <vector>
-
-#include "file_descriptor.h"
 
 namespace stg {
 namespace dwarf {
@@ -59,6 +58,8 @@ struct Entry {
   Dwarf_Off GetOffset();
   std::optional<std::string> MaybeGetString(uint32_t attribute);
   std::optional<uint64_t> MaybeGetUnsignedConstant(uint32_t attribute);
+  bool GetFlag(uint32_t attribute);
+  std::optional<Entry> MaybeGetReference(uint32_t attribute);
 };
 
 // C++ wrapper over libdw (DWARF library).
@@ -70,24 +71,20 @@ class Handler {
   explicit Handler(const std::string& path);
   Handler(char* data, size_t size);
 
+  Elf* GetElf();
   std::vector<Entry> GetCompilationUnits();
 
  private:
-  struct ElfDeleter {
-    void operator()(Elf* elf) { elf_end(elf); }
-  };
-
-  struct DwarfDeleter {
-    void operator()(Dwarf* dwarf) { dwarf_end(dwarf); }
+  struct DwflDeleter {
+    void operator()(Dwfl* dwfl) { dwfl_end(dwfl); }
   };
 
   void InitialiseDwarf();
 
-  // The order of the following three fields is important because Elf uses a
-  // value from FileDescriptor without owning it, and Dwarf uses an Elf*.
-  FileDescriptor fd_;
-  std::unique_ptr<Elf, ElfDeleter> elf_;
-  std::unique_ptr<Dwarf, DwarfDeleter> dwarf_;
+  std::unique_ptr<Dwfl, DwflDeleter> dwfl_;
+  // Lifetime of Dwfl_Module and Dwarf is controlled by Dwfl.
+  Dwfl_Module* dwfl_module_ = nullptr;
+  Dwarf* dwarf_ = nullptr;
 };
 
 }  // namespace dwarf

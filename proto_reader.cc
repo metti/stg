@@ -25,9 +25,11 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/repeated_field.h>
 #include <google/protobuf/text_format.h>
 #include "error.h"
 #include "graph.h"
@@ -161,7 +163,7 @@ void Transformer::AddNode(const BaseClass& x) {
 
 void Transformer::AddNode(const Method& x) {
   const auto& vtable_offset =
-      Transform<uint64_t>(x.vtable_offset(), x.has_vtable_offset());
+      Transform<uint64_t>(x.has_vtable_offset(), x.vtable_offset());
   AddNode<stg::Method>(GetId(x.id()), x.mangled_name(), x.name(), x.kind(),
                        vtable_offset, GetId(x.type_id()));
 }
@@ -209,7 +211,8 @@ void Transformer::AddNode(const ElfSymbol& x) {
                         ? std::make_optional<stg::ElfSymbol::CRC>(x.crc())
                         : std::nullopt;
   const auto& ns = Transform<std::string>(x.has_namespace_(), x.namespace_());
-  const auto& type_id = Transform<Id>(x.has_type_id(), x.type_id());
+  const auto& type_id =
+      x.has_type_id() ? std::make_optional(GetId(x.type_id())) : std::nullopt;
   const auto& full_name =
       Transform<std::string>(x.has_full_name(), x.full_name());
 
@@ -407,6 +410,12 @@ Id Read(Graph& graph, const std::string& path) {
   google::protobuf::io::IstreamInputStream is(&ifs);
   proto::STG stg;
   google::protobuf::TextFormat::Parse(&is, &stg);
+  return Transformer(graph).Transform(stg);
+}
+
+Id ReadFromString(Graph& graph, const std::string_view input) {
+  proto::STG stg;
+  google::protobuf::TextFormat::ParseFromString(std::string(input), &stg);
   return Transformer(graph).Transform(stg);
 }
 

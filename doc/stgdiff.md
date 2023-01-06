@@ -7,7 +7,7 @@ libabigail, BTF, or ELF/DWARF.
 
 ```
 stgdiff
- [-t|--times]
+ [-m|--metrics]
  [-a|--abi|-b|--btf|-e|--elf] file1
  [-a|--abi|-b|--btf|-e|--elf] file2
  [{-x|--exact}]
@@ -169,7 +169,10 @@ symbol table nodes.
 
 ## Other options:
 
-*   `-t|--times`: print duration of ABI parsing, comparison and reporting.
+*   `-m|--metrics`: print duration of ABI parsing, comparison and reporting.
+
+*   `--process-dwarf`: enable DWARF processing, when reading ELF files. For
+    other formats this options does nothing.
 
 ## Return code
 

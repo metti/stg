@@ -10,9 +10,9 @@ arguments and behaviour are subject to change.
 
 ```
 stg
+  [-m|--metrics]
   [-i|--info]
-  [-c|--counters]
-  [-t|--times]
+  [-d|--keep-duplicates]
   [-u|--unstable]
   [-a|--abi|-b|--btf|-e|--elf] [file] ...
   [{-o|--output} {filename|-}] ...
@@ -47,11 +47,27 @@ The tool can be passed any number of inputs to combine into a unified ABI.
     NOTE: Only ELF symbol information, and not DWARF type information, is
     currently processed.
 
+## Reading options
+
+*   `--process-dwarf`
+
+    Enable DWARF processing, when reading ELF files. For other formats this
+    options does nothing.
+
 ## Merge
 
 If multiple (or zero) inputs are provided, then a symbol merge operation is run.
 
 The resulting ABI has the union of the inputs' symbols, which must be disjoint.
+
+## Deduplication
+
+ABI representations, particularly merged ones, almost always have some sets of
+nodes that are recursively equal. By default, duplicate nodes are eliminated.
+
+*   `-d|--keep-duplicates`
+
+    Skip the deduplication pass.
 
 ## Output
 
@@ -74,17 +90,13 @@ The resulting ABI has the union of the inputs' symbols, which must be disjoint.
 
 ## Diagnostics
 
+*   `-m|--metrics`
+
+    Print various internal timing and other metrics.
+
 *   `-i|--info`
 
     This causes the BTF and ELF parsers to dump information to stdout about the
     entities processed. This is primarily useful for debugging. In the case of
     BTF input, the output is intended to match the output of `bpftool btf dump
     file "$file" format raw`.
-
-*   `-c|--counters`
-
-    Report various internal counters and metrics.
-
-*   `-t|--times`
-
-    Print the durations of various processing phases.

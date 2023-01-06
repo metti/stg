@@ -41,13 +41,13 @@
 #include "equality.h"
 #include "error.h"
 #include "graph.h"
+#include "metrics.h"
 #include "proto_reader.h"
 #include "reporting.h"
-#include "timing.h"
 
 namespace {
 
-stg::Times times;
+stg::Metrics metrics;
 
 const int kAbiChange = 4;
 const size_t kMaxCrcOnlyChanges = 3;
@@ -59,27 +59,29 @@ using Inputs = std::vector<std::pair<InputFormat, const char*>>;
 using Outputs =
     std::vector<std::pair<stg::reporting::OutputFormat, const char*>>;
 
-std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph) {
+std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
+                          bool process_dwarf, stg::Metrics& metrics) {
   std::vector<stg::Id> roots;
   for (const auto& [format, filename] : inputs) {
     switch (format) {
       case InputFormat::ABI: {
-        stg::Time read(times, "read ABI");
-        roots.push_back(stg::abixml::Read(graph, filename));
+        stg::Time read(metrics, "read ABI");
+        roots.push_back(stg::abixml::Read(graph, filename, metrics));
         break;
       }
       case InputFormat::BTF: {
-        stg::Time read(times, "read BTF");
+        stg::Time read(metrics, "read BTF");
         roots.push_back(stg::btf::ReadFile(graph, filename));
         break;
       }
       case InputFormat::ELF: {
-        stg::Time read(times, "read ELF");
-        roots.push_back(stg::elf::Read(graph, filename));
+        stg::Time read(metrics, "read ELF");
+        roots.push_back(stg::elf::Read(graph, filename, process_dwarf,
+                                       /* verbose = */ false));
         break;
       }
       case InputFormat::STG: {
-        stg::Time read(times, "read STG");
+        stg::Time read(metrics, "read STG");
         roots.push_back(stg::proto::Read(graph, filename));
         break;
       }
@@ -88,9 +90,9 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph) {
   return roots;
 }
 
-bool RunExact(const Inputs& inputs) {
+bool RunExact(const Inputs& inputs, bool process_dwarf, stg::Metrics& metrics) {
   stg::Graph graph;
-  const auto roots = Read(inputs, graph);
+  const auto roots = Read(inputs, graph, process_dwarf, metrics);
 
   struct PairCache {
     std::optional<bool> Query(const stg::Pair& comparison) const {
@@ -107,22 +109,23 @@ bool RunExact(const Inputs& inputs) {
     std::unordered_set<stg::Pair, stg::HashPair> equalities;
   };
 
-  stg::Time compute(times, "equality check");
+  stg::Time compute(metrics, "equality check");
   PairCache equalities;
   return stg::Equals<PairCache>(graph, equalities)(roots[0], roots[1]);
 }
 
 bool Run(const Inputs& inputs, const Outputs& outputs,
-         const stg::CompareOptions& compare_options) {
+         const stg::CompareOptions& compare_options, bool process_dwarf,
+         stg::Metrics& metrics) {
   // Read inputs.
   stg::Graph graph;
-  const auto roots = Read(inputs, graph);
+  const auto roots = Read(inputs, graph, process_dwarf, metrics);
 
   // Compute differences.
-  stg::Compare compare{graph, compare_options};
+  stg::Compare compare{graph, compare_options, metrics};
   std::pair<bool, std::optional<stg::Comparison>> result;
   {
-    stg::Time compute(times, "compute diffs");
+    stg::Time compute(metrics, "compute diffs");
     result = compare(roots[0], roots[1]);
   }
   stg::Check(compare.scc.Empty()) << "internal error: SCC state broken";
@@ -133,7 +136,7 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
   for (const auto& [format, filename] : outputs) {
     std::ofstream output(filename);
     if (comparison) {
-      stg::Time report(times, "report diffs");
+      stg::Time report(metrics, "report diffs");
       stg::reporting::Options options{format, kMaxCrcOnlyChanges};
       stg::reporting::Reporting reporting{graph, compare.outcomes, options,
         names};
@@ -143,6 +146,7 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
     if (!output)
       stg::Die() << "error writing to " << '\'' << filename << '\'';
   }
+
   return equals;
 }
 
@@ -164,10 +168,15 @@ bool ParseCompareOptions(const char* opts_arg, stg::CompareOptions& opts) {
   return true;
 }
 
+enum LongOptions {
+  kProcessDwarf = 256,
+};
+
 int main(int argc, char* argv[]) {
   // Process arguments.
-  bool opt_times = false;
+  bool opt_metrics = false;
   bool opt_exact = false;
+  bool opt_process_dwarf = false;
   stg::CompareOptions compare_options;
   InputFormat opt_input_format = InputFormat::ABI;
   stg::reporting::OutputFormat opt_output_format =
@@ -175,23 +184,25 @@ int main(int argc, char* argv[]) {
   Inputs inputs;
   Outputs outputs;
   static option opts[] = {
-      {"times",           no_argument,       nullptr, 't'},
-      {"abi",             no_argument,       nullptr, 'a'},
-      {"btf",             no_argument,       nullptr, 'b'},
-      {"elf",             no_argument,       nullptr, 'e'},
-      {"stg",             no_argument,       nullptr, 's'},
-      {"exact",           no_argument,       nullptr, 'x'},
-      {"compare-options", required_argument, nullptr, 'c'},
-      {"format",          required_argument, nullptr, 'f'},
-      {"output",          required_argument, nullptr, 'o'},
+      {"metrics",         no_argument,       nullptr, 'm'          },
+      {"abi",             no_argument,       nullptr, 'a'          },
+      {"btf",             no_argument,       nullptr, 'b'          },
+      {"elf",             no_argument,       nullptr, 'e'          },
+      {"stg",             no_argument,       nullptr, 's'          },
+      {"exact",           no_argument,       nullptr, 'x'          },
+      {"compare-options", required_argument, nullptr, 'c'          },
+      {"format",          required_argument, nullptr, 'f'          },
+      {"output",          required_argument, nullptr, 'o'          },
+      {"process-dwarf",   no_argument,       nullptr, kProcessDwarf},
       {nullptr,           0,                 nullptr, 0  },
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
-              << " [-t|--times]\n"
+              << " [-m|--metrics]\n"
               << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
               << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
               << " [{-x|--exact}]\n"
+              << " [--process-dwarf]\n"
               << " [{-c|--compare-options} "
                  "{ignore_symbol_type_presence_changes|"
                  "ignore_type_declaration_status_changes|all}]\n"
@@ -206,13 +217,13 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-tabesxc:f:o:", opts, &ix);
+    int c = getopt_long(argc, argv, "-mabesxc:f:o:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
     switch (c) {
-      case 't':
-        opt_times = true;
+      case 'm':
+        opt_metrics = true;
         break;
       case 'a':
         opt_input_format = InputFormat::ABI;
@@ -255,6 +266,9 @@ int main(int argc, char* argv[]) {
           argument = "/dev/stdout";
         outputs.push_back({opt_output_format, argument});
         break;
+      case kProcessDwarf:
+        opt_process_dwarf = true;
+        break;
       default:
         return usage();
     }
@@ -265,10 +279,10 @@ int main(int argc, char* argv[]) {
 
   try {
     const bool equals = opt_exact
-                        ? RunExact(inputs)
-                        : Run(inputs, outputs, compare_options);
-    if (opt_times) {
-      stg::Time::report(times, std::cerr);
+        ? RunExact(inputs, opt_process_dwarf, metrics)
+        : Run(inputs, outputs, compare_options, opt_process_dwarf, metrics);
+    if (opt_metrics) {
+      stg::Report(metrics, std::cerr);
     }
     return equals ? 0 : kAbiChange;
   } catch (const stg::Exception& e) {
