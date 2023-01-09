@@ -88,23 +88,6 @@ std::optional<typename M::mapped_type> MaybeGet(const M& map, const K& key) {
   return {it->second};
 }
 
-ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol,
-                                      const CRCValuesMap& crc_values) {
-  return ElfSymbol(
-      /* symbol_name = */ std::string(symbol.name),
-      /* version_info = */ std::nullopt,
-      /* is_defined = */ symbol.value_type !=
-          SymbolTableEntry::ValueType::UNDEFINED,
-      /* symbol_type = */ ConvertSymbolType(symbol.symbol_type),
-      /* binding = */ symbol.binding,
-      /* visibility = */ symbol.visibility,
-      /* crc = */ MaybeGet(crc_values, std::string(symbol.name)),
-      /* ns = */ std::nullopt,        // TODO: Linux namespace
-      /* type_id = */ std::nullopt,   // TODO: fill type ids
-      /* full_name = */ std::nullopt  // TODO: fill full names
-  );
-}
-
 bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   const auto symbol_type = symbol.symbol_type;
   // Reject symbols that are not functions or variables.
@@ -194,6 +177,7 @@ class Reader {
         verbose_(verbose) {}
 
   Id Read();
+  ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) const;
 
  private:
   Graph& graph_;
@@ -203,6 +187,9 @@ class Reader {
   elf::ElfLoader elf_;
   bool process_dwarf_;
   bool verbose_;
+
+  // Data extracted from ELF
+  CRCValuesMap crc_values_;
 };
 
 Id Reader::Read() {
@@ -218,9 +205,9 @@ Id Reader::Read() {
                IsPublicFunctionOrVariable);
   public_functions_and_variables.shrink_to_fit();
 
-  const CRCValuesMap crc_values = elf_.IsLinuxKernelBinary()
-                                      ? GetCRCValuesMap(all_symbols, elf_)
-                                      : CRCValuesMap{};
+  if (elf_.IsLinuxKernelBinary()) {
+    crc_values_ = GetCRCValuesMap(all_symbols, elf_);
+  }
 
   if (verbose_) {
     std::cout << "File has " << public_functions_and_variables.size()
@@ -243,10 +230,27 @@ Id Reader::Read() {
     // for version info
     symbols_map.emplace(
         std::string(symbol.name),
-        graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol, crc_values)));
+        graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
   }
   typing.AddFakeSymbols(symbols_map);
   return graph_.Add<Symbols>(std::move(symbols_map));
+}
+
+ElfSymbol Reader::SymbolTableEntryToElfSymbol(
+    const SymbolTableEntry& symbol) const {
+  return ElfSymbol(
+      /* symbol_name = */ std::string(symbol.name),
+      /* version_info = */ std::nullopt,
+      /* is_defined = */ symbol.value_type !=
+          SymbolTableEntry::ValueType::UNDEFINED,
+      /* symbol_type = */ ConvertSymbolType(symbol.symbol_type),
+      /* binding = */ symbol.binding,
+      /* visibility = */ symbol.visibility,
+      /* crc = */ MaybeGet(crc_values_, std::string(symbol.name)),
+      /* ns = */ std::nullopt,        // TODO: Linux namespace
+      /* type_id = */ std::nullopt,   // TODO: fill type ids
+      /* full_name = */ std::nullopt  // TODO: fill full names
+  );
 }
 
 }  // namespace
