@@ -28,6 +28,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "dwarf_processor.h"
@@ -67,6 +68,18 @@ ElfSymbol::SymbolType ConvertSymbolType(
     default:
       Die() << "Unsupported ELF symbol type: " << symbol_type;
   }
+}
+
+SymbolNameList GetKsymtabSymbols(const SymbolTable& symbols) {
+  constexpr std::string_view kKsymtabPrefix = "__ksymtab_";
+  SymbolNameList result;
+  result.reserve(symbols.size() / 2);
+  for (const auto& symbol : symbols) {
+    if (symbol.name.substr(0, kKsymtabPrefix.size()) == kKsymtabPrefix) {
+      result.emplace(symbol.name.substr(kKsymtabPrefix.size()));
+    }
+  }
+  return result;
 }
 
 CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols, const ElfLoader& elf) {
@@ -204,11 +217,18 @@ Id Reader::Read() {
     std::cout << "Parsed " << all_symbols.size() << " symbols\n";
   }
 
+  const bool is_linux_kernel = elf_.IsLinuxKernelBinary();
+  const SymbolNameList ksymtab_symbols =
+      is_linux_kernel ? GetKsymtabSymbols(all_symbols) : SymbolNameList();
+
   std::vector<SymbolTableEntry> public_functions_and_variables;
   public_functions_and_variables.reserve(all_symbols.size());
-  std::copy_if(all_symbols.begin(), all_symbols.end(),
-               std::back_inserter(public_functions_and_variables),
-               IsPublicFunctionOrVariable);
+  for (const auto& symbol : all_symbols) {
+    if (IsPublicFunctionOrVariable(symbol) &&
+        (!is_linux_kernel || ksymtab_symbols.count(symbol.name))) {
+      public_functions_and_variables.push_back(symbol);
+    }
+  }
   public_functions_and_variables.shrink_to_fit();
 
   if (elf_.IsLinuxKernelBinary()) {
