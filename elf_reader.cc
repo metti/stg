@@ -38,11 +38,20 @@
 
 namespace stg {
 namespace elf {
+namespace internal {
 
 namespace {
 
-using SymbolTable = std::vector<SymbolTableEntry>;
-using CRCValuesMap = std::unordered_map<std::string, ElfSymbol::CRC>;
+template <typename M, typename K>
+std::optional<typename M::mapped_type> MaybeGet(const M& map, const K& key) {
+  const auto it = map.find(key);
+  if (it == map.end()) {
+    return {};
+  }
+  return {it->second};
+}
+
+}  // namespace
 
 ElfSymbol::SymbolType ConvertSymbolType(
     SymbolTableEntry::SymbolType symbol_type) {
@@ -77,15 +86,6 @@ CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols, const ElfLoader& elf) {
   }
 
   return crc_values;
-}
-
-template <typename M, typename K>
-std::optional<typename M::mapped_type> MaybeGet(const M& map, const K& key) {
-  const auto it = map.find(key);
-  if (it == map.end()) {
-    return {};
-  }
-  return {it->second};
 }
 
 bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
@@ -127,6 +127,8 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
 
   return true;
 }
+
+namespace {
 
 class Typing {
  public:
@@ -259,15 +261,16 @@ ElfSymbol Reader::SymbolTableEntryToElfSymbol(
 }
 
 }  // namespace
+}  // namespace internal
 
 Id Read(Graph& graph, const std::string& path, bool process_dwarf,
         bool verbose) {
-  return Reader(graph, path, process_dwarf, verbose).Read();
+  return internal::Reader(graph, path, process_dwarf, verbose).Read();
 }
 
 Id Read(Graph& graph, char* data, size_t size, bool process_dwarf,
         bool verbose) {
-  return Reader(graph, data, size, process_dwarf, verbose).Read();
+  return internal::Reader(graph, data, size, process_dwarf, verbose).Read();
 }
 
 }  // namespace elf
