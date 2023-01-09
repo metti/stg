@@ -19,6 +19,7 @@
 
 #include "dwarf_wrappers.h"
 
+#include <dwarf.h>
 #include <elf.h>
 #include <elfutils/libdw.h>
 #include <elfutils/libdwfl.h>
@@ -56,6 +57,18 @@ std::optional<Dwarf_Attribute> GetAttribute(Dwarf_Die* die, int attribute) {
   //
   // libdw has infinite loop protection, as it stops after 16 dereferences.
   if (!dwarf_attr_integrate(die, attribute, &result.value())) {
+    result.reset();
+  }
+  return result;
+}
+
+// Get the attribute directly from DIE without following DW_AT_specification and
+// DW_AT_abstract_origin references.
+std::optional<Dwarf_Attribute> GetDirectAttribute(Dwarf_Die* die,
+                                                  int attribute) {
+  // Create an optional with default-initialized value already inside
+  std::optional<Dwarf_Attribute> result(std::in_place);
+  if (!dwarf_attr(die, attribute, &result.value())) {
     result.reset();
   }
   return result;
@@ -192,7 +205,9 @@ std::optional<uint64_t> Entry::MaybeGetUnsignedConstant(
 
 bool Entry::GetFlag(uint32_t attribute) {
   bool result = false;
-  auto dwarf_attribute = GetAttribute(&die, attribute);
+  auto dwarf_attribute = (attribute == DW_AT_declaration)
+                             ? GetDirectAttribute(&die, attribute)
+                             : GetAttribute(&die, attribute);
   if (!dwarf_attribute) {
     return result;
   }
