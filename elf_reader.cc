@@ -130,10 +130,11 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
 
 class Typing {
  public:
-  Typing(Graph& graph, dwarf::Types types)
-      : graph_(graph), types_(std::move(types)) {
-  }
+  Typing(Graph& graph) : graph_(graph) {}
 
+  void GetTypesFromDwarf(dwarf::Handler& dwarf) {
+    types_ = dwarf::Process(dwarf, graph_);
+  }
 
   Id JoinAllIds() {
     return graph_.Add<Function>(graph_.Add<Void>(), types_.all_ids);
@@ -166,7 +167,8 @@ class Reader {
         dwarf_(path),
         elf_(dwarf_.GetElf(), verbose),
         process_dwarf_(process_dwarf),
-        verbose_(verbose) {}
+        verbose_(verbose),
+        typing_(graph_) {}
 
   Reader(Graph& graph, char* data, size_t size, bool process_dwarf,
          bool verbose)
@@ -174,7 +176,8 @@ class Reader {
         dwarf_(data, size),
         elf_(dwarf_.GetElf(), verbose),
         process_dwarf_(process_dwarf),
-        verbose_(verbose) {}
+        verbose_(verbose),
+        typing_(graph_) {}
 
   Id Read();
   ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) const;
@@ -190,6 +193,7 @@ class Reader {
 
   // Data extracted from ELF
   CRCValuesMap crc_values_;
+  Typing typing_;
 };
 
 Id Reader::Read() {
@@ -220,8 +224,9 @@ Id Reader::Read() {
     }
   }
 
-  Typing typing(
-      graph_, process_dwarf_ ? dwarf::Process(dwarf_, graph_) : dwarf::Types{});
+  if (process_dwarf_) {
+    typing_.GetTypesFromDwarf(dwarf_);
+  }
 
   std::map<std::string, Id> symbols_map;
   for (const auto& symbol : public_functions_and_variables) {
@@ -232,7 +237,7 @@ Id Reader::Read() {
         std::string(symbol.name),
         graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
   }
-  typing.AddFakeSymbols(symbols_map);
+  typing_.AddFakeSymbols(symbols_map);
   return graph_.Add<Symbols>(std::move(symbols_map));
 }
 
