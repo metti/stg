@@ -166,6 +166,9 @@ class Processor {
       case DW_TAG_array_type:
         ProcessArray(entry);
         break;
+      case DW_TAG_enumeration_type:
+        ProcessEnum(entry);
+        break;
       case DW_TAG_class_type:
         ProcessStructUnion(entry, StructUnion::Kind::CLASS);
         break;
@@ -349,6 +352,38 @@ class Processor {
       referred_type_id = AddProcessedNode<Array>(
           entry_to_attach, GetNumberOfElements(child), referred_type_id);
     }
+  }
+
+  void ProcessEnum(Entry& entry) {
+    std::string name = GetNameOrEmpty(entry);
+    if (entry.GetFlag(DW_AT_declaration)) {
+      // It is expected to have only name and no children in declaration.
+      // However, it is not guaranteed and we should do something if we find an
+      // example.
+      CheckNoChildren(entry);
+      AddProcessedNode<Enumeration>(entry, name);
+      return;
+    }
+    size_t byte_size = GetByteSize(entry);
+    auto children = entry.GetChildren();
+    Enumeration::Enumerators enumerators;
+    enumerators.reserve(children.size());
+    for (auto& child : children) {
+      Check(child.GetTag() == DW_TAG_enumerator)
+          << "Enum expects child of DW_TAG_enumerator";
+      std::string enumerator_name = GetName(child);
+      // TODO: detect signedness of underlying type and call
+      // an appropriate method.
+      std::optional<size_t> value_optional =
+          child.MaybeGetUnsignedConstant(DW_AT_const_value);
+      Check(value_optional.has_value()) << "Enumerator should have value";
+      // TODO: support both uint64_t and int64_t, depending on
+      // signedness of underlying type.
+      enumerators.emplace_back(enumerator_name,
+                               static_cast<int64_t>(*value_optional));
+    }
+    AddProcessedNode<Enumeration>(entry, std::move(name), byte_size,
+                                  std::move(enumerators));
   }
 
   // Allocate or get already allocated STG Id for Entry.
