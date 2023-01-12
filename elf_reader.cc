@@ -160,12 +160,20 @@ class Typing {
   // TODO: match STG from DWARF with ELF symbols
   void AddFakeSymbols(std::map<std::string, Id>& symbols_map) {
     std::unordered_map<std::string, size_t> keys_counter;
+    const auto get_unique_key = [&keys_counter](const std::string& key) {
+      return key + "_" + std::to_string(keys_counter[key]++);
+    };
     NameCache name_cache;
     Describe describe(graph_, name_cache);
     for (const auto& id : types_.all_ids) {
-      std::string key = describe(id).ToString();
-      std::string unique_key = key + "_" + std::to_string(keys_counter[key]++);
-      symbols_map.emplace(unique_key, id);
+      symbols_map.emplace(get_unique_key(describe(id).ToString()), id);
+    }
+    for (const auto& symbol : types_.symbols) {
+      std::string key = symbol.name;
+      if (symbol.linkage_name) {
+        key += "_" + symbol.linkage_name.value();
+      }
+      symbols_map.emplace(get_unique_key(key), symbol.id);
     }
   }
 

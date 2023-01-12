@@ -211,6 +211,9 @@ class Processor {
       case DW_TAG_restrict_type:
         ProcessReference<Qualified>(entry, Qualifier::RESTRICT);
         break;
+      case DW_TAG_variable:
+        ProcessVariable(entry);
+        break;
 
       default:
         // TODO: die on unexpected tag, when this switch contains
@@ -384,6 +387,27 @@ class Processor {
     }
     AddProcessedNode<Enumeration>(entry, std::move(name), byte_size,
                                   std::move(enumerators));
+  }
+
+  void ProcessVariable(Entry& entry) {
+    // Skip:
+    //  * anonymous variables (for example, anonymous union)
+    //  * variables not visible outside of its enclosing compilation unit
+    if (!entry.GetFlag(DW_AT_external)) {
+      return;
+    }
+    std::optional<std::string> name_optional = MaybeGetName(entry);
+    if (!name_optional) {
+      return;
+    }
+
+    auto referred_type = GetReferredType(entry);
+    auto referred_type_id = GetIdForEntry(referred_type);
+    // TODO: provide data location for ELF symbol matching
+    result_.symbols.push_back(
+        Types::Symbol{.name = *name_optional,
+                      .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
+                      .id = referred_type_id});
   }
 
   // Allocate or get already allocated STG Id for Entry.
