@@ -156,8 +156,11 @@ size_t GetNumberOfElements(Entry& entry) {
 // Transforms DWARF entries to STG.
 class Processor {
  public:
-  Processor(Graph& graph, Id void_id, Types& result)
-      : graph_(graph), void_id_(void_id), result_(result) {}
+  Processor(Graph& graph, Id void_id, Id variadic_id, Types& result)
+      : graph_(graph),
+        void_id_(void_id),
+        variadic_id_(variadic_id),
+        result_(result) {}
 
   void Process(Entry& entry) {
     ++result_.processed_entries;
@@ -213,6 +216,14 @@ class Processor {
         break;
       case DW_TAG_variable:
         ProcessVariable(entry);
+        break;
+      case DW_TAG_subroutine_type:
+        // Standalone function type, for example, used in function pointers.
+        ProcessFunction(entry);
+        break;
+      case DW_TAG_subprogram:
+        // DWARF equivalent of ELF function symbol.
+        ProcessFunction(entry);
         break;
 
       default:
@@ -410,6 +421,50 @@ class Processor {
                       .id = referred_type_id});
   }
 
+  void ProcessFunction(Entry& entry) {
+    auto return_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
+
+    std::vector<Id> parameters;
+    for (auto& child : entry.GetChildren()) {
+      auto child_tag = child.GetTag();
+      if (child_tag == DW_TAG_formal_parameter) {
+        auto child_type = GetReferredType(child);
+        auto child_type_id = GetIdForEntry(child_type);
+        parameters.push_back(child_type_id);
+      } else if (child_tag == DW_TAG_unspecified_parameters) {
+        // Note: C++ allows a single ... argument specification but C does not.
+        // However, "extern int foo();" (note lack of "void" in parameters) in C
+        // will produce the same DWARF as "extern int foo(...);" in C++.
+        CheckNoChildren(child);
+        parameters.push_back(variadic_id_);
+      } else if (child_tag == DW_TAG_enumeration_type ||
+                 child_tag == DW_TAG_label ||
+                 child_tag == DW_TAG_lexical_block ||
+                 child_tag == DW_TAG_structure_type ||
+                 child_tag == DW_TAG_class_type ||
+                 child_tag == DW_TAG_union_type ||
+                 child_tag == DW_TAG_typedef ||
+                 child_tag == DW_TAG_inlined_subroutine ||
+                 child_tag == DW_TAG_variable ||
+                 child_tag == DW_TAG_call_site ||
+                 child_tag == DW_TAG_GNU_call_site) {
+        Process(child);
+      } else {
+        Die() << "Unexpected tag for child of function: " << child_tag << ", "
+              << EntryToString(child);
+      }
+    }
+    auto id = AddProcessedNode<Function>(entry, return_type_id, parameters);
+
+    if (entry.GetFlag(DW_AT_external)) {
+      // TODO: provide function address for ELF symbol matching
+      result_.symbols.push_back(Types::Symbol{
+          .name = GetNameOrEmpty(entry),
+          .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
+          .id = id});
+    }
+  }
+
   // Allocate or get already allocated STG Id for Entry.
   Id GetIdForEntry(Entry& entry) {
     const auto offset = entry.GetOffset();
@@ -437,6 +492,7 @@ class Processor {
 
   Graph& graph_;
   Id void_id_;
+  Id variadic_id_;
   Types& result_;
   std::unordered_map<Dwarf_Off, Id> id_map_;
 };
@@ -444,7 +500,8 @@ class Processor {
 Types ProcessEntries(std::vector<Entry> entries, Graph& graph) {
   Types result;
   Id void_id = graph.Add<Void>();
-  Processor processor(graph, void_id, result);
+  Id variadic_id = graph.Add<Variadic>();
+  Processor processor(graph, void_id, variadic_id, result);
   for (auto& entry : entries) {
     processor.Process(entry);
   }
