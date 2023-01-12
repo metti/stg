@@ -226,7 +226,20 @@ std::optional<Entry> Entry::MaybeGetReference(uint32_t attribute) {
 
   result.emplace();
   Check(dwarf_formref_die(&dwarf_attribute.value(), &result->die))
-      << "dwarf_formref_die returned error\n";
+      << "dwarf_formref_die returned error";
+  return result;
+}
+
+std::optional<uint64_t> Entry::MaybeGetAddress(uint32_t attribute) {
+  std::optional<uint64_t> result;
+  auto dwarf_attribute = GetAttribute(&die, attribute);
+  if (!dwarf_attribute) {
+    return result;
+  }
+
+  result.emplace();
+  Check(dwarf_formaddr(&dwarf_attribute.value(), &result.value()) == kReturnOk)
+      << "dwarf_formaddr returned error";
   return result;
 }
 

@@ -457,11 +457,15 @@ class Processor {
     auto id = AddProcessedNode<Function>(entry, return_type_id, parameters);
 
     if (entry.GetFlag(DW_AT_external)) {
-      // TODO: provide function address for ELF symbol matching
-      result_.symbols.push_back(Types::Symbol{
-          .name = GetNameOrEmpty(entry),
-          .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
-          .id = id});
+      auto address = entry.MaybeGetAddress(DW_AT_low_pc);
+      if (address) {
+        // Only external functions with address are useful for ABI monitoring
+        result_.symbols.push_back(Types::Symbol{
+            .name = GetNameOrEmpty(entry),
+            .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
+            .address = address,
+            .id = id});
+      }
     }
   }
 

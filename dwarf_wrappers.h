@@ -62,6 +62,7 @@ struct Entry {
   // DW_AT_specification and DW_AT_abstract_origin references.
   bool GetFlag(uint32_t attribute);
   std::optional<Entry> MaybeGetReference(uint32_t attribute);
+  std::optional<uint64_t> MaybeGetAddress(uint32_t attribute);
 };
 
 // C++ wrapper over libdw (DWARF library).

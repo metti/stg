@@ -32,6 +32,7 @@ struct Types {
   struct Symbol {
     std::string name;
     std::optional<std::string> linkage_name;
+    std::optional<size_t> address;
     Id id;
   };
 
