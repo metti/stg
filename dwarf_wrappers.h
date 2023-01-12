@@ -58,8 +58,6 @@ struct Entry {
   Dwarf_Off GetOffset();
   std::optional<std::string> MaybeGetString(uint32_t attribute);
   std::optional<uint64_t> MaybeGetUnsignedConstant(uint32_t attribute);
-  // If "direct" is true, get the flag directly from DIE without following
-  // DW_AT_specification and DW_AT_abstract_origin references.
   bool GetFlag(uint32_t attribute);
   std::optional<Entry> MaybeGetReference(uint32_t attribute);
   std::optional<uint64_t> MaybeGetAddress(uint32_t attribute);
