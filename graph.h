@@ -52,6 +52,8 @@ struct Id {
 
 std::ostream& operator<<(std::ostream& os, Id id);
 
+using Pair = std::pair<Id, Id>;
+
 }  // namespace stg
 
 namespace std {
@@ -66,6 +68,19 @@ struct hash<stg::Id> {
 }  // namespace std
 
 namespace stg {
+
+struct HashPair {
+  size_t operator()(const Pair& comparison) const {
+    size_t seed = 0;
+    std::hash<Id> h;
+    combine_hash(seed, h(comparison.first));
+    combine_hash(seed, h(comparison.second));
+    return seed;
+  }
+  static void combine_hash(size_t& seed, size_t hash) {
+    seed ^= hash + 0x9e3779b97f4a7c15 + (seed << 12) + (seed >> 4);
+  }
+};
 
 struct Node {
   Node() = default;
