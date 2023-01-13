@@ -65,22 +65,20 @@ struct hash<stg::Id> {
   }
 };
 
+template <>
+struct hash<stg::Pair> {
+  size_t operator()(const stg::Pair& comparison) const {
+    hash<stg::Id> h;
+    auto h1 = h(comparison.first);
+    auto h2 = h(comparison.second);
+    // assumes 64-bit size_t, would be better if std::hash_combine existed
+    return h1 ^ (h2 + 0x9e3779b97f4a7c15 + (h1 << 12) + (h1 >> 4));
+  }
+};
+
 }  // namespace std
 
 namespace stg {
-
-struct HashPair {
-  size_t operator()(const Pair& comparison) const {
-    size_t seed = 0;
-    std::hash<Id> h;
-    combine_hash(seed, h(comparison.first));
-    combine_hash(seed, h(comparison.second));
-    return seed;
-  }
-  static void combine_hash(size_t& seed, size_t hash) {
-    seed ^= hash + 0x9e3779b97f4a7c15 + (seed << 12) + (seed >> 4);
-  }
-};
 
 struct Node {
   Node() = default;

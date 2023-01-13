@@ -220,7 +220,7 @@ struct Equals {
 
   const Graph& graph;
   EqualityCache& equality_cache;
-  SCC<Pair, HashPair> scc;
+  SCC<Pair> scc;
 };
 
 }  // namespace stg

@@ -106,7 +106,7 @@ bool RunExact(const Inputs& inputs, bool process_dwarf, stg::Metrics& metrics) {
       }
     }
     void AllDifferent(const std::vector<stg::Pair>&) {}
-    std::unordered_set<stg::Pair, stg::HashPair> equalities;
+    std::unordered_set<stg::Pair> equalities;
   };
 
   stg::Time compute(metrics, "equality check");
