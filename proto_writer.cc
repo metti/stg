@@ -344,8 +344,6 @@ Method::Kind Transform<MapId>::operator()(stg::Method::Kind x) {
 template <typename MapId>
 StructUnion::Kind Transform<MapId>::operator()(stg::StructUnion::Kind x) {
   switch (x) {
-    case stg::StructUnion::Kind::CLASS:
-      return StructUnion::CLASS;
     case stg::StructUnion::Kind::STRUCT:
       return StructUnion::STRUCT;
     case stg::StructUnion::Kind::UNION:

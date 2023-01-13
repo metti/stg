@@ -51,8 +51,6 @@ std::ostream& operator<<(std::ostream& os, Method::Kind kind) {
 
 std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind) {
   switch (kind) {
-    case StructUnion::Kind::CLASS:
-      return os << "class";
     case StructUnion::Kind::STRUCT:
       return os << "struct";
     case StructUnion::Kind::UNION:

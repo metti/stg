@@ -173,7 +173,7 @@ class Processor {
         ProcessEnum(entry);
         break;
       case DW_TAG_class_type:
-        ProcessStructUnion(entry, StructUnion::Kind::CLASS);
+        ProcessStructUnion(entry, StructUnion::Kind::STRUCT);
         break;
       case DW_TAG_structure_type:
         ProcessStructUnion(entry, StructUnion::Kind::STRUCT);

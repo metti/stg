@@ -537,9 +537,7 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
       ReadAttribute<bool>(struct_union, "is-declaration-only", false)
       && !xmlFirstElementChild(struct_union);
   const auto kind = is_struct
-                    ? (ReadAttribute<bool>(struct_union, "is-struct", false)
-                           ? StructUnion::Kind::STRUCT
-                           : StructUnion::Kind::CLASS)
+                    ? StructUnion::Kind::STRUCT
                     : StructUnion::Kind::UNION;
   const auto name = ReadAttribute<bool>(struct_union, "is-anonymous", false)
                     ? std::string()

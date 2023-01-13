@@ -322,8 +322,6 @@ stg::Method::Kind Transformer::Transform(Method::Kind x) {
 
 stg::StructUnion::Kind Transformer::Transform(StructUnion::Kind x) {
   switch (x) {
-    case StructUnion::CLASS:
-      return stg::StructUnion::Kind::CLASS;
     case StructUnion::STRUCT:
       return stg::StructUnion::Kind::STRUCT;
     case StructUnion::UNION:

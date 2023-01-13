@@ -186,7 +186,7 @@ struct Member : Node {
 };
 
 struct StructUnion : Node {
-  enum class Kind { CLASS, STRUCT, UNION };
+  enum class Kind { STRUCT, UNION };
   struct Definition {
     uint64_t bytesize;
     std::vector<Id> base_classes;
