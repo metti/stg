@@ -101,7 +101,8 @@ uint32_t StableId::operator()(const Method& x) {
 }
 
 uint32_t StableId::operator()(const Member& x) {
-  uint32_t hash = hash_('m', x.name, x.bitsize, x.offset);
+  uint32_t hash = hash_('m', x.name, x.bitsize);
+  hash = DecayHashCombine<20>(hash, hash_(x.offset));
   if (x.name.empty()) {
     return DecayHashCombine<2>(hash, (*this)(x.type_id));
   } else {
