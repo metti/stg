@@ -59,7 +59,7 @@ namespace std {
 template <>
 struct hash<stg::Id> {
   size_t operator()(const stg::Id& id) const {
-    return id.ix_;
+    return hash<decltype(id.ix_)>()(id.ix_);
   }
 };
 
