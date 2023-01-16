@@ -77,9 +77,8 @@ struct Hasher {
   }
 
   HashValue operator()(const StructUnion& x) {
-    auto kind = hash('U', static_cast<uint32_t>(x.kind));
     if (x.name.empty()) {
-      auto h = kind;
+      auto h = hash('u', static_cast<uint32_t>(x.kind));
       if (x.definition.has_value()) {
         auto& definition = *x.definition;
         for (auto id : definition.base_classes) {
@@ -106,7 +105,8 @@ struct Hasher {
           todo.insert(id);
         }
       }
-      return hash(kind, x.name, x.definition ? '1' : '0');
+      return hash('U', static_cast<uint32_t>(x.kind), x.name,
+                  x.definition ? '1' : '0');
     }
   }
 
