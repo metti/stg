@@ -210,7 +210,7 @@ struct SectionInfo {
 };
 
 SectionInfo GetSectionInfo(Elf_Scn* section) {
-  size_t index = elf_ndxscn(section);
+  const size_t index = elf_ndxscn(section);
   GElf_Shdr section_header;
   Check(gelf_getshdr(section, &section_header) != nullptr)
       << "failed to read section (index = " << index << ") header";
@@ -384,8 +384,8 @@ ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(
   Check(symbol.value >= header.sh_addr)
       << "CRC symbol value is below CRC section start";
 
-  size_t offset = symbol.value - header.sh_addr;
-  size_t offset_end = offset + sizeof(uint32_t);
+  const size_t offset = symbol.value - header.sh_addr;
+  const size_t offset_end = offset + sizeof(uint32_t);
   Check(offset_end <= data->d_size && offset_end <= header.sh_size)
       << "CRC symbol value is above CRC section end";
 

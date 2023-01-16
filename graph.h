@@ -68,7 +68,7 @@ struct hash<stg::Id> {
 template <>
 struct hash<stg::Pair> {
   size_t operator()(const stg::Pair& comparison) const {
-    hash<stg::Id> h;
+    const hash<stg::Id> h;
     auto h1 = h(comparison.first);
     auto h2 = h(comparison.second);
     // assumes 64-bit size_t, would be better if std::hash_combine existed
