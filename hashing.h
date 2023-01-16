@@ -61,10 +61,6 @@ struct Hash {
     return hash_value;
   }
 
-  constexpr HashValue operator()() const {
-    return HashValue(0);
-  }
-
   // Hash boolean by converting to int.
   constexpr HashValue operator()(bool x) const {
     return x ? (*this)(1) : (*this)(0);
