@@ -34,28 +34,28 @@ class StableId {
  public:
   StableId(const Graph& graph) : graph_(graph) {}
 
-  uint32_t operator()(Id);
-  uint32_t operator()(const Void&);
-  uint32_t operator()(const Variadic&);
-  uint32_t operator()(const PointerReference&);
-  uint32_t operator()(const Typedef&);
-  uint32_t operator()(const Qualified&);
-  uint32_t operator()(const Primitive&);
-  uint32_t operator()(const Array&);
-  uint32_t operator()(const BaseClass&);
-  uint32_t operator()(const Method&);
-  uint32_t operator()(const Member&);
-  uint32_t operator()(const StructUnion&);
-  uint32_t operator()(const Enumeration&);
-  uint32_t operator()(const Function&);
-  uint32_t operator()(const ElfSymbol&);
-  uint32_t operator()(const Symbols&);
+  HashValue operator()(Id);
+  HashValue operator()(const Void&);
+  HashValue operator()(const Variadic&);
+  HashValue operator()(const PointerReference&);
+  HashValue operator()(const Typedef&);
+  HashValue operator()(const Qualified&);
+  HashValue operator()(const Primitive&);
+  HashValue operator()(const Array&);
+  HashValue operator()(const BaseClass&);
+  HashValue operator()(const Method&);
+  HashValue operator()(const Member&);
+  HashValue operator()(const StructUnion&);
+  HashValue operator()(const Enumeration&);
+  HashValue operator()(const Function&);
+  HashValue operator()(const ElfSymbol&);
+  HashValue operator()(const Symbols&);
 
  private:
   const Graph& graph_;
-  std::unordered_map<Id, uint32_t> stable_id_cache_;
+  std::unordered_map<Id, HashValue> stable_id_cache_;
 
-  // Function object: (Args...) -> uint32_t
+  // Function object: (Args...) -> HashValue
   Hash hash_;
 };
 

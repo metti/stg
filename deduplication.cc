@@ -30,7 +30,7 @@ namespace stg {
 
 Id Deduplicate(Graph& graph, Id root, const Hashes& hashes, Metrics& metrics) {
   // Partition the nodes by hash.
-  std::unordered_map<uint32_t, std::vector<Id>> partitions;
+  std::unordered_map<HashValue, std::vector<Id>> partitions;
   {
     Time x(metrics, "partition nodes");
     for (const auto& [id, fp] : hashes) {
