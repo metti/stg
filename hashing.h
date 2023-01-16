@@ -27,9 +27,40 @@
 
 namespace stg {
 
-using HashValue = uint32_t;
+struct HashValue {
+  constexpr explicit HashValue(uint32_t value) : value(value) {}
+  // TODO: bool operator==(const HashValue&) const = default;
+  bool operator==(const HashValue& other) const {
+    return value == other.value;
+  }
+  bool operator!=(const HashValue& other) const {
+    return value != other.value;
+  }
+
+  uint32_t value;
+};
+
+}  // namespace stg
+
+namespace std {
+
+template <>
+struct hash<stg::HashValue> {
+  size_t operator()(const stg::HashValue& hv) const {
+    // do not overhash
+    return hv.value;
+  }
+};
+
+}  // namespace std
+
+namespace stg {
 
 struct Hash {
+  constexpr HashValue operator()(HashValue hash_value) const {
+    return hash_value;
+  }
+
   constexpr HashValue operator()() const {
     return HashValue(0);
   }
@@ -93,9 +124,10 @@ struct Hash {
 
   // Reverse order Boost hash_combine (must be used with good hashes).
   template <typename Arg, typename... Args>
-  constexpr uint32_t operator()(Arg arg, Args... args) const {
-    auto seed = (*this)(args...);
-    return seed ^ ((*this)(arg) + 0x9e3779b9 + (seed << 6) + (seed >> 2));
+  constexpr HashValue operator()(Arg arg, Args... args) const {
+    uint32_t seed = (*this)(args...).value;
+    uint32_t hash = (*this)(arg).value;
+    return HashValue(seed ^ (hash + 0x9e3779b9 + (seed << 6) + (seed >> 2)));
   }
 };
 

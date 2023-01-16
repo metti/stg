@@ -42,7 +42,7 @@ namespace {
 template <uint8_t decay>
 constexpr HashValue DecayHashCombine(HashValue a, HashValue b) {
   static_assert(decay > 0 && decay < 32, "decay must lie inside (0, 32)");
-  return a ^ (b >> decay);
+  return HashValue(a.value ^ (b.value >> decay));
 }
 
 // Decaying hashes are combined in reverse since the each successive hashable
@@ -125,9 +125,9 @@ HashValue StableId::operator()(const StructUnion& x) {
     return hash;
   }
 
-  return DecayHashCombine<2>(
-      hash, DecayHashCombineInReverse<8>(x.definition->methods, *this) ^
-                DecayHashCombineInReverse<8>(x.definition->members, *this));
+  auto h1 = DecayHashCombineInReverse<8>(x.definition->methods, *this);
+  auto h2 = DecayHashCombineInReverse<8>(x.definition->members, *this);
+  return DecayHashCombine<2>(hash, HashValue(h1.value ^ h2.value));
 }
 
 HashValue StableId::operator()(const Enumeration& x) {

@@ -41,6 +41,18 @@ namespace proto {
 
 namespace {
 
+class StableId {
+ public:
+  StableId(const Graph& graph) : stable_id_(graph) {}
+
+  uint32_t operator()(Id id) {
+    return stable_id_(id).value;
+  }
+
+ private:
+  ::stg::StableId stable_id_;
+};
+
 template <typename MapId>
 struct Transform {
   Transform(const Graph& graph, proto::STG& stg, MapId& map_id)
