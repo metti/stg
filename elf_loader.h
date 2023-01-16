@@ -68,8 +68,7 @@ struct SymbolTableEntry {
 
 std::ostream& operator<<(std::ostream& os, SymbolTableEntry::SymbolType type);
 
-std::ostream& operator<<(std::ostream& os,
-                         const SymbolTableEntry::ValueType type);
+std::ostream& operator<<(std::ostream& os, SymbolTableEntry::ValueType type);
 
 class ElfLoader final {
  public:
