@@ -81,12 +81,8 @@ struct Hasher {
       auto h = hash('u', static_cast<uint32_t>(x.kind));
       if (x.definition.has_value()) {
         auto& definition = *x.definition;
-        for (auto id : definition.base_classes) {
-          todo.insert(id);
-        }
-        for (auto id : definition.methods) {
-          todo.insert(id);
-        }
+        ToDo(definition.base_classes);
+        ToDo(definition.methods);
         for (auto id : definition.members) {
           h = hash(h, (*this)(id));
         }
@@ -95,15 +91,9 @@ struct Hasher {
     } else {
       if (x.definition.has_value()) {
         auto& definition = *x.definition;
-        for (auto id : definition.base_classes) {
-          todo.insert(id);
-        }
-        for (auto id : definition.methods) {
-          todo.insert(id);
-        }
-        for (auto id : definition.members) {
-          todo.insert(id);
-        }
+        ToDo(definition.base_classes);
+        ToDo(definition.methods);
+        ToDo(definition.members);
       }
       return hash('U', static_cast<uint32_t>(x.kind), x.name,
                   x.definition ? '1' : '0');
@@ -189,6 +179,12 @@ struct Hasher {
       hashes.insert({id, result});
     }
     return result;
+  }
+
+  void ToDo(const std::vector<Id>& ids) {
+    for (auto id : ids) {
+      todo.insert(id);
+    }
   }
 
   const Graph& graph;
