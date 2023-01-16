@@ -17,8 +17,8 @@
 //
 // Author: Siddharth Nayyar
 
-#ifndef STG_STABLE_IDS_H_
-#define STG_STABLE_IDS_H_
+#ifndef STG_STABLE_HASH_H_
+#define STG_STABLE_HASH_H_
 
 #include <cstdint>
 #include <iostream>
@@ -30,9 +30,9 @@
 
 namespace stg {
 
-class StableId {
+class StableHash {
  public:
-  StableId(const Graph& graph) : graph_(graph) {}
+  StableHash(const Graph& graph) : graph_(graph) {}
 
   HashValue operator()(Id);
   HashValue operator()(const Void&);
@@ -53,7 +53,7 @@ class StableId {
 
  private:
   const Graph& graph_;
-  std::unordered_map<Id, HashValue> stable_id_cache_;
+  std::unordered_map<Id, HashValue> cache_;
 
   // Function object: (Args...) -> HashValue
   Hash hash_;
@@ -61,4 +61,4 @@ class StableId {
 
 }  // namespace stg
 
-#endif  // STG_STABLE_IDS_H_
+#endif  // STG_STABLE_HASH_H_

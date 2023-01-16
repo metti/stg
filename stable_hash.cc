@@ -17,7 +17,7 @@
 //
 // Author: Siddharth Nayyar
 
-#include "stable_id.h"
+#include "stable_hash.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -60,55 +60,55 @@ HashValue DecayHashCombineInReverse(const std::vector<Type>& hashables,
 
 }  // namespace
 
-HashValue StableId::operator()(Id id) {
-  auto [it, inserted] = stable_id_cache_.emplace(id, 0);
+HashValue StableHash::operator()(Id id) {
+  auto [it, inserted] = cache_.emplace(id, 0);
   if (inserted) {
     it->second = graph_.Apply<HashValue>(*this, id);
   }
   return it->second;
 }
 
-HashValue StableId::operator()(const Void&) {
+HashValue StableHash::operator()(const Void&) {
   return hash_("void");
 }
 
-HashValue StableId::operator()(const Variadic&) {
+HashValue StableHash::operator()(const Variadic&) {
   return hash_("variadic");
 }
 
-HashValue StableId::operator()(const PointerReference& x) {
+HashValue StableHash::operator()(const PointerReference& x) {
   return DecayHashCombine<2>(hash_('r', static_cast<uint32_t>(x.kind)),
                              (*this)(x.pointee_type_id));
 }
 
-HashValue StableId::operator()(const Typedef& x) {
+HashValue StableHash::operator()(const Typedef& x) {
   return hash_('t', x.name);
 }
 
-HashValue StableId::operator()(const Qualified& x) {
+HashValue StableHash::operator()(const Qualified& x) {
   return DecayHashCombine<2>(hash_('q', static_cast<uint32_t>(x.qualifier)),
                              (*this)(x.qualified_type_id));
 }
 
-HashValue StableId::operator()(const Primitive& x) {
+HashValue StableHash::operator()(const Primitive& x) {
   return hash_('p', x.name);
 }
 
-HashValue StableId::operator()(const Array& x) {
+HashValue StableHash::operator()(const Array& x) {
   return DecayHashCombine<2>(hash_('a', x.number_of_elements),
                              (*this)(x.element_type_id));
 }
 
-HashValue StableId::operator()(const BaseClass& x) {
+HashValue StableHash::operator()(const BaseClass& x) {
   return DecayHashCombine<2>(hash_('b', static_cast<uint32_t>(x.inheritance)),
                              (*this)(x.type_id));
 }
 
-HashValue StableId::operator()(const Method& x) {
+HashValue StableHash::operator()(const Method& x) {
   return hash_(x.mangled_name, static_cast<uint32_t>(x.kind));
 }
 
-HashValue StableId::operator()(const Member& x) {
+HashValue StableHash::operator()(const Member& x) {
   HashValue hash = hash_('m', x.name, x.bitsize);
   hash = DecayHashCombine<20>(hash, hash_(x.offset));
   if (x.name.empty()) {
@@ -118,7 +118,7 @@ HashValue StableId::operator()(const Member& x) {
   }
 }
 
-HashValue StableId::operator()(const StructUnion& x) {
+HashValue StableHash::operator()(const StructUnion& x) {
   HashValue hash = hash_('S', static_cast<uint32_t>(x.kind), x.name,
                          static_cast<bool>(x.definition));
   if (!x.name.empty() || !x.definition) {
@@ -130,7 +130,7 @@ HashValue StableId::operator()(const StructUnion& x) {
   return DecayHashCombine<2>(hash, HashValue(h1.value ^ h2.value));
 }
 
-HashValue StableId::operator()(const Enumeration& x) {
+HashValue StableHash::operator()(const Enumeration& x) {
   HashValue hash = hash_('e', x.name, static_cast<bool>(x.definition));
   if (!x.name.empty() || !x.definition) {
     return hash;
@@ -143,12 +143,12 @@ HashValue StableId::operator()(const Enumeration& x) {
       hash, DecayHashCombineInReverse<8>(x.definition->enumerators, hash_enum));
 }
 
-HashValue StableId::operator()(const Function& x) {
+HashValue StableHash::operator()(const Function& x) {
   return DecayHashCombine<2>(hash_('f', (*this)(x.return_type_id)),
                              DecayHashCombineInReverse<4>(x.parameters, *this));
 }
 
-HashValue StableId::operator()(const ElfSymbol& x) {
+HashValue StableHash::operator()(const ElfSymbol& x) {
   HashValue hash = hash_('s', x.symbol_name);
   if (x.version_info) {
     hash = DecayHashCombine<16>(
@@ -157,7 +157,7 @@ HashValue StableId::operator()(const ElfSymbol& x) {
   return hash;
 }
 
-HashValue StableId::operator()(const Symbols&) {
+HashValue StableHash::operator()(const Symbols&) {
   return hash_("symtab");
 }
 

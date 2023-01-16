@@ -33,7 +33,7 @@
 #include <google/protobuf/repeated_ptr_field.h>
 #include <google/protobuf/text_format.h>
 #include "graph.h"
-#include "stable_id.h"
+#include "stable_hash.h"
 #include "stg.pb.h"
 
 namespace stg {
@@ -43,14 +43,14 @@ namespace {
 
 class StableId {
  public:
-  StableId(const Graph& graph) : stable_id_(graph) {}
+  StableId(const Graph& graph) : stable_hash_(graph) {}
 
   uint32_t operator()(Id id) {
-    return stable_id_(id).value;
+    return stable_hash_(id).value;
   }
 
  private:
-  ::stg::StableId stable_id_;
+  StableHash stable_hash_;
 };
 
 template <typename MapId>
