@@ -41,6 +41,7 @@
 #include "elf_reader.h"
 #include "equality.h"
 #include "error.h"
+#include "fidelity.h"
 #include "graph.h"
 #include "metrics.h"
 #include "proto_reader.h"
@@ -51,6 +52,7 @@ namespace {
 stg::Metrics metrics;
 
 const int kAbiChange = 4;
+const int kFidelityChange = 8;
 const size_t kMaxCrcOnlyChanges = 3;
 const stg::CompareOptions kAllCompareOptionsEnabled{true, true};
 
@@ -91,7 +93,21 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
   return roots;
 }
 
-bool RunExact(const Inputs& inputs, bool process_dwarf, stg::Metrics& metrics) {
+int RunFidelity(const char* filename, const stg::Graph& graph,
+                const std::vector<stg::Id>& roots) {
+  std::ofstream output(filename);
+  auto fidelity_diff = stg::GetFidelityTransitions(graph, roots[0], roots[1]);
+  stg::reporting::FidelityDiff(fidelity_diff, output);
+  output << std::flush;
+  if (!output) {
+    stg::Die() << "error writing to " << '\'' << filename << '\'';
+  }
+  return fidelity_diff.severity == stg::FidelityDiffSeverity::WARN
+             ? kFidelityChange
+             : 0;
+}
+
+int RunExact(const Inputs& inputs, bool process_dwarf, stg::Metrics& metrics) {
   stg::Graph graph;
   const auto roots = Read(inputs, graph, process_dwarf, metrics);
 
@@ -112,12 +128,14 @@ bool RunExact(const Inputs& inputs, bool process_dwarf, stg::Metrics& metrics) {
 
   stg::Time compute(metrics, "equality check");
   PairCache equalities;
-  return stg::Equals<PairCache>(graph, equalities)(roots[0], roots[1]);
+  return stg::Equals<PairCache>(graph, equalities)(roots[0], roots[1])
+             ? 0
+             : kAbiChange;
 }
 
-bool Run(const Inputs& inputs, const Outputs& outputs,
-         const stg::CompareOptions& compare_options, bool process_dwarf,
-         stg::Metrics& metrics) {
+int Run(const Inputs& inputs, const Outputs& outputs,
+        const stg::CompareOptions& compare_options, bool process_dwarf,
+        std::optional<const char*> fidelity, stg::Metrics& metrics) {
   // Read inputs.
   stg::Graph graph;
   const auto roots = Read(inputs, graph, process_dwarf, metrics);
@@ -131,6 +149,7 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
   }
   stg::Check(compare.scc.Empty()) << "internal error: SCC state broken";
   const auto& [equals, comparison] = result;
+  int status = equals ? 0 : kAbiChange;
 
   // Write reports.
   stg::NameCache names;
@@ -148,7 +167,12 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
       stg::Die() << "error writing to " << '\'' << filename << '\'';
   }
 
-  return equals;
+  // Compute fidelity diff if requested.
+  if (fidelity) {
+    status |= RunFidelity(*fidelity, graph, roots);
+  }
+
+  return status;
 }
 
 }  // namespace
@@ -178,6 +202,7 @@ int main(int argc, char* argv[]) {
   bool opt_metrics = false;
   bool opt_exact = false;
   bool opt_process_dwarf = false;
+  std::optional<const char*> opt_fidelity = std::nullopt;
   stg::CompareOptions compare_options;
   InputFormat opt_input_format = InputFormat::ABI;
   stg::reporting::OutputFormat opt_output_format =
@@ -194,8 +219,9 @@ int main(int argc, char* argv[]) {
       {"compare-options", required_argument, nullptr, 'c'          },
       {"format",          required_argument, nullptr, 'f'          },
       {"output",          required_argument, nullptr, 'o'          },
+      {"fidelity",        required_argument, nullptr, 'F'          },
       {"process-dwarf",   no_argument,       nullptr, kProcessDwarf},
-      {nullptr,           0,                 nullptr, 0  },
+      {nullptr,           0,                 nullptr, 0            },
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
@@ -209,6 +235,7 @@ int main(int argc, char* argv[]) {
                  "ignore_type_declaration_status_changes|all}]\n"
               << " [{-f|--format} {plain|flat|small|short|viz}]\n"
               << " [{-o|--output} {filename|-}] ...\n"
+              << " [{-F|--fidelity} {filename|-}]\n"
               << "   implicit defaults: --abi --format plain\n"
               << "   format and output can appear multiple times\n"
               << "   multiple comma-separated compare-options can be passed\n"
@@ -218,7 +245,7 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-mabesxc:f:o:", opts, &ix);
+    int c = getopt_long(argc, argv, "-mabesxc:f:o:F:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
@@ -267,6 +294,10 @@ int main(int argc, char* argv[]) {
           argument = "/dev/stdout";
         outputs.push_back({opt_output_format, argument});
         break;
+      case 'F':
+        if (strcmp(argument, "-") == 0) argument = "/dev/stdout";
+        opt_fidelity.emplace(argument);
+        break;
       case kProcessDwarf:
         opt_process_dwarf = true;
         break;
@@ -279,13 +310,13 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    const bool equals = opt_exact
-        ? RunExact(inputs, opt_process_dwarf, metrics)
-        : Run(inputs, outputs, compare_options, opt_process_dwarf, metrics);
+    int status = opt_exact ? RunExact(inputs, opt_process_dwarf, metrics)
+                           : Run(inputs, outputs, compare_options,
+                                 opt_process_dwarf, opt_fidelity, metrics);
     if (opt_metrics) {
       stg::Report(metrics, std::cerr);
     }
-    return equals ? 0 : kAbiChange;
+    return status;
   } catch (const stg::Exception& e) {
     std::cerr << e.what() << '\n';
     return 1;
