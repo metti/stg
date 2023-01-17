@@ -276,6 +276,14 @@ bool IsLinuxKernelBinary(Elf* elf) {
           MaybeGetSectionByName(elf, ".gnu.linkonce.this_module") != nullptr);
 }
 
+bool IsRelocatable(Elf* elf) {
+  GElf_Ehdr elf_header;
+  Check(gelf_getehdr(elf, &elf_header) != nullptr)
+      << "could not get ELF header";
+
+  return elf_header.e_type == ET_REL;
+}
+
 }  // namespace
 
 std::ostream& operator<<(std::ostream& os, SymbolTableEntry::SymbolType type) {
@@ -323,6 +331,7 @@ ElfLoader::ElfLoader(Elf* elf, bool verbose)
 
 void ElfLoader::InitializeElfInformation() {
   is_linux_kernel_binary_ = elf::IsLinuxKernelBinary(elf_);
+  is_relocatable_ = elf::IsRelocatable(elf_);
 }
 
 std::string_view ElfLoader::GetBtfRawData() const {
@@ -393,6 +402,26 @@ ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(
 
   return ElfSymbol::CRC{*reinterpret_cast<uint32_t*>(
       reinterpret_cast<char*>(data->d_buf) + offset)};
+}
+
+size_t ElfLoader::GetAbsoluteAddress(const SymbolTableEntry& symbol) const {
+  if (symbol.value_type == SymbolTableEntry::ValueType::ABSOLUTE) {
+    return symbol.value;
+  }
+  Check(symbol.value_type == SymbolTableEntry::ValueType::RELATIVE_TO_SECTION)
+      << "Only absolute and relative to sections symbols are supported";
+  // In relocatable files, st_value holds a section offset for a defined symbol.
+  if (is_relocatable_) {
+    const auto section = GetSectionByIndex(elf_, symbol.section_index);
+    GElf_Shdr header;
+    Check(gelf_getshdr(section, &header) != nullptr)
+        << "failed to get symbol section header";
+    Check(symbol.value + symbol.size <= header.sh_size)
+        << "Symbol should be inside the section";
+    return symbol.value + header.sh_addr;
+  }
+  // In executable and shared object files, st_value holds a virtual address.
+  return symbol.value;
 }
 
 bool ElfLoader::IsLinuxKernelBinary() const {

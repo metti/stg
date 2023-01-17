@@ -78,6 +78,7 @@ class ElfLoader final {
   std::string_view GetBtfRawData() const;
   std::vector<SymbolTableEntry> GetElfSymbols() const;
   ElfSymbol::CRC GetElfSymbolCRC(const SymbolTableEntry& symbol) const;
+  size_t GetAbsoluteAddress(const SymbolTableEntry& symbol) const;
   bool IsLinuxKernelBinary() const;
 
  private:
@@ -86,6 +87,7 @@ class ElfLoader final {
   const bool verbose_;
   Elf* elf_;
   bool is_linux_kernel_binary_;
+  bool is_relocatable_;
 };
 
 }  // namespace elf
