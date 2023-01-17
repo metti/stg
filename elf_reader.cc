@@ -37,7 +37,6 @@
 #include "dwarf_wrappers.h"
 #include "elf_loader.h"
 #include "graph.h"
-#include "naming.h"
 
 namespace stg {
 namespace elf {
@@ -176,28 +175,6 @@ class Typing {
     node.full_name = symbol.name;
   }
 
-  // This hack is used to attach all processed DWARF entries to symbols map.
-  // This is temporary solution, until entries are matched to real ELF symbols.
-  // TODO: match STG from DWARF with ELF symbols
-  void AddFakeSymbols(std::map<std::string, Id>& symbols_map) {
-    std::unordered_map<std::string, size_t> keys_counter;
-    const auto get_unique_key = [&keys_counter](const std::string& key) {
-      return key + "_" + std::to_string(keys_counter[key]++);
-    };
-    NameCache name_cache;
-    Describe describe(graph_, name_cache);
-    for (const auto& id : types_.all_ids) {
-      symbols_map.emplace(get_unique_key(describe(id).ToString()), id);
-    }
-    for (const auto& symbol : types_.symbols) {
-      std::string key = symbol.name;
-      if (symbol.linkage_name) {
-        key += "_" + symbol.linkage_name.value();
-      }
-      symbols_map.emplace(get_unique_key(key), symbol.id);
-    }
-  }
-
  private:
   Graph& graph_;
   dwarf::Types types_;
@@ -289,7 +266,6 @@ Id Reader::Read() {
         std::string(symbol.name),
         graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
   }
-  typing_.AddFakeSymbols(symbols_map);
   return graph_.Add<Symbols>(std::move(symbols_map));
 }
 
