@@ -410,10 +410,9 @@ ElfSymbol::Visibility Transform<MapId>::operator()(
 
 template <typename ProtoNode>
 void SortNodes(google::protobuf::RepeatedPtrField<ProtoNode>& nodes) {
-  auto comparator = [](const ProtoNode& lhs, const ProtoNode& rhs) {
-    return lhs.id() < rhs.id();
-  };
-  std::sort(nodes.begin(), nodes.end(), comparator);
+  std::sort(
+      nodes.pointer_begin(), nodes.pointer_end(),
+      [](const auto* lhs, const auto* rhs) { return lhs->id() < rhs->id(); });
 }
 
 void SortNodes(STG& stg) {
