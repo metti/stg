@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <ios>
 #include <iostream>
 #include <iterator>
 #include <map>
@@ -150,10 +151,32 @@ class Typing {
 
   void GetTypesFromDwarf(dwarf::Handler& dwarf) {
     types_ = dwarf::Process(dwarf, graph_);
+    FillAddressToId();
   }
 
-  Id JoinAllIds() {
-    return graph_.Add<Function>(graph_.Add<Void>(), types_.all_ids);
+  void FillAddressToId() {
+    for (size_t i = 0; i < types_.symbols.size(); ++i) {
+      const auto& symbol = types_.symbols[i];
+      if (!symbol.address) {
+        continue;
+      }
+      const size_t address = *symbol.address;
+      // TODO: replace with Check when duplicates are removed
+      if (!address_to_index_.emplace(address, i).second) {
+        std::cerr << "Duplicate DWARF symbol: address=0x" << std::hex << address
+                  << std::dec << ", name=" << symbol.name << '\n';
+      }
+    }
+  }
+
+  void MaybeAddTypeInfo(const size_t address, ElfSymbol& node) const {
+    const auto it = address_to_index_.find(address);
+    if (it == address_to_index_.end()) {
+      return;
+    }
+    const auto& symbol = types_.symbols[it->second];
+    node.type_id = symbol.id;
+    node.full_name = symbol.name;
   }
 
   // This hack is used to attach all processed DWARF entries to symbols map.
@@ -181,6 +204,7 @@ class Typing {
  private:
   Graph& graph_;
   dwarf::Types types_;
+  std::unordered_map<size_t, size_t> address_to_index_;
 };
 
 class Reader {
@@ -274,7 +298,7 @@ Id Reader::Read() {
 
 ElfSymbol Reader::SymbolTableEntryToElfSymbol(
     const SymbolTableEntry& symbol) const {
-  return ElfSymbol(
+  ElfSymbol result(
       /* symbol_name = */ std::string(symbol.name),
       /* version_info = */ std::nullopt,
       /* is_defined = */ symbol.value_type !=
@@ -283,10 +307,11 @@ ElfSymbol Reader::SymbolTableEntryToElfSymbol(
       /* binding = */ symbol.binding,
       /* visibility = */ symbol.visibility,
       /* crc = */ MaybeGet(crc_values_, std::string(symbol.name)),
-      /* ns = */ std::nullopt,        // TODO: Linux namespace
-      /* type_id = */ std::nullopt,   // TODO: fill type ids
-      /* full_name = */ std::nullopt  // TODO: fill full names
-  );
+      /* ns = */ std::nullopt,  // TODO: Linux namespace
+      /* type_id = */ std::nullopt,
+      /* full_name = */ std::nullopt);
+    typing_.MaybeAddTypeInfo(elf_.GetAbsoluteAddress(symbol), result);
+    return result;
 }
 
 }  // namespace
