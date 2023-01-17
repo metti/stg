@@ -216,7 +216,7 @@ SectionInfo GetSectionInfo(Elf_Scn* section) {
   GElf_Shdr section_header;
   Check(gelf_getshdr(section, &section_header) != nullptr)
       << "failed to read section (index = " << index << ") header";
-  Elf_Data* data = elf_getdata(section, 0);
+  Elf_Data* data = elf_getdata(section, nullptr);
   Check(data != nullptr) << "section (index = " << index << ") data is invalid";
   return {section_header, data};
 }
@@ -328,7 +328,7 @@ void ElfLoader::InitializeElfInformation() {
 std::string_view ElfLoader::GetBtfRawData() const {
   Elf_Scn* btf_section = GetSectionByName(elf_, ".BTF");
   Check(btf_section != nullptr) << ".BTF section is invalid";
-  Elf_Data* elf_data = elf_rawdata(btf_section, 0);
+  Elf_Data* elf_data = elf_rawdata(btf_section, nullptr);
   Check(elf_data != nullptr) << ".BTF section data is invalid";
   const char* btf_start = static_cast<char*>(elf_data->d_buf);
   const size_t btf_size = elf_data->d_size;
