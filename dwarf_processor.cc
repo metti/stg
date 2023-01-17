@@ -420,7 +420,7 @@ class Processor {
       result_.symbols.push_back(Types::Symbol{
           .name = *name_optional,
           .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
-          .address = address,
+          .address = *address,
           .id = referred_type_id});
     }
   }
@@ -467,7 +467,7 @@ class Processor {
         result_.symbols.push_back(Types::Symbol{
             .name = GetNameOrEmpty(entry),
             .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
-            .address = address,
+            .address = *address,
             .id = id});
       }
     }

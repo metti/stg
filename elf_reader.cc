@@ -157,14 +157,11 @@ class Typing {
   void FillAddressToId() {
     for (size_t i = 0; i < types_.symbols.size(); ++i) {
       const auto& symbol = types_.symbols[i];
-      if (!symbol.address) {
-        continue;
-      }
-      const size_t address = *symbol.address;
       // TODO: replace with Check when duplicates are removed
-      if (!address_to_index_.emplace(address, i).second) {
-        std::cerr << "Duplicate DWARF symbol: address=0x" << std::hex << address
-                  << std::dec << ", name=" << symbol.name << '\n';
+      if (!address_to_index_.emplace(symbol.address, i).second) {
+        std::cerr << "Duplicate DWARF symbol: address=0x" << std::hex
+                  << symbol.address << std::dec << ", name=" << symbol.name
+                  << '\n';
       }
     }
   }
