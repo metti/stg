@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <ios>
 #include <iostream>
 #include <iterator>
 #include <map>
@@ -29,13 +30,13 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "dwarf_processor.h"
 #include "dwarf_wrappers.h"
 #include "elf_loader.h"
 #include "graph.h"
-#include "naming.h"
 
 namespace stg {
 namespace elf {
@@ -149,29 +150,35 @@ class Typing {
 
   void GetTypesFromDwarf(dwarf::Handler& dwarf) {
     types_ = dwarf::Process(dwarf, graph_);
+    FillAddressToId();
   }
 
-  Id JoinAllIds() {
-    return graph_.Add<Function>(graph_.Add<Void>(), types_.all_ids);
-  }
-
-  // This hack is used to attach all processed DWARF entries to symbols map.
-  // This is temporary solution, until entries are matched to real ELF symbols.
-  // TODO: match STG from DWARF with ELF symbols
-  void AddFakeSymbols(std::map<std::string, Id>& symbols_map) {
-    std::unordered_map<std::string, size_t> keys_counter;
-    NameCache name_cache;
-    Describe describe(graph_, name_cache);
-    for (const auto& id : types_.all_ids) {
-      std::string key = describe(id).ToString();
-      std::string unique_key = key + "_" + std::to_string(keys_counter[key]++);
-      symbols_map.emplace(unique_key, id);
+  void FillAddressToId() {
+    for (size_t i = 0; i < types_.symbols.size(); ++i) {
+      const auto& symbol = types_.symbols[i];
+      // TODO: replace with Check when duplicates are removed
+      if (!address_to_index_.emplace(symbol.address, i).second) {
+        std::cerr << "Duplicate DWARF symbol: address=0x" << std::hex
+                  << symbol.address << std::dec << ", name=" << symbol.name
+                  << '\n';
+      }
     }
+  }
+
+  void MaybeAddTypeInfo(const size_t address, ElfSymbol& node) const {
+    const auto it = address_to_index_.find(address);
+    if (it == address_to_index_.end()) {
+      return;
+    }
+    const auto& symbol = types_.symbols[it->second];
+    node.type_id = symbol.id;
+    node.full_name = symbol.name;
   }
 
  private:
   Graph& graph_;
   dwarf::Types types_;
+  std::unordered_map<size_t, size_t> address_to_index_;
 };
 
 class Reader {
@@ -259,13 +266,12 @@ Id Reader::Read() {
         std::string(symbol.name),
         graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
   }
-  typing_.AddFakeSymbols(symbols_map);
   return graph_.Add<Symbols>(std::move(symbols_map));
 }
 
 ElfSymbol Reader::SymbolTableEntryToElfSymbol(
     const SymbolTableEntry& symbol) const {
-  return ElfSymbol(
+  ElfSymbol result(
       /* symbol_name = */ std::string(symbol.name),
       /* version_info = */ std::nullopt,
       /* is_defined = */ symbol.value_type !=
@@ -274,10 +280,11 @@ ElfSymbol Reader::SymbolTableEntryToElfSymbol(
       /* binding = */ symbol.binding,
       /* visibility = */ symbol.visibility,
       /* crc = */ MaybeGet(crc_values_, std::string(symbol.name)),
-      /* ns = */ std::nullopt,        // TODO: Linux namespace
-      /* type_id = */ std::nullopt,   // TODO: fill type ids
-      /* full_name = */ std::nullopt  // TODO: fill full names
-  );
+      /* ns = */ std::nullopt,  // TODO: Linux namespace
+      /* type_id = */ std::nullopt,
+      /* full_name = */ std::nullopt);
+    typing_.MaybeAddTypeInfo(elf_.GetAbsoluteAddress(symbol), result);
+    return result;
 }
 
 }  // namespace

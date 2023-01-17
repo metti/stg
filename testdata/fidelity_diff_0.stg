@@ -1,0 +1,100 @@
+struct_union {
+  id: 11
+  kind: STRUCT
+  name: "s1"
+  definition {
+    bytesize: 1
+  }
+}
+struct_union {
+  id: 12
+  kind: STRUCT
+  name: "s2"
+}
+struct_union {
+  id: 14
+  kind: UNION
+  name: "u1"
+  definition {
+    bytesize: 1
+  }
+}
+struct_union {
+  id: 15
+  kind: UNION
+  name: "u3"
+}
+enumeration {
+  id: 16
+  name: "e1"
+  definition {
+  }
+}
+enumeration {
+  id: 17
+  name: "e2"
+}
+elf_symbol {
+  id: 1
+  name: "symbol1"
+  symbol_type: OBJECT
+  binding: GLOBAL
+  visibility: DEFAULT
+  type_id: 11
+}
+elf_symbol {
+  id: 2
+  name: "symbol2"
+  symbol_type: OBJECT
+  binding: GLOBAL
+  visibility: DEFAULT
+  type_id: 12
+}
+elf_symbol {
+  id: 3
+  name: "symbol3"
+  symbol_type: OBJECT
+  binding: GLOBAL
+  visibility: DEFAULT
+}
+elf_symbol {
+  id: 4
+  name: "symbol4"
+  symbol_type: OBJECT
+  binding: GLOBAL
+  visibility: DEFAULT
+  type_id: 14
+}
+elf_symbol {
+  id: 5
+  name: "symbol5"
+  symbol_type: OBJECT
+  binding: GLOBAL
+  visibility: DEFAULT
+  type_id: 15
+}
+elf_symbol {
+  id: 6
+  name: "symbol6"
+  symbol_type: OBJECT
+  binding: GLOBAL
+  visibility: DEFAULT
+  type_id: 16
+}
+elf_symbol {
+  id: 7
+  name: "symbol7"
+  symbol_type: OBJECT
+  binding: GLOBAL
+  visibility: DEFAULT
+  type_id: 17
+}
+symbols {
+  symbol {key: "symbol1" value: 1}
+  symbol {key: "symbol2" value: 2}
+  symbol {key: "symbol3" value: 3}
+  symbol {key: "symbol4" value: 4}
+  symbol {key: "symbol5" value: 5}
+  symbol {key: "symbol6" value: 6}
+  symbol {key: "symbol7" value: 7}
+}

@@ -19,6 +19,7 @@
 
 #include "dwarf_wrappers.h"
 
+#include <dwarf.h>
 #include <elf.h>
 #include <elfutils/libdw.h>
 #include <elfutils/libdwfl.h>
@@ -30,6 +31,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "error.h"
@@ -56,6 +58,18 @@ std::optional<Dwarf_Attribute> GetAttribute(Dwarf_Die* die, int attribute) {
   //
   // libdw has infinite loop protection, as it stops after 16 dereferences.
   if (!dwarf_attr_integrate(die, attribute, &result.value())) {
+    result.reset();
+  }
+  return result;
+}
+
+// Get the attribute directly from DIE without following DW_AT_specification and
+// DW_AT_abstract_origin references.
+std::optional<Dwarf_Attribute> GetDirectAttribute(Dwarf_Die* die,
+                                                  int attribute) {
+  // Create an optional with default-initialized value already inside
+  std::optional<Dwarf_Attribute> result(std::in_place);
+  if (!dwarf_attr(die, attribute, &result.value())) {
     result.reset();
   }
   return result;
@@ -192,7 +206,9 @@ std::optional<uint64_t> Entry::MaybeGetUnsignedConstant(
 
 bool Entry::GetFlag(uint32_t attribute) {
   bool result = false;
-  auto dwarf_attribute = GetAttribute(&die, attribute);
+  auto dwarf_attribute = (attribute == DW_AT_declaration)
+                             ? GetDirectAttribute(&die, attribute)
+                             : GetAttribute(&die, attribute);
   if (!dwarf_attribute) {
     return result;
   }
@@ -211,7 +227,53 @@ std::optional<Entry> Entry::MaybeGetReference(uint32_t attribute) {
 
   result.emplace();
   Check(dwarf_formref_die(&dwarf_attribute.value(), &result->die))
-      << "dwarf_formref_die returned error\n";
+      << "dwarf_formref_die returned error";
+  return result;
+}
+
+namespace {
+
+void GetAddressFromLocation(Dwarf_Attribute& attribute,
+                            std::optional<uint64_t>& result) {
+  Dwarf_Op* expr = nullptr;
+  size_t expr_len = 0;
+
+  Check(dwarf_getlocation(&attribute, &expr, &expr_len) == kReturnOk)
+      << "dwarf_getlocation returned error";
+  Check(expr != nullptr && expr_len > 0)
+      << "dwarf_getlocation returned empty expression";
+
+  Dwarf_Attribute result_attribute;
+  if (dwarf_getlocation_attr(&attribute, expr, &result_attribute) ==
+      kReturnOk) {
+    result.emplace();
+    Check(dwarf_formaddr(&result_attribute, &result.value()) == kReturnOk)
+        << "dwarf_formaddr returned error";
+  } else if (expr_len == 1 && expr->atom == DW_OP_addr) {
+    // DW_OP_addr is unsupported by dwarf_getlocation_attr, so we need to
+    // manually extract the address from expression.
+    result.emplace(expr->number);
+  } else {
+    Die() << "Unsupported data location expression";
+  }
+}
+
+}  // namespace
+
+std::optional<uint64_t> Entry::MaybeGetAddress(uint32_t attribute) {
+  std::optional<uint64_t> result;
+  auto dwarf_attribute = GetAttribute(&die, attribute);
+  if (!dwarf_attribute) {
+    return result;
+  }
+  if (attribute == DW_AT_location) {
+    GetAddressFromLocation(*dwarf_attribute, result);
+    return result;
+  }
+
+  result.emplace();
+  Check(dwarf_formaddr(&dwarf_attribute.value(), &result.value()) == kReturnOk)
+      << "dwarf_formaddr returned error";
   return result;
 }
 

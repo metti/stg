@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -68,8 +69,7 @@ struct SymbolTableEntry {
 
 std::ostream& operator<<(std::ostream& os, SymbolTableEntry::SymbolType type);
 
-std::ostream& operator<<(std::ostream& os,
-                         const SymbolTableEntry::ValueType type);
+std::ostream& operator<<(std::ostream& os, SymbolTableEntry::ValueType type);
 
 class ElfLoader final {
  public:
@@ -78,6 +78,7 @@ class ElfLoader final {
   std::string_view GetBtfRawData() const;
   std::vector<SymbolTableEntry> GetElfSymbols() const;
   ElfSymbol::CRC GetElfSymbolCRC(const SymbolTableEntry& symbol) const;
+  size_t GetAbsoluteAddress(const SymbolTableEntry& symbol) const;
   bool IsLinuxKernelBinary() const;
 
  private:
@@ -86,6 +87,7 @@ class ElfLoader final {
   const bool verbose_;
   Elf* elf_;
   bool is_linux_kernel_binary_;
+  bool is_relocatable_;
 };
 
 }  // namespace elf

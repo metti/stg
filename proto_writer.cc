@@ -26,6 +26,7 @@
 #include <ios>
 #include <ostream>
 #include <sstream>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -33,13 +34,25 @@
 #include <google/protobuf/repeated_ptr_field.h>
 #include <google/protobuf/text_format.h>
 #include "graph.h"
-#include "stable_id.h"
+#include "stable_hash.h"
 #include "stg.pb.h"
 
 namespace stg {
 namespace proto {
 
 namespace {
+
+class StableId {
+ public:
+  StableId(const Graph& graph) : stable_hash_(graph) {}
+
+  uint32_t operator()(Id id) {
+    return stable_hash_(id).value;
+  }
+
+ private:
+  StableHash stable_hash_;
+};
 
 template <typename MapId>
 struct Transform {
@@ -344,8 +357,6 @@ Method::Kind Transform<MapId>::operator()(stg::Method::Kind x) {
 template <typename MapId>
 StructUnion::Kind Transform<MapId>::operator()(stg::StructUnion::Kind x) {
   switch (x) {
-    case stg::StructUnion::Kind::CLASS:
-      return StructUnion::CLASS;
     case stg::StructUnion::Kind::STRUCT:
       return StructUnion::STRUCT;
     case stg::StructUnion::Kind::UNION:
@@ -399,10 +410,9 @@ ElfSymbol::Visibility Transform<MapId>::operator()(
 
 template <typename ProtoNode>
 void SortNodes(google::protobuf::RepeatedPtrField<ProtoNode>& nodes) {
-  auto comparator = [](const ProtoNode& lhs, const ProtoNode& rhs) {
-    return lhs.id() < rhs.id();
-  };
-  std::sort(nodes.begin(), nodes.end(), comparator);
+  std::sort(
+      nodes.pointer_begin(), nodes.pointer_end(),
+      [](const auto* lhs, const auto* rhs) { return lhs->id() < rhs->id(); });
 }
 
 void SortNodes(STG& stg) {

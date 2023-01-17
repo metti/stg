@@ -27,6 +27,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <set>
 #include <sstream>
 #include <string>
@@ -170,7 +171,7 @@ struct CompareOptions {
 };
 
 struct MatchingKey {
-  MatchingKey(const Graph& graph) : graph(graph) {}
+  explicit MatchingKey(const Graph& graph) : graph(graph) {}
   std::string operator()(Id id);
   std::string operator()(const BaseClass&);
   std::string operator()(const Member&);

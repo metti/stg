@@ -39,7 +39,7 @@ namespace btf {
 // BTF Specification: https://www.kernel.org/doc/html/latest/bpf/btf.html
 class Structs {
  public:
-  Structs(Graph& graph, const bool verbose = false);
+  explicit Structs(Graph& graph, bool verbose = false);
   Id Process(std::string_view data);
 
  private:

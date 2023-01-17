@@ -20,6 +20,10 @@
 #include "metrics.h"
 
 #include <iomanip>
+#include <map>
+#include <ostream>
+#include <utility>
+#include <variant>
 
 namespace stg {
 
