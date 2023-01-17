@@ -405,6 +405,8 @@ Type Transformer::Transform(const Type& x) {
 
 Id Read(Graph& graph, const std::string& path) {
   std::ifstream ifs(path);
+  Check(ifs.good()) << "error opening file '" << path
+                    << "' for reading: " << ErrnoToString(errno);
   google::protobuf::io::IstreamInputStream is(&ifs);
   proto::STG stg;
   google::protobuf::TextFormat::Parse(&is, &stg);
