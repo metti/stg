@@ -414,11 +414,15 @@ class Processor {
 
     auto referred_type = GetReferredType(entry);
     auto referred_type_id = GetIdForEntry(referred_type);
-    // TODO: provide data location for ELF symbol matching
-    result_.symbols.push_back(
-        Types::Symbol{.name = *name_optional,
-                      .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
-                      .id = referred_type_id});
+
+    if (auto address = entry.MaybeGetAddress(DW_AT_location)) {
+      // Only external variables with address are useful for ABI monitoring
+      result_.symbols.push_back(Types::Symbol{
+          .name = *name_optional,
+          .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
+          .address = address,
+          .id = referred_type_id});
+    }
   }
 
   void ProcessFunction(Entry& entry) {

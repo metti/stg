@@ -231,10 +231,43 @@ std::optional<Entry> Entry::MaybeGetReference(uint32_t attribute) {
   return result;
 }
 
+namespace {
+
+void GetAddressFromLocation(Dwarf_Attribute& attribute,
+                            std::optional<uint64_t>& result) {
+  Dwarf_Op* expr = nullptr;
+  size_t expr_len = 0;
+
+  Check(dwarf_getlocation(&attribute, &expr, &expr_len) == kReturnOk)
+      << "dwarf_getlocation returned error";
+  Check(expr != nullptr && expr_len > 0)
+      << "dwarf_getlocation returned empty expression";
+
+  Dwarf_Attribute result_attribute;
+  if (dwarf_getlocation_attr(&attribute, expr, &result_attribute) ==
+      kReturnOk) {
+    result.emplace();
+    Check(dwarf_formaddr(&result_attribute, &result.value()) == kReturnOk)
+        << "dwarf_formaddr returned error";
+  } else if (expr_len == 1 && expr->atom == DW_OP_addr) {
+    // DW_OP_addr is unsupported by dwarf_getlocation_attr, so we need to
+    // manually extract the address from expression.
+    result.emplace(expr->number);
+  } else {
+    Die() << "Unsupported data location expression";
+  }
+}
+
+}  // namespace
+
 std::optional<uint64_t> Entry::MaybeGetAddress(uint32_t attribute) {
   std::optional<uint64_t> result;
   auto dwarf_attribute = GetAttribute(&die, attribute);
   if (!dwarf_attribute) {
+    return result;
+  }
+  if (attribute == DW_AT_location) {
+    GetAddressFromLocation(*dwarf_attribute, result);
     return result;
   }
 
