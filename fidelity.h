@@ -20,6 +20,14 @@
 #ifndef STG_FIDELITY_H_
 #define STG_FIDELITY_H_
 
+#include <cstddef>
+#include <functional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "graph.h"
+
 namespace stg {
 
 enum class SymbolFidelity {
@@ -33,6 +41,47 @@ enum class TypeFidelity {
   DECLARATION_ONLY = 1,
   FULLY_DEFINED = 2,
 };
+
+enum class FidelityDiffSeverity {
+  SKIP = 0,
+  INFO = 1,
+  WARN = 2,
+};
+
+using SymbolFidelityTransition = std::pair<SymbolFidelity, SymbolFidelity>;
+using TypeFidelityTransition = std::pair<TypeFidelity, TypeFidelity>;
+
+}  // namespace stg
+
+namespace std {
+
+template <>
+struct hash<stg::SymbolFidelityTransition> {
+  size_t operator()(const stg::SymbolFidelityTransition& x) const {
+    return static_cast<size_t>(x.first) << 2 | static_cast<size_t>(x.second);
+  }
+};
+
+template <>
+struct hash<stg::TypeFidelityTransition> {
+  size_t operator()(const stg::TypeFidelityTransition& x) const {
+    return static_cast<size_t>(x.first) << 2 | static_cast<size_t>(x.second);
+  }
+};
+
+}  // namespace std
+
+namespace stg {
+
+struct FidelityDiff {
+  std::unordered_map<SymbolFidelityTransition, std::vector<std::string>>
+      symbol_transitions;
+  std::unordered_map<TypeFidelityTransition, std::vector<std::string>>
+      type_transitions;
+  FidelityDiffSeverity severity = FidelityDiffSeverity::SKIP;
+};
+
+FidelityDiff GetFidelityTransitions(const Graph& graph, Id root1, Id root2);
 
 }  // namespace stg
 

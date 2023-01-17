@@ -19,9 +19,13 @@
 
 #include "fidelity.h"
 
+#include <algorithm>
+#include <set>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "graph.h"
@@ -30,6 +34,38 @@
 namespace stg {
 
 namespace {
+
+const std::unordered_map<SymbolFidelityTransition, FidelityDiffSeverity>
+    kSymbolTransitionSeverity = {
+        {{SymbolFidelity::ABSENT, SymbolFidelity::UNTYPED},
+         FidelityDiffSeverity::SKIP},
+        {{SymbolFidelity::ABSENT, SymbolFidelity::TYPED},
+         FidelityDiffSeverity::SKIP},
+        {{SymbolFidelity::UNTYPED, SymbolFidelity::ABSENT},
+         FidelityDiffSeverity::SKIP},
+        {{SymbolFidelity::UNTYPED, SymbolFidelity::TYPED},
+         FidelityDiffSeverity::INFO},
+        {{SymbolFidelity::TYPED, SymbolFidelity::ABSENT},
+         FidelityDiffSeverity::SKIP},
+        {{SymbolFidelity::TYPED, SymbolFidelity::UNTYPED},
+         FidelityDiffSeverity::WARN},
+};
+
+const std::unordered_map<TypeFidelityTransition, FidelityDiffSeverity>
+    kTypeTransitionSeverity = {
+        {{TypeFidelity::ABSENT, TypeFidelity::DECLARATION_ONLY},
+         FidelityDiffSeverity::WARN},
+        {{TypeFidelity::ABSENT, TypeFidelity::FULLY_DEFINED},
+         FidelityDiffSeverity::INFO},
+        {{TypeFidelity::DECLARATION_ONLY, TypeFidelity::FULLY_DEFINED},
+         FidelityDiffSeverity::INFO},
+        {{TypeFidelity::DECLARATION_ONLY, TypeFidelity::ABSENT},
+         FidelityDiffSeverity::WARN},
+        {{TypeFidelity::FULLY_DEFINED, TypeFidelity::ABSENT},
+         FidelityDiffSeverity::WARN},
+        {{TypeFidelity::FULLY_DEFINED, TypeFidelity::DECLARATION_ONLY},
+         FidelityDiffSeverity::WARN},
+};
 
 struct Fidelity {
   Fidelity(const Graph& graph, NameCache& name_cache)
@@ -145,6 +181,70 @@ void Fidelity::operator()(const Symbols& x, Id) {
   }
 }
 
+template <typename T>
+std::set<std::string_view> GetKeys(
+    const std::unordered_map<std::string, T>& x1,
+    const std::unordered_map<std::string, T>& x2) {
+  std::set<std::string_view> keys;
+  for (const auto& [key, _] : x1) {
+    keys.insert(key);
+  }
+  for (const auto& [key, _] : x2) {
+    keys.insert(key);
+  }
+  return keys;
+}
+
+FidelityDiffSeverity GetTransitionSeverity(SymbolFidelityTransition x) {
+  return x.first == x.second ? FidelityDiffSeverity::SKIP
+                             : kSymbolTransitionSeverity.at(x);
+}
+
+FidelityDiffSeverity GetTransitionSeverity(TypeFidelityTransition x) {
+  return x.first == x.second ? FidelityDiffSeverity::SKIP
+                             : kTypeTransitionSeverity.at(x);
+}
+
+void InsertTransition(FidelityDiff& diff, SymbolFidelityTransition transition,
+                      const std::string& symbol) {
+  diff.symbol_transitions[transition].push_back(symbol);
+}
+
+void InsertTransition(FidelityDiff& diff, TypeFidelityTransition transition,
+                      const std::string& type) {
+  diff.type_transitions[transition].push_back(type);
+}
+
+template <typename T>
+void InsertTransitions(FidelityDiff& diff,
+                       const std::unordered_map<std::string, T>& x1,
+                       const std::unordered_map<std::string, T>& x2) {
+  for (auto key : GetKeys(x1, x2)) {
+    auto it1 = x1.find(key.data());
+    auto it2 = x2.find(key.data());
+    auto transition = std::make_pair(it1 == x1.end() ? T() : it1->second,
+                                     it2 == x2.end() ? T() : it2->second);
+    auto transition_severity = GetTransitionSeverity(transition);
+    if (transition_severity != FidelityDiffSeverity::SKIP) {
+      diff.severity = std::max(diff.severity, transition_severity);
+      InsertTransition(diff, transition, key.data());
+    }
+  }
+}
+
 }  // namespace
+
+FidelityDiff GetFidelityTransitions(const Graph& graph, Id root1, Id root2) {
+  NameCache name_cache;
+  Fidelity fidelity1(graph, name_cache);
+  Fidelity fidelity2(graph, name_cache);
+  fidelity1(root1);
+  fidelity2(root2);
+
+  FidelityDiff diff;
+  InsertTransitions(diff, fidelity1.symbols, fidelity2.symbols);
+  InsertTransitions(diff, fidelity1.types, fidelity2.types);
+  return diff;
+}
 
 }  // namespace stg
