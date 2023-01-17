@@ -22,6 +22,7 @@
 #define STG_HASHING_H_
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 

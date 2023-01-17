@@ -28,6 +28,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <unordered_map>

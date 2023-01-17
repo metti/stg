@@ -22,7 +22,9 @@
 #include <getopt.h>
 
 #include <iostream>
+#include <optional>
 #include <string>
+#include <utility>
 
 #include "abigail_reader.h"
 #include "btf_reader.h"

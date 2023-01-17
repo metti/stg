@@ -20,7 +20,9 @@
 
 #include "naming.h"
 
+#include <ostream>
 #include <sstream>
+#include <string>
 
 namespace stg {
 

@@ -28,13 +28,16 @@
 #include <cstring>
 #include <functional>
 #include <iomanip>
+#include <ios>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include <libxml/parser.h>
 #include "error.h"

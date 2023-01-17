@@ -21,7 +21,9 @@
 
 #include "graph.h"
 
+#include <ios>
 #include <ostream>
+#include <string>
 
 namespace stg {
 

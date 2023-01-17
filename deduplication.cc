@@ -20,6 +20,7 @@
 #include "deduplication.h"
 
 #include <cstddef>
+#include <unordered_map>
 #include <vector>
 
 #include "equality.h"

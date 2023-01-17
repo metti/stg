@@ -30,8 +30,12 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "elf_loader.h"
 #include "error.h"

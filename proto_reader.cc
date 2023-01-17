@@ -23,9 +23,11 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include <google/protobuf/io/zero_copy_stream_impl.h>

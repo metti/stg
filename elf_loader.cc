@@ -28,9 +28,11 @@
 #include <cstddef>
 #include <functional>
 #include <iostream>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "error.h"
 #include "graph.h"

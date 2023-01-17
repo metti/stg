@@ -22,7 +22,12 @@
 #include "comparison.h"
 
 #include <algorithm>
+#include <optional>
 #include <ostream>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "error.h"
 #include "order.h"

@@ -19,6 +19,7 @@
 
 #include "post_processing.h"
 
+#include <algorithm>
 #include <iostream>
 #include <map>
 #include <ostream>
