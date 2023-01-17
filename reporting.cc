@@ -16,6 +16,7 @@
 // limitations under the License.
 //
 // Author: Giuliano Procida
+// Author: Siddharth Nayyar
 
 #include "reporting.h"
 
@@ -24,6 +25,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -31,6 +33,7 @@
 
 #include "comparison.h"
 #include "error.h"
+#include "fidelity.h"
 #include "post_processing.h"
 
 namespace stg {
@@ -333,6 +336,17 @@ void ReportViz(const Reporting& reporting, const Comparison& comparison,
   output << "}\n";
 }
 
+template <typename T>
+void PrintFidelityReportBucket(T transition,
+                               const std::vector<std::string>& symbols_or_types,
+                               std::ostream& output) {
+  output << symbols_or_types.size() << ' ' << transition << ":\n";
+  for (const auto& symbol_or_type : symbols_or_types) {
+    output << "  " << symbol_or_type << '\n';
+  }
+  output << '\n';
+}
+
 }  // namespace
 
 void Report(const Reporting& reporting, const Comparison& comparison,
@@ -367,6 +381,33 @@ void Report(const Reporting& reporting, const Comparison& comparison,
       break;
     }
   }
+}
+
+void FidelityDiff(const stg::FidelityDiff& diff, std::ostream& output) {
+  auto print_bucket = [&diff, &output](auto&& from, auto&& to) {
+    auto transition = std::make_pair(from, to);
+    if constexpr (std::is_same_v<decltype(from), SymbolFidelity&&>) {
+      auto it = diff.symbol_transitions.find(transition);
+      if (it != diff.symbol_transitions.end()) {
+        PrintFidelityReportBucket(transition, it->second, output);
+      }
+    } else if constexpr (std::is_same_v<decltype(from), TypeFidelity&&>) {
+      auto it = diff.type_transitions.find(transition);
+      if (it != diff.type_transitions.end()) {
+        PrintFidelityReportBucket(transition, it->second, output);
+      }
+    }
+  };
+
+  output << "SEVERITY: " << diff.severity << "\n\n";
+  print_bucket(TypeFidelity::FULLY_DEFINED, TypeFidelity::ABSENT);
+  print_bucket(TypeFidelity::DECLARATION_ONLY, TypeFidelity::ABSENT);
+  print_bucket(TypeFidelity::FULLY_DEFINED, TypeFidelity::DECLARATION_ONLY);
+  print_bucket(SymbolFidelity::TYPED, SymbolFidelity::UNTYPED);
+  print_bucket(TypeFidelity::ABSENT, TypeFidelity::DECLARATION_ONLY);
+  print_bucket(TypeFidelity::DECLARATION_ONLY, TypeFidelity::FULLY_DEFINED);
+  print_bucket(SymbolFidelity::UNTYPED, SymbolFidelity::TYPED);
+  print_bucket(TypeFidelity::ABSENT, TypeFidelity::FULLY_DEFINED);
 }
 
 }  // namespace reporting

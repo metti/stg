@@ -22,6 +22,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -50,6 +51,12 @@ enum class FidelityDiffSeverity {
 
 using SymbolFidelityTransition = std::pair<SymbolFidelity, SymbolFidelity>;
 using TypeFidelityTransition = std::pair<TypeFidelity, TypeFidelity>;
+
+std::ostream& operator<<(std::ostream& os, SymbolFidelity x);
+std::ostream& operator<<(std::ostream& os, TypeFidelity x);
+std::ostream& operator<<(std::ostream& os, SymbolFidelityTransition x);
+std::ostream& operator<<(std::ostream& os, TypeFidelityTransition x);
+std::ostream& operator<<(std::ostream& os, FidelityDiffSeverity x);
 
 }  // namespace stg
 

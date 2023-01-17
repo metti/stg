@@ -20,6 +20,7 @@
 #include "fidelity.h"
 
 #include <algorithm>
+#include <ostream>
 #include <set>
 #include <string>
 #include <string_view>
@@ -233,6 +234,47 @@ void InsertTransitions(FidelityDiff& diff,
 }
 
 }  // namespace
+
+std::ostream& operator<<(std::ostream& os, SymbolFidelity x) {
+  switch (x) {
+    case SymbolFidelity::ABSENT:
+      return os << "ABSENT";
+    case SymbolFidelity::TYPED:
+      return os << "TYPED";
+    case SymbolFidelity::UNTYPED:
+      return os << "UNTYPED";
+  }
+}
+
+std::ostream& operator<<(std::ostream& os, TypeFidelity x) {
+  switch (x) {
+    case TypeFidelity::ABSENT:
+      return os << "ABSENT";
+    case TypeFidelity::DECLARATION_ONLY:
+      return os << "DECLARATION_ONLY";
+    case TypeFidelity::FULLY_DEFINED:
+      return os << "FULLY_DEFINED";
+  }
+}
+
+std::ostream& operator<<(std::ostream& os, SymbolFidelityTransition x) {
+  return os << "symbol(s) changed from " << x.first << " to " << x.second;
+}
+
+std::ostream& operator<<(std::ostream& os, TypeFidelityTransition x) {
+  return os << "type(s) changed from " << x.first << " to " << x.second;
+}
+
+std::ostream& operator<<(std::ostream& os, FidelityDiffSeverity x) {
+  switch (x) {
+    case FidelityDiffSeverity::SKIP:
+      return os << "NONE";
+    case FidelityDiffSeverity::INFO:
+      return os << "INFO";
+    case FidelityDiffSeverity::WARN:
+      return os << "WARN";
+  }
+}
 
 FidelityDiff GetFidelityTransitions(const Graph& graph, Id root1, Id root2) {
   NameCache name_cache;
