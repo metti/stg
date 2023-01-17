@@ -227,7 +227,7 @@ struct Enumeration : Node {
     uint32_t bytesize;
     Enumerators enumerators;
   };
-  Enumeration(const std::string& name) : name(name) {}
+  explicit Enumeration(const std::string& name) : name(name) {}
   Enumeration(const std::string& name, uint32_t bytesize,
               const Enumerators& enumerators)
       : name(name), definition({bytesize, enumerators}) {}
@@ -309,7 +309,8 @@ std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info);
 std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc);
 
 struct Symbols : Node {
-  Symbols(const std::map<std::string, Id>& symbols) : symbols(symbols) {}
+  explicit Symbols(const std::map<std::string, Id>& symbols)
+      : symbols(symbols) {}
 
   std::map<std::string, Id> symbols;
 };
@@ -532,7 +533,7 @@ Result Graph::Apply2(
 
 template <typename Result, typename FunctionObject, typename... Args>
 struct ConstAdapter {
-  ConstAdapter(FunctionObject& function) : function(function) {}
+  explicit ConstAdapter(FunctionObject& function) : function(function) {}
   template <typename Node>
   Result operator()(const Node& node, Args&&... args) {
     return function(const_cast<Node&>(node), std::forward<Args>(args)...);

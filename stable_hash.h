@@ -32,7 +32,7 @@ namespace stg {
 
 class StableHash {
  public:
-  StableHash(const Graph& graph) : graph_(graph) {}
+  explicit StableHash(const Graph& graph) : graph_(graph) {}
 
   HashValue operator()(Id);
   HashValue operator()(const Void&);
