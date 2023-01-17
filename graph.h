@@ -305,6 +305,7 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding);
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility);
 
 std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info);
+std::string VersionedSymbolName(const ElfSymbol&);
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc);
 

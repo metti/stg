@@ -115,6 +115,12 @@ std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info) {
          version_info.name;
 }
 
+std::string VersionedSymbolName(const ElfSymbol& symbol) {
+  return symbol.symbol_name + (symbol.version_info
+                                   ? VersionInfoToString(*symbol.version_info)
+                                   : std::string());
+}
+
 std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc) {
   return os << "0x" << std::hex << crc.number;
 }
