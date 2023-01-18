@@ -208,7 +208,7 @@ T ReadAttribute(xmlNodePtr element, const char* name,
 }
 
 std::optional<uint64_t> ParseLength(const std::string& value) {
-  if (value == "infinite")
+  if (value == "infinite" || value == "unknown")
     return {0};
   return Parse<uint64_t>(value);
 }
