@@ -60,6 +60,7 @@ TEST_CASE("bad syntax cases") {
 }
 
 TEST_CASE("hand-curated cases") {
+  const std::string testdata = "testdata";
   const std::vector<
       std::tuple<std::string,
                  std::vector<std::string>,
@@ -98,8 +99,8 @@ TEST_CASE("hand-curated cases") {
     {"!!!a",        {"b"}, {"a"}},
     {":/dev/null",  {}, {"", "a"}},
     {"!:/dev/null", {"", "a"}, {}},
-    {":third_party/stg/testdata/symbol_list", {"one"}, {"#", "bad"}},
-    {"!:third_party/stg/testdata/symbol_list", {"", " "}, {"two"}},
+    {":" + testdata + "/symbol_list", {"one"}, {"#", "bad"}},
+    {"!:" + testdata + "/symbol_list", {"", " "}, {"two"}},
   };
 
   for (const auto& [expression, ins, outs] : cases) {
