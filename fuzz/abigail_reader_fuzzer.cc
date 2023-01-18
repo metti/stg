@@ -17,13 +17,13 @@
 //
 // Author: Matthias Maennich
 
-#include <stdexcept>
 #include <string>
 
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include "abigail_reader.h"
 #include "error.h"
+#include "graph.h"
 
 static void DoNothing(void*, const char*, ...) {}
 

@@ -17,11 +17,11 @@
 //
 // Author: Matthias Maennich
 
-#include <stdexcept>
 #include <string_view>
 
 #include "btf_reader.h"
 #include "error.h"
+#include "graph.h"
 
 extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
   try {
