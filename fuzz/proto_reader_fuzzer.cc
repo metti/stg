@@ -19,6 +19,8 @@
 
 #include <string>
 
+#include "error.h"
+#include "graph.h"
 #include "proto_reader.h"
 
 extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
