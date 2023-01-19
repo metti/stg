@@ -39,6 +39,7 @@
 #include "proto_reader.h"
 #include "proto_writer.h"
 #include "symbol_filter.h"
+#include "type_resolution.h"
 
 namespace stg {
 namespace {
@@ -228,6 +229,7 @@ int main(int argc, char* argv[]) {
       stg::Filter(graph, root, *opt_symbols);
     }
     if (!opt_keep_duplicates) {
+      root = stg::ResolveTypes(graph, root, stg::metrics);
       const auto hashes = stg::Fingerprint(graph, root, stg::metrics);
       root = stg::Deduplicate(graph, root, hashes, stg::metrics);
     }
