@@ -262,11 +262,13 @@ class Processor {
 
   void ProcessBaseType(Entry& entry) {
     CheckNoChildren(entry);
-    auto type_name = GetName(entry);
-    size_t bit_size = GetBitSize(entry);
-    // Round up bit_size / 8 to get minimal needed storage size in bytes.
-    size_t byte_size = (bit_size + 7) / 8;
-    AddProcessedNode<Primitive>(entry, type_name, GetEncoding(entry), bit_size,
+    const auto type_name = GetName(entry);
+    const size_t bit_size = GetBitSize(entry);
+    if (bit_size % 8) {
+      Die() << "type '" << type_name << "' size is not a multiple of 8";
+    }
+    const size_t byte_size = bit_size / 8;
+    AddProcessedNode<Primitive>(entry, type_name, GetEncoding(entry),
                                 byte_size);
   }
 

@@ -156,7 +156,6 @@ void Transform<MapId>::operator()(const stg::Primitive& x, uint32_t id) {
   if (x.encoding) {
     primitive.set_encoding((*this)(*x.encoding));
   }
-  primitive.set_bitsize(x.bitsize);
   primitive.set_bytesize(x.bytesize);
 }
 

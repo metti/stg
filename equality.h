@@ -131,7 +131,6 @@ struct Equals {
   bool operator()(const Primitive& x1, const Primitive& x2) {
     return x1.name == x2.name
         && x1.encoding == x2.encoding
-        && x1.bitsize == x2.bitsize
         && x1.bytesize == x2.bytesize;
   }
 

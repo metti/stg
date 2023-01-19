@@ -149,8 +149,7 @@ void Transformer::AddNode(const Qualified& x) {
 void Transformer::AddNode(const Primitive& x) {
   const auto& encoding =
       Transform<stg::Primitive::Encoding>(x.has_encoding(), x.encoding());
-  AddNode<stg::Primitive>(GetId(x.id()), x.name(), encoding, x.bitsize(),
-                          x.bytesize());
+  AddNode<stg::Primitive>(GetId(x.id()), x.name(), encoding, x.bytesize());
 }
 
 void Transformer::AddNode(const Array& x) {

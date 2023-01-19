@@ -315,9 +315,13 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                                       : Primitive::Encoding::UNSIGNED_CHARACTER
                           : is_signed ? Primitive::Encoding::SIGNED_INTEGER
                                       : Primitive::Encoding::UNSIGNED_INTEGER;
-      if (offset)
-        Die() << "BTF INT non-zero offset " << offset << '\n';
-      graph_.Set<Primitive>(id(), name, encoding, bits, t->size);
+      if (offset) {
+        Die() << "BTF INT non-zero offset " << offset;
+      }
+      if (bits != 8 * t->size) {
+        Die() << "BTF INT bits != 8 * size";
+      }
+      graph_.Set<Primitive>(id(), name, encoding, t->size);
       break;
     }
     case BTF_KIND_PTR: {

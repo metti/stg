@@ -519,14 +519,17 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
 void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
   const auto name = scope_name_ + GetAttributeOrDie(type_decl, "name");
   const auto bits = ReadAttribute<size_t>(type_decl, "size-in-bits", 0);
-  const auto bytes = (bits + 7) / 8;
+  if (bits % 8) {
+    Die() << "size-in-bits is not a multiple of 8";
+  }
+  const auto bytes = bits / 8;
 
   if (name == "void") {
     graph_.Set<Void>(id);
   } else {
     // libabigail doesn't model encoding at all and we don't want to parse names
     // (which will not always work) in an attempt to reconstruct it.
-    graph_.Set<Primitive>(id, name, /* encoding= */ std::nullopt, bits, bytes);
+    graph_.Set<Primitive>(id, name, /* encoding= */ std::nullopt, bytes);
   }
 }
 

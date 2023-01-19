@@ -141,14 +141,11 @@ struct Primitive : Node {
     UTF,
   };
   Primitive(const std::string& name, std::optional<Encoding> encoding,
-            uint32_t bitsize, uint32_t bytesize)
-      : name(name), encoding(encoding), bitsize(bitsize), bytesize(bytesize) {}
+            uint32_t bytesize)
+      : name(name), encoding(encoding), bytesize(bytesize) {}
 
   std::string name;
   std::optional<Encoding> encoding;
-  // bitsize gives the semantics of the field. bytesize gives the
-  // storage size, and is equal to bitsize / 8 rounded up.
-  uint32_t bitsize;
   uint32_t bytesize;
 };
 

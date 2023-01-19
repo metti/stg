@@ -220,9 +220,7 @@ Result Compare::operator()(const Primitive& x1, const Primitive& x2) {
   }
   result.diff_.holds_changes = !x1.name.empty();
   result.MaybeAddNodeDiff("encoding", x1.encoding, x2.encoding);
-  result.MaybeAddNodeDiff("bit size", x1.bitsize, x2.bitsize);
-  if (x1.bitsize != x1.bytesize * 8 && x2.bitsize != x2.bytesize * 8)
-    result.MaybeAddNodeDiff("byte size", x1.bytesize, x2.bytesize);
+  result.MaybeAddNodeDiff("byte size", x1.bytesize, x2.bytesize);
   return result;
 }
 
