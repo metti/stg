@@ -15,7 +15,8 @@ stg
   [-d|--keep-duplicates]
   [-u|--unstable]
   [-S|--symbols <filter>]
-  [-a|--abi|-b|--btf|-e|--elf] [file] ...
+  [--process-dwarf]
+  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...
   [{-o|--output} {filename|-}] ...
 implicit defaults: --abi
 symbol filter syntax:
@@ -55,7 +56,14 @@ The tool can be passed any number of inputs to combine into a unified ABI.
     NOTE: Only ELF symbol information, and not DWARF type information, is
     currently processed.
 
-## Reading options
+*   `-s|--stg`
+
+    Read ABI information from a `.stg` file.
+
+    NOTE: There are currently no format stability guarantees and this should be
+    considered *completely experimental*.
+
+### Options
 
 *   `--process-dwarf`
 
@@ -108,8 +116,6 @@ nodes that are recursively equal. By default, duplicate nodes are eliminated.
     synonym for stdout.
 
     The output will be an ABI representation in STG's native format.
-
-    NOTE: This functionality is currently stubbed out; no output occurs.
 
     NOTE: There are currently no format stability guarantees and this should be
     considered *completely experimental*.
