@@ -174,8 +174,8 @@ class Typing {
  public:
   Typing(Graph& graph) : graph_(graph) {}
 
-  void GetTypesFromDwarf(dwarf::Handler& dwarf) {
-    types_ = dwarf::Process(dwarf, graph_);
+  void GetTypesFromDwarf(dwarf::Handler& dwarf, bool is_little_endian_binary) {
+    types_ = dwarf::Process(dwarf, is_little_endian_binary, graph_);
     FillAddressToId();
   }
 
@@ -282,7 +282,7 @@ Id Reader::Read() {
   }
 
   if (process_dwarf_) {
-    typing_.GetTypesFromDwarf(dwarf_);
+    typing_.GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary());
   }
 
   std::map<std::string, Id> symbols_map;
