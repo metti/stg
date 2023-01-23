@@ -102,6 +102,32 @@ CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols, const ElfLoader& elf) {
   return crc_values;
 }
 
+NamespacesMap GetNamespacesMap(const SymbolTable& symbols,
+                               const ElfLoader& elf) {
+  constexpr std::string_view kNSPrefix = "__kstrtabns_";
+
+  NamespacesMap namespaces;
+
+  for (const auto& symbol : symbols) {
+    const std::string_view name = symbol.name;
+    if (name.substr(0, kNSPrefix.size()) == kNSPrefix) {
+      const std::string_view name_suffix = name.substr(kNSPrefix.size());
+      const std::string_view ns = elf.GetElfSymbolNamespace(symbol);
+      if (ns.empty()) {
+        // The global namespace is explicitly represented as the empty string,
+        // but the common interpretation is that such symbols lack an export
+        // namespace.
+        continue;
+      }
+      if (!namespaces.emplace(name_suffix, ns).second) {
+        Die() << "Multiple namespaces for symbol '" << name_suffix << '\'';
+      }
+    }
+  }
+
+  return namespaces;
+}
+
 bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   const auto symbol_type = symbol.symbol_type;
   // Reject symbols that are not functions or variables.
@@ -215,6 +241,7 @@ class Reader {
 
   // Data extracted from ELF
   CRCValuesMap crc_values_;
+  NamespacesMap namespaces_;
   Typing typing_;
 };
 
@@ -240,6 +267,7 @@ Id Reader::Read() {
 
   if (elf_.IsLinuxKernelBinary()) {
     crc_values_ = GetCRCValuesMap(all_symbols, elf_);
+    namespaces_ = GetNamespacesMap(all_symbols, elf_);
   }
 
   if (verbose_) {
@@ -280,7 +308,7 @@ ElfSymbol Reader::SymbolTableEntryToElfSymbol(
       /* binding = */ symbol.binding,
       /* visibility = */ symbol.visibility,
       /* crc = */ MaybeGet(crc_values_, std::string(symbol.name)),
-      /* ns = */ std::nullopt,  // TODO: Linux namespace
+      /* ns = */ MaybeGet(namespaces_, std::string(symbol.name)),
       /* type_id = */ std::nullopt,
       /* full_name = */ std::nullopt);
   typing_.MaybeAddTypeInfo(elf_.GetAbsoluteAddress(symbol), result);

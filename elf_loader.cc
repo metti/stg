@@ -26,6 +26,7 @@
 #include <libelf.h>
 
 #include <cstddef>
+#include <cstring>
 #include <functional>
 #include <iostream>
 #include <ostream>
@@ -403,6 +404,31 @@ ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(
 
   return ElfSymbol::CRC{*reinterpret_cast<uint32_t*>(
       reinterpret_cast<char*>(data->d_buf) + offset)};
+}
+
+std::string_view ElfLoader::GetElfSymbolNamespace(
+    const SymbolTableEntry& symbol) const {
+  Check(symbol.value_type == SymbolTableEntry::ValueType::RELATIVE_TO_SECTION)
+      << "Namespace symbol is expected to be relative to a section";
+
+  const auto section = GetSectionByIndex(elf_, symbol.section_index);
+  const auto [header, data] = GetSectionInfo(section);
+  Check(data->d_buf != nullptr) << "Section has no data buffer";
+
+  const auto address = GetAbsoluteAddress(symbol);
+  Check(address >= header.sh_addr)
+      << "Namespace symbol address is below namespace section start";
+
+  const size_t offset = address - header.sh_addr;
+  Check(offset < data->d_size && offset < header.sh_size)
+      << "Namespace symbol address is above namespace section end";
+
+  const char* begin = reinterpret_cast<const char*>(data->d_buf) + offset;
+  const size_t length = strnlen(begin, data->d_size - offset);
+  Check(offset + length < data->d_size)
+      << "Namespace string should be null-terminated";
+
+  return std::string_view(begin, length);
 }
 
 size_t ElfLoader::GetAbsoluteAddress(const SymbolTableEntry& symbol) const {
