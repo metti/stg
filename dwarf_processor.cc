@@ -515,10 +515,7 @@ Types ProcessEntries(std::vector<Entry> entries, Graph& graph) {
   for (auto& entry : entries) {
     processor.Process(entry);
   }
-  for (const auto& id : processor.GetUnresolvedIds()) {
-    // TODO: replace with "Die"
-    graph.Set<Variadic>(id);
-  }
+  Check(processor.GetUnresolvedIds().empty()) << "unresolved ids";
 
   return result;
 }
