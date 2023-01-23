@@ -285,6 +285,21 @@ bool IsRelocatable(Elf* elf) {
   return elf_header.e_type == ET_REL;
 }
 
+bool IsLittleEndianBinary(Elf* elf) {
+  GElf_Ehdr elf_header;
+  Check(gelf_getehdr(elf, &elf_header) != nullptr)
+      << "could not get ELF header";
+
+  switch (auto endianness = elf_header.e_ident[EI_DATA]) {
+    case ELFDATA2LSB:
+      return true;
+    case ELFDATA2MSB:
+      return false;
+    default:
+      Die() << "Unsupported ELF endianness: " << endianness;
+  }
+}
+
 }  // namespace
 
 std::ostream& operator<<(std::ostream& os, SymbolTableEntry::SymbolType type) {
@@ -333,6 +348,7 @@ ElfLoader::ElfLoader(Elf* elf, bool verbose)
 void ElfLoader::InitializeElfInformation() {
   is_linux_kernel_binary_ = elf::IsLinuxKernelBinary(elf_);
   is_relocatable_ = elf::IsRelocatable(elf_);
+  is_little_endian_binary_ = elf::IsLittleEndianBinary(elf_);
 }
 
 std::string_view ElfLoader::GetBtfRawData() const {
@@ -383,6 +399,8 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
 
 ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(
     const SymbolTableEntry& symbol) const {
+  Check(is_little_endian_binary_)
+      << "CRC is not supported in big-endian binaries";
   const auto address = GetAbsoluteAddress(symbol);
   if (symbol.value_type == SymbolTableEntry::ValueType::ABSOLUTE) {
     return ElfSymbol::CRC{static_cast<uint32_t>(address)};
@@ -453,6 +471,10 @@ size_t ElfLoader::GetAbsoluteAddress(const SymbolTableEntry& symbol) const {
 
 bool ElfLoader::IsLinuxKernelBinary() const {
   return is_linux_kernel_binary_;
+}
+
+bool ElfLoader::IsLittleEndianBinary() const {
+  return is_little_endian_binary_;
 }
 
 }  // namespace elf
