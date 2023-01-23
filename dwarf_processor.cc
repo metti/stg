@@ -151,6 +151,29 @@ size_t GetNumberOfElements(Entry& entry) {
   }
 }
 
+// Calculate the number of bits from the beginning of the structure to the
+// beginning of the data member.
+size_t GetDataBitOffset(Entry& entry) {
+  // Offset may be represented either by DW_AT_data_bit_offset (in bits) or by
+  // DW_AT_data_member_location (in bytes).
+  if (auto data_bit_offset =
+          entry.MaybeGetUnsignedConstant(DW_AT_data_bit_offset)) {
+    // DW_AT_data_bit_offset contains what this function needs for any type
+    // of member (bitfield or not) on architecture of any endianness.
+    return *data_bit_offset;
+  } else if (auto byte_offset = entry.MaybeGetMemberByteOffset()) {
+    // DW_AT_data_member_location contains offset in bytes.
+    const size_t bit_offset = *byte_offset * 8;
+    // But there can be offset part, coming from DW_AT_bit_offset. DWARF 5
+    // standard requires to use DW_AT_data_bit_offset in this case, but a lot
+    // of binaries still use combination of DW_AT_data_member_location and
+    // DW_AT_bit_offset.
+    // TODO: support a bit field offset inside the containing type
+    return bit_offset;
+  }
+  Die() << "Member has no DW_AT_data_bit_offset or DW_AT_data_member_location";
+}
+
 }  // namespace
 
 // Transforms DWARF entries to STG.
@@ -339,10 +362,9 @@ class Processor {
     std::string name = GetNameOrEmpty(entry);
     auto referred_type = GetReferredType(entry);
     auto referred_type_id = GetIdForEntry(referred_type);
-    // TODO: support offset and bitsize from DWARF
+    // TODO: support bitsize from DWARF
     AddProcessedNode<Member>(entry, std::move(name), referred_type_id,
-                             /* offset = */ 0,
-                             /* bitsize = */ 0);
+                             GetDataBitOffset(entry), /* bitsize = */ 0);
   }
 
   void ProcessArray(Entry& entry) {
