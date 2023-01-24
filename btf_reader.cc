@@ -32,6 +32,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -255,6 +256,15 @@ std::vector<Id> Structs::BuildParams(const struct btf_param* params,
   return result;
 }
 
+Id Structs::BuildEnumUnderlyingType(size_t size, bool is_signed) {
+  std::ostringstream os;
+  os << (is_signed ? "enum-underlying-signed-" : "enum-underlying-unsigned-")
+     << (8 * size);
+  const auto encoding = is_signed ? Primitive::Encoding::SIGNED_INTEGER
+                                  : Primitive::Encoding::UNSIGNED_INTEGER;
+  return graph_.Add<Primitive>(os.str(), encoding, size);
+}
+
 Id Structs::BuildTypes(MemoryRange memory) {
   if (verbose_) {
     std::cout << "Type section:\n";
@@ -404,7 +414,9 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       // does not include forward-declared enums. They are treated as
       // BTF_KIND_ENUMs with vlen set to zero.
       if (vlen) {
-        graph_.Set<Enumeration>(id(), name, t->size, enumerators);
+        // create a synthetic underlying type
+        const Id underlying = BuildEnumUnderlyingType(t->size, is_signed);
+        graph_.Set<Enumeration>(id(), name, t->size, underlying, enumerators);
       } else {
         // BTF actually provides size (4), but it's meaningless.
         graph_.Set<Enumeration>(id(), name);
@@ -423,7 +435,9 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       }
       const auto* enums = memory.Pull<struct btf_enum64>(vlen);
       const auto enumerators = BuildEnums64(is_signed, enums, vlen);
-      graph_.Set<Enumeration>(id(), name, t->size, enumerators);
+      // create a synthetic underlying type
+      const Id underlying = BuildEnumUnderlyingType(t->size, is_signed);
+      graph_.Set<Enumeration>(id(), name, t->size, underlying, enumerators);
       break;
     }
     case BTF_KIND_FWD: {

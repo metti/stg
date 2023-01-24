@@ -173,7 +173,8 @@ message Enumeration {
 
   message Definition {
     fixed32 bytesize = 1;
-    repeated Enumerator enumerator = 2;
+    fixed32 underlying_type_id = 2;
+    repeated Enumerator enumerator = 3;
   }
 
   fixed32 id = 1;

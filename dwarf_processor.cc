@@ -483,6 +483,7 @@ class Processor {
       return;
     }
     size_t byte_size = GetByteSize(entry);
+    auto underlying_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
     auto children = entry.GetChildren();
     Enumeration::Enumerators enumerators;
     enumerators.reserve(children.size());
@@ -501,6 +502,7 @@ class Processor {
                                static_cast<int64_t>(*value_optional));
     }
     AddProcessedNode<Enumeration>(entry, std::move(name), byte_size,
+                                  underlying_type_id,
                                   std::move(enumerators));
   }
 

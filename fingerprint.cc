@@ -107,12 +107,18 @@ struct Hasher {
     if (x.name.empty()) {
       auto h = hash('e');
       if (x.definition) {
-        for (const auto& e : x.definition->enumerators) {
+        const auto& definition = *x.definition;
+        todo.insert(definition.underlying_type_id);
+        for (const auto& e : definition.enumerators) {
           h = hash(h, e.first);
         }
       }
       return h;
     } else {
+      if (x.definition) {
+        const auto& definition = *x.definition;
+        todo.insert(definition.underlying_type_id);
+      }
       return hash('E', x.name, x.definition ? '1' : '0');
     }
   }

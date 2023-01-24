@@ -182,6 +182,8 @@ struct Equals {
                   && definition1.has_value() == definition2.has_value();
     if (result && definition1.has_value()) {
       result = definition1->bytesize == definition2->bytesize
+               && (*this)(definition1->underlying_type_id,
+                          definition2->underlying_type_id)
                && definition1->enumerators == definition2->enumerators;
     }
     return result;

@@ -602,8 +602,6 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
   Check(underlying) << "enum-decl has no child elements";
   CheckElementName("underlying-type", underlying);
   const auto type = GetEdge(underlying);
-  // TODO: decision on underlying type vs size
-  (void)type;
 
   std::vector<std::pair<std::string, int64_t>> enumerators;
   for (xmlNodePtr enumerator = xmlNextElementSibling(underlying); enumerator;
@@ -616,7 +614,7 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
     enumerators.emplace_back(enumerator_name, enumerator_value);
   }
 
-  graph_.Set<Enumeration>(id, name, 0, enumerators);
+  graph_.Set<Enumeration>(id, name, 0, type, enumerators);
 }
 
 Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {

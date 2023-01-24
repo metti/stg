@@ -397,6 +397,9 @@ Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
     return result;
   result.MaybeAddNodeDiff(
       "byte size", definition1->bytesize, definition2->bytesize);
+  const auto type_diff = (*this)(definition1->underlying_type_id,
+                                 definition2->underlying_type_id);
+  result.MaybeAddEdgeDiff("underlying", type_diff);
 
   const auto enums1 = definition1->enumerators;
   const auto enums2 = definition2->enumerators;
