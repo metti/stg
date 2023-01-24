@@ -614,7 +614,7 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
     enumerators.emplace_back(enumerator_name, enumerator_value);
   }
 
-  graph_.Set<Enumeration>(id, name, 0, type, enumerators);
+  graph_.Set<Enumeration>(id, name, type, enumerators);
 }
 
 Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {

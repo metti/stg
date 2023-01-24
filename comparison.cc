@@ -395,8 +395,6 @@ Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
   if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
                       options.ignore_type_declaration_status_changes))
     return result;
-  result.MaybeAddNodeDiff(
-      "byte size", definition1->bytesize, definition2->bytesize);
   const auto type_diff = (*this)(definition1->underlying_type_id,
                                  definition2->underlying_type_id);
   result.MaybeAddEdgeDiff("underlying", type_diff);

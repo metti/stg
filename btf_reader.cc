@@ -416,7 +416,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       if (vlen) {
         // create a synthetic underlying type
         const Id underlying = BuildEnumUnderlyingType(t->size, is_signed);
-        graph_.Set<Enumeration>(id(), name, t->size, underlying, enumerators);
+        graph_.Set<Enumeration>(id(), name, underlying, enumerators);
       } else {
         // BTF actually provides size (4), but it's meaningless.
         graph_.Set<Enumeration>(id(), name);
@@ -437,7 +437,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       const auto enumerators = BuildEnums64(is_signed, enums, vlen);
       // create a synthetic underlying type
       const Id underlying = BuildEnumUnderlyingType(t->size, is_signed);
-      graph_.Set<Enumeration>(id(), name, t->size, underlying, enumerators);
+      graph_.Set<Enumeration>(id(), name, underlying, enumerators);
       break;
     }
     case BTF_KIND_FWD: {

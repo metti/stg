@@ -188,7 +188,6 @@ void Transformer::AddNode(const StructUnion& x) {
 void Transformer::AddNode(const Enumeration& x) {
   if (x.has_definition()) {
     AddNode<stg::Enumeration>(GetId(x.id()), x.name(),
-                              x.definition().bytesize(),
                               GetId(x.definition().underlying_type_id()),
                               x.definition().enumerator());
     return;

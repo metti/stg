@@ -213,14 +213,13 @@ std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind);
 struct Enumeration {
   using Enumerators = std::vector<std::pair<std::string, int64_t>>;
   struct Definition {
-    uint32_t bytesize;
     Id underlying_type_id;
     Enumerators enumerators;
   };
   explicit Enumeration(const std::string& name) : name(name) {}
-  Enumeration(const std::string& name, uint32_t bytesize, Id underlying_type_id,
+  Enumeration(const std::string& name, Id underlying_type_id,
               const Enumerators& enumerators)
-      : name(name), definition({bytesize, underlying_type_id, enumerators}) {}
+      : name(name), definition({underlying_type_id, enumerators}) {}
 
   std::string name;
   std::optional<Definition> definition;
