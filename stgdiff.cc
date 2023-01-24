@@ -193,15 +193,14 @@ bool ParseCompareOptions(const char* opts_arg, stg::CompareOptions& opts) {
   return true;
 }
 
-enum LongOptions {
-  kProcessDwarf = 256,
-};
-
 int main(int argc, char* argv[]) {
+  enum LongOptions {
+    kSkipDwarf = 256,
+  };
   // Process arguments.
   bool opt_metrics = false;
   bool opt_exact = false;
-  bool opt_process_dwarf = false;
+  bool opt_skip_dwarf = false;
   std::optional<const char*> opt_fidelity = std::nullopt;
   stg::CompareOptions compare_options;
   InputFormat opt_input_format = InputFormat::ABI;
@@ -210,18 +209,18 @@ int main(int argc, char* argv[]) {
   Inputs inputs;
   Outputs outputs;
   static option opts[] = {
-      {"metrics",         no_argument,       nullptr, 'm'          },
-      {"abi",             no_argument,       nullptr, 'a'          },
-      {"btf",             no_argument,       nullptr, 'b'          },
-      {"elf",             no_argument,       nullptr, 'e'          },
-      {"stg",             no_argument,       nullptr, 's'          },
-      {"exact",           no_argument,       nullptr, 'x'          },
-      {"compare-options", required_argument, nullptr, 'c'          },
-      {"format",          required_argument, nullptr, 'f'          },
-      {"output",          required_argument, nullptr, 'o'          },
-      {"fidelity",        required_argument, nullptr, 'F'          },
-      {"process-dwarf",   no_argument,       nullptr, kProcessDwarf},
-      {nullptr,           0,                 nullptr, 0            },
+      {"metrics",         no_argument,       nullptr, 'm'       },
+      {"abi",             no_argument,       nullptr, 'a'       },
+      {"btf",             no_argument,       nullptr, 'b'       },
+      {"elf",             no_argument,       nullptr, 'e'       },
+      {"stg",             no_argument,       nullptr, 's'       },
+      {"exact",           no_argument,       nullptr, 'x'       },
+      {"compare-options", required_argument, nullptr, 'c'       },
+      {"format",          required_argument, nullptr, 'f'       },
+      {"output",          required_argument, nullptr, 'o'       },
+      {"fidelity",        required_argument, nullptr, 'F'       },
+      {"skip-dwarf",      no_argument,       nullptr, kSkipDwarf},
+      {nullptr,           0,                 nullptr, 0         },
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
@@ -229,7 +228,7 @@ int main(int argc, char* argv[]) {
               << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
               << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
               << " [{-x|--exact}]\n"
-              << " [--process-dwarf]\n"
+              << " [--skip-dwarf]\n"
               << " [{-c|--compare-options} "
                  "{ignore_symbol_type_presence_changes|"
                  "ignore_type_declaration_status_changes|all}]\n"
@@ -298,8 +297,8 @@ int main(int argc, char* argv[]) {
         if (strcmp(argument, "-") == 0) argument = "/dev/stdout";
         opt_fidelity.emplace(argument);
         break;
-      case kProcessDwarf:
-        opt_process_dwarf = true;
+      case kSkipDwarf:
+        opt_skip_dwarf = true;
         break;
       default:
         return usage();
@@ -310,9 +309,9 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    int status = opt_exact ? RunExact(inputs, opt_process_dwarf, metrics)
-                           : Run(inputs, outputs, compare_options,
-                                 opt_process_dwarf, opt_fidelity, metrics);
+    const int status = opt_exact ? RunExact(inputs, !opt_skip_dwarf, metrics)
+                                 : Run(inputs, outputs, compare_options,
+                                       !opt_skip_dwarf, opt_fidelity, metrics);
     if (opt_metrics) {
       stg::Report(metrics, std::cerr);
     }

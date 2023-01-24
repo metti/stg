@@ -15,7 +15,7 @@ stg
   [-d|--keep-duplicates]
   [-u|--unstable]
   [-S|--symbols <filter>]
-  [--process-dwarf]
+  [--skip-dwarf]
   [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...
   [{-o|--output} {filename|-}] ...
 implicit defaults: --abi
@@ -53,9 +53,6 @@ The tool can be passed any number of inputs to combine into a unified ABI.
 
     Read ABI information, stored inside ELF in DWARF format.
 
-    NOTE: Only ELF symbol information, and not DWARF type information, is
-    currently processed.
-
 *   `-s|--stg`
 
     Read ABI information from a `.stg` file.
@@ -65,10 +62,10 @@ The tool can be passed any number of inputs to combine into a unified ABI.
 
 ### Options
 
-*   `--process-dwarf`
+*   `--skip-dwarf`
 
-    Enable DWARF processing, when reading ELF files. For other formats this
-    options does nothing.
+    Disable DWARF processing, when reading ELF files. For other formats this
+    option does nothing.
 
 ## Merge
 

@@ -123,34 +123,33 @@ void Write(const Graph& graph, Id root, const char* output, bool stable) {
 }  // namespace
 }  // namespace stg
 
-enum LongOptions {
-  kProcessDwarf = 256,
-};
-
 int main(int argc, char* argv[]) {
+  enum LongOptions {
+    kSkipDwarf = 256,
+  };
   // Process arguments.
   bool opt_metrics = false;
   bool opt_info = false;
   bool opt_keep_duplicates = false;
   bool opt_unstable = false;
   std::unique_ptr<stg::SymbolFilter> opt_symbols;
-  bool opt_process_dwarf = false;
+  bool opt_skip_dwarf = false;
   stg::InputFormat opt_input_format = stg::InputFormat::ABI;
   std::vector<const char*> inputs;
   std::vector<const char*> outputs;
   static option opts[] = {
-      {"metrics",         no_argument,       nullptr, 'm'          },
-      {"info",            no_argument,       nullptr, 'i'          },
-      {"keep-duplicates", no_argument,       nullptr, 'd'          },
-      {"unstable",        no_argument,       nullptr, 'u'          },
-      {"symbols",         required_argument, nullptr, 'S'          },
-      {"abi",             no_argument,       nullptr, 'a'          },
-      {"btf",             no_argument,       nullptr, 'b'          },
-      {"elf",             no_argument,       nullptr, 'e'          },
-      {"stg",             no_argument,       nullptr, 's'          },
-      {"output",          required_argument, nullptr, 'o'          },
-      {"process-dwarf",   no_argument,       nullptr, kProcessDwarf},
-      {nullptr,           0,                 nullptr, 0  },
+      {"metrics",         no_argument,       nullptr, 'm'       },
+      {"info",            no_argument,       nullptr, 'i'       },
+      {"keep-duplicates", no_argument,       nullptr, 'd'       },
+      {"unstable",        no_argument,       nullptr, 'u'       },
+      {"symbols",         required_argument, nullptr, 'S'       },
+      {"abi",             no_argument,       nullptr, 'a'       },
+      {"btf",             no_argument,       nullptr, 'b'       },
+      {"elf",             no_argument,       nullptr, 'e'       },
+      {"stg",             no_argument,       nullptr, 's'       },
+      {"output",          required_argument, nullptr, 'o'       },
+      {"skip-dwarf",      no_argument,       nullptr, kSkipDwarf},
+      {nullptr,           0,                 nullptr, 0         },
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
@@ -159,7 +158,7 @@ int main(int argc, char* argv[]) {
               << "  [-d|--keep-duplicates]\n"
               << "  [-u|--unstable]\n"
               << "  [-S|--symbols <filter>]\n"
-              << "  [--process-dwarf]\n"
+              << "  [--skip-dwarf]\n"
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...\n"
               << "  [{-o|--output} {filename|-}] ...\n"
               << "implicit defaults: --abi\n";
@@ -208,8 +207,8 @@ int main(int argc, char* argv[]) {
           argument = "/dev/stdout";
         outputs.push_back(argument);
         break;
-      case kProcessDwarf:
-        opt_process_dwarf = true;
+      case kSkipDwarf:
+        opt_skip_dwarf = true;
         break;
       default:
         return usage();
@@ -222,7 +221,7 @@ int main(int argc, char* argv[]) {
     roots.reserve(inputs.size());
     for (auto input : inputs) {
       roots.push_back(stg::Read(graph, opt_input_format, input,
-                                opt_process_dwarf, opt_info, stg::metrics));
+                                !opt_skip_dwarf, opt_info, stg::metrics));
     }
     stg::Id root = roots.size() == 1 ? roots[0] : stg::Merge(graph, roots);
     if (opt_symbols) {

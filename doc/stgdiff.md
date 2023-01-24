@@ -11,7 +11,7 @@ stgdiff
  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1
  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2
  [{-x|--exact}]
- [--process-dwarf]
+ [--skip-dwarf]
  [{-c|--compare-options} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes|all}]
  [{-f|--format} {plain|flat|small|short|viz}]
  [{-o|--output} {filename|-}] ...
@@ -57,10 +57,10 @@ stgdiff
 
 ### Options
 
-*   `--process-dwarf`
+*   `--skip-dwarf`
 
-    Enable DWARF processing, when reading ELF files. For other formats this
-    options does nothing.
+    Disable DWARF processing, when reading ELF files. For other formats this
+    option does nothing.
 
 ## Comparison
 
