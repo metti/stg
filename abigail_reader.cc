@@ -347,8 +347,9 @@ void Abigail::ProcessSymbol(xmlNodePtr symbol) {
     elf_symbol_id += VersionInfoToString(*version_info);
   }
 
-  const SymbolInfo info{name, version_info, symbol};
-  Check(symbol_info_map_.emplace(elf_symbol_id, std::move(info)).second)
+  Check(symbol_info_map_
+            .emplace(elf_symbol_id, SymbolInfo{name, version_info, symbol})
+            .second)
       << "multiple symbols with id " << elf_symbol_id;
 
   if (alias) {
@@ -475,11 +476,11 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
   auto count = qualifiers.size();
   for (auto qualifier : qualifiers) {
     --count;
-    Qualified node(qualifier, type);
+    const Qualified node(qualifier, type);
     if (count) {
-      type = graph_.Add<Qualified>(std::move(node));
+      type = graph_.Add<Qualified>(node);
     } else {
-      graph_.Set<Qualified>(id, std::move(node));
+      graph_.Set<Qualified>(id, node);
     }
   }
 }
@@ -508,11 +509,11 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
   for (auto it = dimensions.crbegin(); it != dimensions.crend(); ++it) {
     --count;
     const auto size = *it;
-    Array node(size, type);
+    const Array node(size, type);
     if (count)
-      type = graph_.Add<Array>(std::move(node));
+      type = graph_.Add<Array>(node);
     else
-      graph_.Set<Array>(id, std::move(node));
+      graph_.Set<Array>(id, node);
   }
 }
 
