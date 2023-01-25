@@ -144,7 +144,7 @@ std::string ElfSectionTypeToString(Elf64_Word elf_section_type) {
 }
 
 std::vector<Elf_Scn*> GetSectionsIf(
-    Elf* elf, std::function<bool(const GElf_Shdr&)> predicate) {
+    Elf* elf, const std::function<bool(const GElf_Shdr&)>& predicate) {
   std::vector<Elf_Scn*> result;
   Elf_Scn* section = nullptr;
   GElf_Shdr header;
