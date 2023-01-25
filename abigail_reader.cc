@@ -208,7 +208,7 @@ T ReadAttribute(xmlNodePtr element, const char* name,
 }
 
 std::optional<uint64_t> ParseLength(const std::string& value) {
-  if (value == "infinite")
+  if (value == "infinite" || value == "unknown")
     return {0};
   return Parse<uint64_t>(value);
 }
@@ -347,8 +347,9 @@ void Abigail::ProcessSymbol(xmlNodePtr symbol) {
     elf_symbol_id += VersionInfoToString(*version_info);
   }
 
-  const SymbolInfo info{name, version_info, symbol};
-  Check(symbol_info_map_.emplace(elf_symbol_id, std::move(info)).second)
+  Check(symbol_info_map_
+            .emplace(elf_symbol_id, SymbolInfo{name, version_info, symbol})
+            .second)
       << "multiple symbols with id " << elf_symbol_id;
 
   if (alias) {
@@ -475,11 +476,11 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
   auto count = qualifiers.size();
   for (auto qualifier : qualifiers) {
     --count;
-    Qualified node(qualifier, type);
+    const Qualified node(qualifier, type);
     if (count) {
-      type = graph_.Add<Qualified>(std::move(node));
+      type = graph_.Add<Qualified>(node);
     } else {
-      graph_.Set<Qualified>(id, std::move(node));
+      graph_.Set<Qualified>(id, node);
     }
   }
 }
@@ -508,25 +509,28 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
   for (auto it = dimensions.crbegin(); it != dimensions.crend(); ++it) {
     --count;
     const auto size = *it;
-    Array node(size, type);
+    const Array node(size, type);
     if (count)
-      type = graph_.Add<Array>(std::move(node));
+      type = graph_.Add<Array>(node);
     else
-      graph_.Set<Array>(id, std::move(node));
+      graph_.Set<Array>(id, node);
   }
 }
 
 void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
   const auto name = scope_name_ + GetAttributeOrDie(type_decl, "name");
   const auto bits = ReadAttribute<size_t>(type_decl, "size-in-bits", 0);
-  const auto bytes = (bits + 7) / 8;
+  if (bits % 8) {
+    Die() << "size-in-bits is not a multiple of 8";
+  }
+  const auto bytes = bits / 8;
 
   if (name == "void") {
     graph_.Set<Void>(id);
   } else {
     // libabigail doesn't model encoding at all and we don't want to parse names
     // (which will not always work) in an attempt to reconstruct it.
-    graph_.Set<Primitive>(id, name, /* encoding= */ std::nullopt, bits, bytes);
+    graph_.Set<Primitive>(id, name, /* encoding= */ std::nullopt, bytes);
   }
 }
 
@@ -599,8 +603,6 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
   Check(underlying) << "enum-decl has no child elements";
   CheckElementName("underlying-type", underlying);
   const auto type = GetEdge(underlying);
-  // TODO: decision on underlying type vs size
-  (void)type;
 
   std::vector<std::pair<std::string, int64_t>> enumerators;
   for (xmlNodePtr enumerator = xmlNextElementSibling(underlying); enumerator;
@@ -613,7 +615,7 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
     enumerators.emplace_back(enumerator_name, enumerator_value);
   }
 
-  graph_.Set<Enumeration>(id, name, 0, enumerators);
+  graph_.Set<Enumeration>(id, name, type, enumerators);
 }
 
 Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {

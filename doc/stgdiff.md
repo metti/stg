@@ -8,19 +8,23 @@ libabigail, BTF, or ELF/DWARF.
 ```
 stgdiff
  [-m|--metrics]
- [-a|--abi|-b|--btf|-e|--elf] file1
- [-a|--abi|-b|--btf|-e|--elf] file2
+ [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1
+ [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2
  [{-x|--exact}]
- [{-c|--compare-options} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes|all}]
+ [--skip-dwarf]
+ [{-c|--compare-options} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes}]
  [{-f|--format} {plain|flat|small|short|viz}]
  [{-o|--output} {filename|-}] ...
+ [{-F|--fidelity} {filename|-}]
    implicit defaults: --abi --format plain
    format and output can appear multiple times
    multiple comma-separated compare-options can be passed
    --exact (node equality) cannot be combined with --output
 ```
 
-## Input formats
+## Input
+
+### Formats
 
 *   `-a|--abi`
 
@@ -44,7 +48,25 @@ stgdiff
     NOTE: Only ELF symbol information, and not DWARF type information, is
     currently processed.
 
-## Compare options
+*   `-s|--stg`
+
+    Read ABI information from a `.stg` file.
+
+    NOTE: There are currently no format stability guarantees and this should be
+    considered *completely experimental*.
+
+### Options
+
+*   `--skip-dwarf`
+
+    Disable DWARF processing, when reading ELF files. For other formats this
+    option does nothing.
+
+## Comparison
+
+The default behaviour is to compare two ABIs for equivalence.
+
+### Options
 
 The options here suppress noisy diffs that are inevitable when consuming ABI XML
 output from `abidw`.
@@ -59,9 +81,11 @@ output from `abidw`.
     Ignore changes in declaration status of types, thus `stgdiff` does not
     report loss or gain of user-defined type definitions.
 
-*   `all`
+### Fidelity Reporting
 
-    Ignore all types of changes listed above.
+Details to follow.
+
+*   `-F|--fidelity`
 
 ## Output formats
 
@@ -171,16 +195,14 @@ symbol table nodes.
 
 *   `-m|--metrics`: print duration of ABI parsing, comparison and reporting.
 
-*   `--process-dwarf`: enable DWARF processing, when reading ELF files. For
-    other formats this options does nothing.
-
 ## Return code
 
-If input files' ABIs are equivalent, `stgdiff` will return 0. Otherwise:
+If input files' ABIs are equivalent (or equal with `--exact`), `stgdiff` will
+return 0. Otherwise:
 
 *   Return code 1: there was an exception during comparison, see `stderr` for
     the exception reason.
-*   Return code 4: ABIs are not equivalent.
+*   Return code 4: ABIs differ.
 
 ## Examples
 

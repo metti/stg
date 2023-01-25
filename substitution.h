@@ -105,7 +105,12 @@ struct Substitute {
     }
   }
 
-  void operator()(Enumeration&) {}
+  void operator()(Enumeration& x) {
+    if (x.definition.has_value()) {
+      auto& definition = x.definition.value();
+      Update(definition.underlying_type_id);
+    }
+  }
 
   void operator()(Function& x) {
     Update(x.parameters);
