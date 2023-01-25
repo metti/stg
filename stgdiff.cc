@@ -54,7 +54,6 @@ stg::Metrics metrics;
 const int kAbiChange = 4;
 const int kFidelityChange = 8;
 const size_t kMaxCrcOnlyChanges = 3;
-const stg::CompareOptions kAllCompareOptionsEnabled{true, true};
 
 enum class InputFormat { ABI, BTF, ELF, STG };
 
@@ -185,8 +184,6 @@ bool ParseCompareOptions(const char* opts_arg, stg::CompareOptions& opts) {
       opts.ignore_symbol_type_presence_changes = true;
     else if (opt == "ignore_type_declaration_status_changes")
       opts.ignore_type_declaration_status_changes = true;
-    else if (opt == "all")
-      opts = kAllCompareOptionsEnabled;
     else
       return false;
   }
@@ -231,7 +228,7 @@ int main(int argc, char* argv[]) {
               << " [--skip-dwarf]\n"
               << " [{-c|--compare-options} "
                  "{ignore_symbol_type_presence_changes|"
-                 "ignore_type_declaration_status_changes|all}]\n"
+                 "ignore_type_declaration_status_changes}]\n"
               << " [{-f|--format} {plain|flat|small|short|viz}]\n"
               << " [{-o|--output} {filename|-}] ...\n"
               << " [{-F|--fidelity} {filename|-}]\n"

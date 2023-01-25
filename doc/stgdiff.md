@@ -12,7 +12,7 @@ stgdiff
  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2
  [{-x|--exact}]
  [--skip-dwarf]
- [{-c|--compare-options} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes|all}]
+ [{-c|--compare-options} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes}]
  [{-f|--format} {plain|flat|small|short|viz}]
  [{-o|--output} {filename|-}] ...
  [{-F|--fidelity} {filename|-}]
@@ -80,10 +80,6 @@ output from `abidw`.
 
     Ignore changes in declaration status of types, thus `stgdiff` does not
     report loss or gain of user-defined type definitions.
-
-*   `all`
-
-    Ignore all types of changes listed above.
 
 ### Fidelity Reporting
 
