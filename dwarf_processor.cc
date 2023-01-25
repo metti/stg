@@ -121,7 +121,7 @@ Entry GetReferredType(Entry& entry) {
   if (!result.has_value()) {
     Die() << "Type reference was not found in " << EntryToString(entry);
   }
-  return std::move(*result);
+  return *result;
 }
 
 size_t GetNumberOfElements(Entry& entry) {
