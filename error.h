@@ -45,14 +45,16 @@ class Check {
       : os_(ok ? std::optional<std::ostringstream>()
                : std::make_optional<std::ostringstream>()) {}
   ~Check() noexcept(false) {
-    if (os_)
+    if (os_) {
       throw Exception(os_->str());
+    }
   }
 
   template <typename T>
   Check& operator<<(const T& t) {
-    if (os_)
+    if (os_) {
       *os_ << t;
+    }
     return *this;
   }
 

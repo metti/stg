@@ -162,8 +162,9 @@ int Run(const Inputs& inputs, const Outputs& outputs,
       Report(reporting, *comparison, output);
       output << std::flush;
     }
-    if (!output)
+    if (!output) {
       stg::Die() << "error writing to " << '\'' << filename << '\'';
+    }
   }
 
   // Compute fidelity diff if requested.
@@ -242,8 +243,9 @@ int main(int argc, char* argv[]) {
   while (true) {
     int ix;
     int c = getopt_long(argc, argv, "-mabesxc:f:o:F:", opts, &ix);
-    if (c == -1)
+    if (c == -1) {
       break;
+    }
     const char* argument = optarg;
     switch (c) {
       case 'm':
@@ -269,30 +271,35 @@ int main(int argc, char* argv[]) {
         break;
       case 'c':
       case 'C':
-        if (!ParseCompareOptions(argument, compare_options))
+        if (!ParseCompareOptions(argument, compare_options)) {
           return usage();
+        }
         break;
       case 'f':
-        if (strcmp(argument, "plain") == 0)
+        if (strcmp(argument, "plain") == 0) {
           opt_output_format = stg::reporting::OutputFormat::PLAIN;
-        else if (strcmp(argument, "flat") == 0)
+        } else if (strcmp(argument, "flat") == 0) {
           opt_output_format = stg::reporting::OutputFormat::FLAT;
-        else if (strcmp(argument, "small") == 0)
+        } else if (strcmp(argument, "small") == 0) {
           opt_output_format = stg::reporting::OutputFormat::SMALL;
-        else if (strcmp(argument, "short") == 0)
+        } else if (strcmp(argument, "short") == 0) {
           opt_output_format = stg::reporting::OutputFormat::SHORT;
-        else if (strcmp(argument, "viz") == 0)
+        } else if (strcmp(argument, "viz") == 0) {
           opt_output_format = stg::reporting::OutputFormat::VIZ;
-        else
+        } else {
           return usage();
+        }
         break;
       case 'o':
-        if (strcmp(argument, "-") == 0)
+        if (strcmp(argument, "-") == 0) {
           argument = "/dev/stdout";
+        }
         outputs.push_back({opt_output_format, argument});
         break;
       case 'F':
-        if (strcmp(argument, "-") == 0) argument = "/dev/stdout";
+        if (strcmp(argument, "-") == 0) {
+          argument = "/dev/stdout";
+        }
         opt_fidelity.emplace(argument);
         break;
       case kSkipDwarf:

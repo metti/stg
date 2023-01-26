@@ -78,7 +78,9 @@ class Handler {
 
  private:
   struct DwflDeleter {
-    void operator()(Dwfl* dwfl) { dwfl_end(dwfl); }
+    void operator()(Dwfl* dwfl) {
+      dwfl_end(dwfl);
+    }
   };
 
   void InitialiseDwarf();

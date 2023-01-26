@@ -79,19 +79,21 @@ const T* Structs::MemoryRange::Pull(size_t count) {
 }
 
 Structs::Structs(Graph& graph, const bool verbose)
-    : graph_(graph), verbose_(verbose) { }
+    : graph_(graph), verbose_(verbose) {}
 
 // Get the index of the void type, creating one if needed.
 Id Structs::GetVoid() {
-  if (!void_)
+  if (!void_) {
     void_ = {graph_.Add<Void>()};
+  }
   return *void_;
 }
 
 // Get the index of the variadic parameter type, creating one if needed.
 Id Structs::GetVariadic() {
-  if (!variadic_)
+  if (!variadic_) {
     variadic_ = {graph_.Add<Variadic>()};
+  }
   return *variadic_;
 }
 
@@ -101,8 +103,9 @@ Id Structs::GetVariadic() {
 // slot at the end of the array.
 Id Structs::GetIdRaw(uint32_t btf_index) {
   auto [it, inserted] = btf_type_ids_.insert({btf_index, Id(0)});
-  if (inserted)
+  if (inserted) {
     it->second = graph_.Allocate();
+  }
   return it->second;
 }
 
@@ -124,8 +127,9 @@ Id Structs::Process(std::string_view btf_data) {
       << "BTF section too small for header";
   const btf_header* header =
       reinterpret_cast<const btf_header*>(btf_data.data());
-  if (verbose_)
+  if (verbose_) {
     PrintHeader(header);
+  }
   Check(header->magic == 0xEB9F) << "Magic field must be 0xEB9F for BTF";
 
   const char* header_limit = btf_data.begin() + header->hdr_len;
@@ -149,8 +153,9 @@ Id Structs::Process(std::string_view btf_data) {
   const MemoryRange type_section{type_start, type_limit};
   string_section_ = MemoryRange{string_start, string_limit};
   const Id root = BuildTypes(type_section);
-  if (verbose_)
+  if (verbose_) {
     PrintStrings(string_section_);
+  }
   return root;
 }
 
@@ -180,8 +185,9 @@ std::vector<Id> Structs::BuildMembers(
       std::cout << "\t'" << (name.empty() ? ANON : name) << '\''
                 << " type_id=" << raw_member.type
                 << " bits_offset=" << offset;
-      if (bitfield_size)
+      if (bitfield_size) {
         std::cout << " bitfield_size=" << bitfield_size;
+      }
       std::cout << '\n';
     }
     result.push_back(
@@ -291,8 +297,9 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
   const auto vlen = BTF_INFO_VLEN(t->info);
   Check(kind < NR_BTF_KINDS) << "Unknown BTF kind: " << static_cast<int>(kind);
 
-  if (verbose_)
+  if (verbose_) {
     std::cout << '[' << btf_index << "] ";
+  }
   // delay allocation of node id as some BTF nodes are skipped
   auto id = [&]() {
     return GetIdRaw(btf_index);
@@ -556,7 +563,9 @@ Id Structs::BuildSymbols() {
 Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
   Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
   struct ElfDeleter {
-    void operator()(Elf* elf) { elf_end(elf); }
+    void operator()(Elf* elf) {
+      elf_end(elf);
+    }
   };
   const FileDescriptor fd(path.c_str(), O_RDONLY);
   const std::unique_ptr<Elf, ElfDeleter> elf(
