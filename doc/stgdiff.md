@@ -12,13 +12,12 @@ stgdiff
  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2
  [{-x|--exact}]
  [--skip-dwarf]
- [{-c|--compare-options} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes}]
+ [{-c|--compare-option} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes}] ...
  [{-f|--format} {plain|flat|small|short|viz}]
  [{-o|--output} {filename|-}] ...
  [{-F|--fidelity} {filename|-}]
    implicit defaults: --abi --format plain
-   format and output can appear multiple times
-   multiple comma-separated compare-options can be passed
+   format, output and compare-option may be repeated
    --exact (node equality) cannot be combined with --output
 ```
 
@@ -68,8 +67,10 @@ The default behaviour is to compare two ABIs for equivalence.
 
 ### Options
 
-The options here suppress noisy diffs that are inevitable when consuming ABI XML
-output from `abidw`.
+*   `-c|--compare-option`
+
+These two options suppress noisy diffs that are inevitable when consuming ABI
+XML output from `abidw`.
 
 *   `ignore_symbol_type_presence_changes`
 
@@ -229,7 +230,7 @@ return 0. Otherwise:
     changes, and print short report to stdout:
 
     ```
-    stgdiff -f short -c ignore_symbol_type_presence_changes,ignore_type_declaration_status_changes -a abi.0.xml abi.1.xml -o -
+    stgdiff -f short -c ignore_symbol_type_presence_changes -c ignore_type_declaration_status_changes -a abi.0.xml abi.1.xml -o -
     ```
 
 *   Compare ABI XML to ABI from ELF and print a short report to file:

@@ -212,7 +212,8 @@ int main(int argc, char* argv[]) {
       {"elf",             no_argument,       nullptr, 'e'       },
       {"stg",             no_argument,       nullptr, 's'       },
       {"exact",           no_argument,       nullptr, 'x'       },
-      {"compare-options", required_argument, nullptr, 'c'       },
+      {"compare-option",  required_argument, nullptr, 'c'       },
+      {"compare-options", required_argument, nullptr, 'C'       },
       {"format",          required_argument, nullptr, 'f'       },
       {"output",          required_argument, nullptr, 'o'       },
       {"fidelity",        required_argument, nullptr, 'F'       },
@@ -226,15 +227,14 @@ int main(int argc, char* argv[]) {
               << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
               << " [{-x|--exact}]\n"
               << " [--skip-dwarf]\n"
-              << " [{-c|--compare-options} "
+              << " [{-c|--compare-option} "
                  "{ignore_symbol_type_presence_changes|"
-                 "ignore_type_declaration_status_changes}]\n"
+                 "ignore_type_declaration_status_changes}] ...\n"
               << " [{-f|--format} {plain|flat|small|short|viz}]\n"
               << " [{-o|--output} {filename|-}] ...\n"
               << " [{-F|--fidelity} {filename|-}]\n"
               << "   implicit defaults: --abi --format plain\n"
-              << "   format and output can appear multiple times\n"
-              << "   multiple comma-separated compare-options can be passed\n"
+              << "   format, output and compare-option may be repeated\n"
               << "   --exact (node equality) cannot be combined with --output\n"
               << "\n";
     return 1;
@@ -268,6 +268,7 @@ int main(int argc, char* argv[]) {
         inputs.push_back({opt_input_format, argument});
         break;
       case 'c':
+      case 'C':
         if (!ParseCompareOptions(argument, compare_options))
           return usage();
         break;
