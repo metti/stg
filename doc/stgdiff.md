@@ -51,8 +51,7 @@ stgdiff
 
     Read ABI information from a `.stg` file.
 
-    NOTE: There are currently no format stability guarantees and this should be
-    considered *completely experimental*.
+    NOTE: The `.stg` format is still novel and subject to change.
 
 ### Options
 
