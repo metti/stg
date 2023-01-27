@@ -29,7 +29,6 @@
 #include <memory>
 #include <optional>
 #include <ostream>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -177,20 +176,6 @@ int Run(const Inputs& inputs, const Outputs& outputs,
 
 }  // namespace
 
-bool ParseCompareOptions(const char* opts_arg, stg::CompareOptions& opts) {
-  std::stringstream opt_stream(opts_arg);
-  std::string opt;
-  while (std::getline(opt_stream, opt, ',')) {
-    if (opt == "ignore_symbol_type_presence_changes")
-      opts.ignore_symbol_type_presence_changes = true;
-    else if (opt == "ignore_type_declaration_status_changes")
-      opts.ignore_type_declaration_status_changes = true;
-    else
-      return false;
-  }
-  return true;
-}
-
 int main(int argc, char* argv[]) {
   enum LongOptions {
     kSkipDwarf = 256,
@@ -207,19 +192,18 @@ int main(int argc, char* argv[]) {
   Inputs inputs;
   Outputs outputs;
   static option opts[] = {
-      {"metrics",         no_argument,       nullptr, 'm'       },
-      {"abi",             no_argument,       nullptr, 'a'       },
-      {"btf",             no_argument,       nullptr, 'b'       },
-      {"elf",             no_argument,       nullptr, 'e'       },
-      {"stg",             no_argument,       nullptr, 's'       },
-      {"exact",           no_argument,       nullptr, 'x'       },
-      {"compare-option",  required_argument, nullptr, 'c'       },
-      {"compare-options", required_argument, nullptr, 'C'       },
-      {"format",          required_argument, nullptr, 'f'       },
-      {"output",          required_argument, nullptr, 'o'       },
-      {"fidelity",        required_argument, nullptr, 'F'       },
-      {"skip-dwarf",      no_argument,       nullptr, kSkipDwarf},
-      {nullptr,           0,                 nullptr, 0         },
+      {"metrics",        no_argument,       nullptr, 'm'       },
+      {"abi",            no_argument,       nullptr, 'a'       },
+      {"btf",            no_argument,       nullptr, 'b'       },
+      {"elf",            no_argument,       nullptr, 'e'       },
+      {"stg",            no_argument,       nullptr, 's'       },
+      {"exact",          no_argument,       nullptr, 'x'       },
+      {"compare-option", required_argument, nullptr, 'c'       },
+      {"format",         required_argument, nullptr, 'f'       },
+      {"output",         required_argument, nullptr, 'o'       },
+      {"fidelity",       required_argument, nullptr, 'F'       },
+      {"skip-dwarf",     no_argument,       nullptr, kSkipDwarf},
+      {nullptr,          0,                 nullptr, 0         },
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
@@ -270,8 +254,12 @@ int main(int argc, char* argv[]) {
         inputs.push_back({opt_input_format, argument});
         break;
       case 'c':
-      case 'C':
-        if (!ParseCompareOptions(argument, compare_options)) {
+        if (strcmp(argument, "ignore_symbol_type_presence_changes") == 0) {
+          compare_options.ignore_symbol_type_presence_changes = true;
+        } else if (strcmp(argument,
+                          "ignore_type_declaration_status_changes") == 0) {
+          compare_options.ignore_type_declaration_status_changes = true;
+        } else {
           return usage();
         }
         break;
