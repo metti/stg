@@ -50,7 +50,8 @@ static const Dwfl_Callbacks kDwflCallbacks = {
 constexpr int kReturnOk = 0;
 constexpr int kReturnNoEntry = 1;
 
-std::optional<Dwarf_Attribute> GetAttribute(Dwarf_Die* die, int attribute) {
+std::optional<Dwarf_Attribute> GetAttribute(Dwarf_Die* die,
+                                            uint32_t attribute) {
   // Create an optional with default-initialized value already inside
   std::optional<Dwarf_Attribute> result(std::in_place);
   // "integrate" automatically resolves DW_AT_abstract_origin and
