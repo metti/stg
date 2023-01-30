@@ -48,14 +48,14 @@ std::vector<std::string> SummariseCRCChanges(
     for (size_t ix = 0; ix < std::min(crc_only_changes, limit); ++ix) {
       new_report.push_back(pending[ix].first);
       new_report.push_back(pending[ix].second);
-      new_report.push_back({});
+      new_report.emplace_back();
     }
     if (crc_only_changes > limit) {
       std::ostringstream os;
       os << "... " << crc_only_changes - limit << " omitted; "
          << crc_only_changes << " symbols have only CRC changes";
       new_report.push_back(os.str());
-      new_report.push_back({});
+      new_report.emplace_back();
     }
     pending.clear();
   };
@@ -69,7 +69,7 @@ std::vector<std::string> SummariseCRCChanges(
                std::regex_match(report[ix], symbol_changed_re) &&
                std::regex_match(report[ix + 1], crc_re) &&
                std::regex_match(report[ix + 2], empty_re)) {
-      pending.push_back({report[ix], report[ix + 1]});
+      pending.emplace_back(report[ix], report[ix + 1]);
       // consumed 3 lines in total => 2 extra lines
       ix += 2;
     } else {
@@ -164,7 +164,7 @@ std::vector<std::string> GroupRemovedAddedSymbols(
           for (const auto& symbol : std::exchange(pending_symbols, {})) {
             new_report.push_back("  " + symbol);
           }
-          new_report.push_back({});
+          new_report.emplace_back();
         }
       }
     }
