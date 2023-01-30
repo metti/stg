@@ -39,7 +39,7 @@ FileDescriptor::FileDescriptor(const char* filename, int flags, mode_t mode)
 
 FileDescriptor::~FileDescriptor() noexcept(false) {
   // If we're unwinding, ignore any close failure.
-  if (fd_ >= 0 && close(fd_) != 0 && !std::uncaught_exception()) {
+  if (fd_ >= 0 && close(fd_) != 0 && std::uncaught_exceptions() == 0) {
     Die() << "close failed: " << ErrnoToString(errno);
   }
   fd_ = -1;
