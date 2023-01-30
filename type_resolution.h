@@ -17,8 +17,8 @@
 //
 // Author: Giuliano Procida
 
-#ifndef STG_RESOLVE_TYPES_H_
-#define STG_RESOLVE_TYPES_H_
+#ifndef STG_TYPE_RESOLUTION_H_
+#define STG_TYPE_RESOLUTION_H_
 
 #include "graph.h"
 #include "metrics.h"
@@ -29,4 +29,4 @@ Id ResolveTypes(Graph& graph, Id root, Metrics& metrics);
 
 }  // namespace stg
 
-#endif  // STG_RESOLVE_TYPES_H_
+#endif  // STG_TYPE_RESOLUTION_H_
