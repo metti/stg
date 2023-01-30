@@ -90,7 +90,7 @@ std::vector<std::string> SummariseOffsetChanges(
   std::smatch match1;
   std::smatch match2;
   std::smatch match3;
-  int indent = 0;
+  size_t indent = 0;
   int64_t offset = 0;
   std::vector<std::string> vars;
   std::vector<std::string> new_report;
@@ -118,11 +118,11 @@ std::vector<std::string> SummariseOffsetChanges(
     if (ix + 2 < report.size() && std::regex_match(report[ix], match1, re1) &&
         std::regex_match(report[ix + 1], match2, re2) &&
         std::regex_match(report[ix + 2], match3, re3)) {
-      int indent1 = match1[1].length();
-      int indent2 = match2[1].length();
-      int indent3 = match3[1].length();
+      const size_t indent1 = match1[1].length();
+      const size_t indent2 = match2[1].length();
+      const size_t indent3 = match3[1].length();
       if (indent1 + 2 == indent2 && indent1 >= indent3) {
-        int new_indent = indent1;
+        const auto new_indent = indent1;
         int64_t new_offset =
             std::stoll(match2[3].str()) - std::stoll(match2[2].str());
         if (new_indent != indent || new_offset != offset) {
