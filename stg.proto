@@ -202,19 +202,17 @@ message ElfSymbol {
   }
 
   enum Binding {
-    BINDING_UNSPECIFIED = 0;
-    GLOBAL = 1;
-    LOCAL = 2;
-    WEAK = 3;
-    GNU_UNIQUE = 4;
+    GLOBAL = 0;  // Default while reading, omitted while writing.
+    LOCAL = 1;
+    WEAK = 2;
+    GNU_UNIQUE = 3;
   }
 
   enum Visibility {
-    VISIBILITY_UNSPECIFIED = 0;
-    DEFAULT = 1;
-    PROTECTED = 2;
-    HIDDEN = 3;
-    INTERNAL = 4;
+    DEFAULT = 0;  // Default while reading, omitted while writing.
+    PROTECTED = 1;
+    HIDDEN = 2;
+    INTERNAL = 3;
   }
 
   fixed32 id = 1;
