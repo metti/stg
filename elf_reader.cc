@@ -37,6 +37,7 @@
 #include "dwarf_wrappers.h"
 #include "elf_loader.h"
 #include "graph.h"
+#include "type_normalisation.h"
 
 namespace stg {
 namespace elf {
@@ -294,7 +295,11 @@ Id Reader::Read() {
         std::string(symbol.name),
         graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
   }
-  return graph_.Add<Symbols>(std::move(symbols_map));
+  auto root = graph_.Add<Symbols>(std::move(symbols_map));
+  // Types produced by ELF/DWARF readers may require removing useless
+  // qualifiers.
+  RemoveUselessQualifiers(graph_, root);
+  return root;
 }
 
 ElfSymbol Reader::SymbolTableEntryToElfSymbol(
