@@ -44,7 +44,7 @@ namespace {
 
 class StableId {
  public:
-  StableId(const Graph& graph) : stable_hash_(graph) {}
+  explicit StableId(const Graph& graph) : stable_hash_(graph) {}
 
   uint32_t operator()(Id id) {
     return stable_hash_(id).value;
