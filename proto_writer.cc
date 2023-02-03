@@ -31,6 +31,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include <google/protobuf/descriptor.h>
+#include <google/protobuf/message.h>
 #include <google/protobuf/repeated_ptr_field.h>
 #include <google/protobuf/text_format.h>
 #include "graph.h"
@@ -442,11 +444,57 @@ class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
   }
 };
 
+class MapPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
+ public:
+  MapPrinter() {
+    single_line_printer_.SetDefaultFieldValuePrinter(new HexPrinter());
+    single_line_printer_.SetSingleLineMode(true);
+  }
+
+  void PrintFieldName(
+      const google::protobuf::Message&, int field_index, int, const google::protobuf::Reflection*,
+      const google::protobuf::FieldDescriptor* field,
+      google::protobuf::TextFormat::BaseTextGenerator* generator) const override {
+    if (field_index == 0) {
+      generator->PrintString(field->name() + ": [\n");
+      generator->Indent();
+    }
+  }
+
+  void PrintMessageStart(
+      const google::protobuf::Message&, int, int, bool,
+      google::protobuf::TextFormat::BaseTextGenerator* generator) const override {
+    generator->Print("{ ", 2);
+  }
+
+  bool PrintMessageContent(
+      const google::protobuf::Message& message, int, int, bool,
+      google::protobuf::TextFormat::BaseTextGenerator* generator) const override {
+    single_line_printer_.PrintMessage(message, generator);
+    return true;
+  }
+
+  void PrintMessageEnd(
+      const google::protobuf::Message&, int field_index, int field_count, bool,
+      google::protobuf::TextFormat::BaseTextGenerator* generator) const override {
+    generator->Print("},\n", 3);
+    if (field_index + 1 == field_count) {
+      generator->Outdent();
+      generator->Print("]\n", 2);
+    }
+  }
+
+ private:
+  google::protobuf::TextFormat::Printer single_line_printer_;
+};
+
 }  // namespace
 
 void Print(const STG& stg, std::ostream& os) {
   google::protobuf::TextFormat::Printer printer;
   printer.SetDefaultFieldValuePrinter(new HexPrinter());
+  printer.RegisterFieldValuePrinter(
+      proto::Symbols::descriptor()->FindFieldByNumber(2), new MapPrinter());
   std::string output;
   printer.PrintToString(stg, &output);
   os << output;
