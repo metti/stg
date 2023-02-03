@@ -36,6 +36,8 @@
 #include "dwarf_processor.h"
 #include "dwarf_wrappers.h"
 #include "elf_loader.h"
+#include "equality.h"
+#include "equality_cache.h"
 #include "graph.h"
 #include "metrics.h"
 #include "type_normalisation.h"
@@ -175,7 +177,11 @@ namespace {
 
 class Typing {
  public:
-  Typing(Graph& graph, Metrics& metrics) : graph_(graph), metrics_(metrics) {}
+  Typing(Graph& graph, Metrics& metrics)
+      : graph_(graph),
+        metrics_(metrics),
+        equality_cache_(metrics),
+        equals_(graph, equality_cache_) {}
 
   void GetTypesFromDwarf(dwarf::Handler& dwarf, bool is_little_endian_binary) {
     types_ = dwarf::Process(dwarf, is_little_endian_binary, graph_);
@@ -195,14 +201,26 @@ class Typing {
     stg::ResolveTypes(graph_, ids, metrics_);
   }
 
+  bool IsEqual(const dwarf::Types::Symbol& lhs,
+               const dwarf::Types::Symbol& rhs) {
+    return lhs.name == rhs.name && lhs.linkage_name == rhs.linkage_name &&
+           lhs.address == rhs.address && equals_(lhs.id, rhs.id);
+  }
+
   void FillAddressToId() {
     for (size_t i = 0; i < types_.symbols.size(); ++i) {
       const auto& symbol = types_.symbols[i];
-      // TODO: replace with Check when duplicates are removed
-      if (!address_to_index_.emplace(symbol.address, i).second) {
-        std::cerr << "Duplicate DWARF symbol: address=0x" << std::hex
-                  << symbol.address << std::dec << ", name=" << symbol.name
-                  << '\n';
+      auto [it, emplaced] = address_to_index_.emplace(symbol.address, i);
+      if (!emplaced) {
+        const auto& other = types_.symbols[it->second];
+        // TODO: allow "compatible" duplicates, for example
+        // "void foo(int bar)" vs "void foo(const int bar)"
+        if (!IsEqual(symbol, other)) {
+          // TODO: replace with Die when duplicates are removed
+          std::cerr << "Duplicate DWARF symbol: address=0x" << std::hex
+                    << symbol.address << std::dec << ", name=" << symbol.name
+                    << ", other.name=" << other.name << '\n';
+        }
       }
     }
   }
@@ -221,6 +239,8 @@ class Typing {
   Graph& graph_;
   Metrics& metrics_;
   dwarf::Types types_;
+  SimpleEqualityCache equality_cache_;
+  Equals<SimpleEqualityCache> equals_;
   std::unordered_map<size_t, size_t> address_to_index_;
 };
 
