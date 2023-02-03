@@ -432,8 +432,6 @@ void SortNodes(STG& stg) {
   SortNodes(*stg.mutable_elf_symbol());
 }
 
-}  // namespace
-
 class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
   void PrintUInt32(
       uint32_t value,
@@ -443,6 +441,8 @@ class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
     generator->PrintString(os.str());
   }
 };
+
+}  // namespace
 
 void Print(const STG& stg, std::ostream& os) {
   google::protobuf::TextFormat::Printer printer;
