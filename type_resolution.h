@@ -20,12 +20,17 @@
 #ifndef STG_TYPE_RESOLUTION_H_
 #define STG_TYPE_RESOLUTION_H_
 
+#include <functional>
+#include <vector>
+
 #include "graph.h"
 #include "metrics.h"
 
 namespace stg {
 
-Id ResolveTypes(Graph& graph, Id root, Metrics& metrics);
+void ResolveTypes(Graph& graph,
+                  const std::vector<std::reference_wrapper<Id>>& roots,
+                  Metrics& metrics);
 
 }  // namespace stg
 

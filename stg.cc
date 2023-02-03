@@ -21,6 +21,7 @@
 
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -230,7 +231,7 @@ int main(int argc, char* argv[]) {
       stg::Filter(graph, root, *opt_symbols);
     }
     if (!opt_keep_duplicates) {
-      root = stg::ResolveTypes(graph, root, stg::metrics);
+      stg::ResolveTypes(graph, {std::ref(root)}, stg::metrics);
       const auto hashes = stg::Fingerprint(graph, root, stg::metrics);
       root = stg::Deduplicate(graph, root, hashes, stg::metrics);
     }
