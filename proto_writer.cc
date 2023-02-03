@@ -417,19 +417,28 @@ void SortNodesById(google::protobuf::RepeatedPtrField<ProtoNode>& nodes) {
       [](const auto* lhs, const auto* rhs) { return lhs->id() < rhs->id(); });
 }
 
+template <typename ProtoNode>
+void SortNodesByName(google::protobuf::RepeatedPtrField<ProtoNode>& nodes) {
+  const auto compare = [](const auto* lhs, const auto* rhs) {
+    const int comparison = lhs->name().compare(rhs->name());
+    return comparison < 0 || (comparison == 0 && lhs->id() < rhs->id());
+  };
+  std::sort(nodes.pointer_begin(), nodes.pointer_end(), compare);
+}
+
 void SortNodes(STG& stg) {
   SortNodesById(*stg.mutable_void_());
   SortNodesById(*stg.mutable_variadic());
   SortNodesById(*stg.mutable_pointer_reference());
-  SortNodesById(*stg.mutable_typedef_());
+  SortNodesByName(*stg.mutable_typedef_());
   SortNodesById(*stg.mutable_qualified());
   SortNodesById(*stg.mutable_primitive());
   SortNodesById(*stg.mutable_array());
   SortNodesById(*stg.mutable_base_class());
   SortNodesById(*stg.mutable_method());
-  SortNodesById(*stg.mutable_member());
-  SortNodesById(*stg.mutable_struct_union());
-  SortNodesById(*stg.mutable_enumeration());
+  SortNodesByName(*stg.mutable_member());
+  SortNodesByName(*stg.mutable_struct_union());
+  SortNodesByName(*stg.mutable_enumeration());
   SortNodesById(*stg.mutable_function());
   SortNodesById(*stg.mutable_elf_symbol());
 }
