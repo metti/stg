@@ -37,7 +37,9 @@
 #include "dwarf_wrappers.h"
 #include "elf_loader.h"
 #include "graph.h"
+#include "metrics.h"
 #include "type_normalisation.h"
+#include "type_resolution.h"
 
 namespace stg {
 namespace elf {
@@ -173,11 +175,24 @@ namespace {
 
 class Typing {
  public:
-  Typing(Graph& graph) : graph_(graph) {}
+  Typing(Graph& graph, Metrics& metrics) : graph_(graph), metrics_(metrics) {}
 
   void GetTypesFromDwarf(dwarf::Handler& dwarf, bool is_little_endian_binary) {
     types_ = dwarf::Process(dwarf, is_little_endian_binary, graph_);
+    ResolveTypes();
     FillAddressToId();
+  }
+
+  void ResolveTypes() {
+    std::vector<std::reference_wrapper<Id>> ids;
+    ids.reserve(types_.all_ids.size() + types_.symbols.size());
+    for (auto& id : types_.all_ids) {
+      ids.push_back(std::ref(id));
+    }
+    for (auto& symbol : types_.symbols) {
+      ids.push_back(std::ref(symbol.id));
+    }
+    stg::ResolveTypes(graph_, ids, metrics_);
   }
 
   void FillAddressToId() {
@@ -204,6 +219,7 @@ class Typing {
 
  private:
   Graph& graph_;
+  Metrics& metrics_;
   dwarf::Types types_;
   std::unordered_map<size_t, size_t> address_to_index_;
 };
@@ -211,22 +227,22 @@ class Typing {
 class Reader {
  public:
   Reader(Graph& graph, const std::string& path, bool process_dwarf,
-         bool verbose)
+         bool verbose, Metrics& metrics)
       : graph_(graph),
         dwarf_(path),
         elf_(dwarf_.GetElf(), verbose),
         process_dwarf_(process_dwarf),
         verbose_(verbose),
-        typing_(graph_) {}
+        typing_(graph_, metrics) {}
 
   Reader(Graph& graph, char* data, size_t size, bool process_dwarf,
-         bool verbose)
+         bool verbose, Metrics& metrics)
       : graph_(graph),
         dwarf_(data, size),
         elf_(dwarf_.GetElf(), verbose),
         process_dwarf_(process_dwarf),
         verbose_(verbose),
-        typing_(graph_) {}
+        typing_(graph_, metrics) {}
 
   Id Read();
   ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) const;
@@ -324,13 +340,14 @@ ElfSymbol Reader::SymbolTableEntryToElfSymbol(
 }  // namespace internal
 
 Id Read(Graph& graph, const std::string& path, bool process_dwarf,
-        bool verbose) {
-  return internal::Reader(graph, path, process_dwarf, verbose).Read();
+        bool verbose, Metrics& metrics) {
+  return internal::Reader(graph, path, process_dwarf, verbose, metrics).Read();
 }
 
 Id Read(Graph& graph, char* data, size_t size, bool process_dwarf,
-        bool verbose) {
-  return internal::Reader(graph, data, size, process_dwarf, verbose).Read();
+        bool verbose, Metrics& metrics) {
+  return internal::Reader(graph, data, size, process_dwarf, verbose, metrics)
+      .Read();
 }
 
 }  // namespace elf

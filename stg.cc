@@ -62,7 +62,7 @@ Id Read(Graph& graph, InputFormat format, const char* input, bool process_dwarf,
     }
     case InputFormat::ELF: {
       Time read(metrics, "read ELF");
-      return elf::Read(graph, input, process_dwarf, info);
+      return elf::Read(graph, input, process_dwarf, info, metrics);
     }
     case InputFormat::STG: {
       Time read(metrics, "read STG");
