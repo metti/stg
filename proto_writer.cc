@@ -411,27 +411,27 @@ ElfSymbol::Visibility Transform<MapId>::operator()(
 }
 
 template <typename ProtoNode>
-void SortNodes(google::protobuf::RepeatedPtrField<ProtoNode>& nodes) {
+void SortNodesById(google::protobuf::RepeatedPtrField<ProtoNode>& nodes) {
   std::sort(
       nodes.pointer_begin(), nodes.pointer_end(),
       [](const auto* lhs, const auto* rhs) { return lhs->id() < rhs->id(); });
 }
 
 void SortNodes(STG& stg) {
-  SortNodes(*stg.mutable_void_());
-  SortNodes(*stg.mutable_variadic());
-  SortNodes(*stg.mutable_pointer_reference());
-  SortNodes(*stg.mutable_typedef_());
-  SortNodes(*stg.mutable_qualified());
-  SortNodes(*stg.mutable_primitive());
-  SortNodes(*stg.mutable_array());
-  SortNodes(*stg.mutable_base_class());
-  SortNodes(*stg.mutable_method());
-  SortNodes(*stg.mutable_member());
-  SortNodes(*stg.mutable_struct_union());
-  SortNodes(*stg.mutable_enumeration());
-  SortNodes(*stg.mutable_function());
-  SortNodes(*stg.mutable_elf_symbol());
+  SortNodesById(*stg.mutable_void_());
+  SortNodesById(*stg.mutable_variadic());
+  SortNodesById(*stg.mutable_pointer_reference());
+  SortNodesById(*stg.mutable_typedef_());
+  SortNodesById(*stg.mutable_qualified());
+  SortNodesById(*stg.mutable_primitive());
+  SortNodesById(*stg.mutable_array());
+  SortNodesById(*stg.mutable_base_class());
+  SortNodesById(*stg.mutable_method());
+  SortNodesById(*stg.mutable_member());
+  SortNodesById(*stg.mutable_struct_union());
+  SortNodesById(*stg.mutable_enumeration());
+  SortNodesById(*stg.mutable_function());
+  SortNodesById(*stg.mutable_elf_symbol());
 }
 
 class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
