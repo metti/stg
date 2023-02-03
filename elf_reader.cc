@@ -28,7 +28,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -207,32 +206,71 @@ class Typing {
            lhs.address == rhs.address && equals_(lhs.id, rhs.id);
   }
 
+  // In general, we want to handle as many of the following cases as possible.
+  // In practice, determining the correct ELF-DWARF match may be impossible.
+  //
+  // * compiler-driven aliasing - mutliple symbols with same address
+  // * zero-size symbol false aliasing - multiple symbols and types with same
+  //   address
+  // * weak/strong linkage symbols - multiple symbols and types with same
+  //   address
+  // * assembly symbols - multiple declarations but no definition and no address
+  //   in DWARF.
+
   void FillAddressToId() {
     for (size_t i = 0; i < types_.symbols.size(); ++i) {
       const auto& symbol = types_.symbols[i];
-      auto [it, emplaced] = address_to_index_.emplace(symbol.address, i);
+
+      // TODO: support linkage_name to support C++
+      auto [it, emplaced] = address_name_to_index_.emplace(
+          std::make_pair(symbol.address, symbol.name), i);
       if (!emplaced) {
         const auto& other = types_.symbols[it->second];
         // TODO: allow "compatible" duplicates, for example
         // "void foo(int bar)" vs "void foo(const int bar)"
         if (!IsEqual(symbol, other)) {
-          // TODO: replace with Die when duplicates are removed
-          std::cerr << "Duplicate DWARF symbol: address=0x" << std::hex
-                    << symbol.address << std::dec << ", name=" << symbol.name
-                    << ", other.name=" << other.name << '\n';
+          Die() << "Duplicate DWARF symbol: address=0x" << std::hex
+                << symbol.address << std::dec << ", name=" << symbol.name;
         }
       }
     }
   }
 
   void MaybeAddTypeInfo(const size_t address, ElfSymbol& node) const {
-    const auto it = address_to_index_.find(address);
-    if (it == address_to_index_.end()) {
-      return;
+    // try to find the first symbol with given address
+    const auto start_it = address_name_to_index_.lower_bound(
+        std::make_pair(address, std::string()));
+    const dwarf::Types::Symbol* best_symbol = nullptr;
+    bool matched_by_name = false;
+    size_t candidates = 0;
+    for (auto it = start_it;
+         it != address_name_to_index_.end() && it->first.first == address;
+         ++it) {
+      ++candidates;
+      // We have at least matching addresses.
+      const auto& candidate = types_.symbols[it->second];
+      if (it->first.second == node.symbol_name) {
+        // If we have also matching names we can stop looking further.
+        matched_by_name = true;
+        best_symbol = &candidate;
+        break;
+      }
+      if (best_symbol == nullptr) {
+        // Otherwise keep the first match.
+        best_symbol = &candidate;
+      }
     }
-    const auto& symbol = types_.symbols[it->second];
-    node.type_id = symbol.id;
-    node.full_name = symbol.name;
+    if (best_symbol != nullptr) {
+      // There may be multiple DWARF symbols with same address (zero-length
+      // arrays), or ELF symbol has different name from DWARF symbol (aliases).
+      // But if we have both situations at once, we can't match ELF to DWARF and
+      // it should be fixed in analysed binary source code.
+      Check(matched_by_name || candidates == 1)
+          << "multiple candidates without matching names, best_symbol.name="
+          << best_symbol->name;
+      node.type_id = best_symbol->id;
+      node.full_name = best_symbol->name;
+    }
   }
 
  private:
@@ -241,7 +279,7 @@ class Typing {
   dwarf::Types types_;
   SimpleEqualityCache equality_cache_;
   Equals<SimpleEqualityCache> equals_;
-  std::unordered_map<size_t, size_t> address_to_index_;
+  std::map<std::pair<size_t, std::string>, size_t> address_name_to_index_;
 };
 
 class Reader {
