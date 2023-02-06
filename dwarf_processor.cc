@@ -322,6 +322,10 @@ class Processor {
         // DWARF equivalent of ELF function symbol.
         ProcessFunction(entry);
         break;
+      case DW_TAG_namespace:
+        // TODO: handle scopes
+        ProcessAllChildren(entry);
+        break;
 
       default:
         // TODO: die on unexpected tag, when this switch contains
