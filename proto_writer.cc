@@ -486,12 +486,10 @@ class MapPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
   void PrintMessageEnd(
       const google::protobuf::Message&, int field_index, int field_count, bool,
       google::protobuf::TextFormat::BaseTextGenerator* generator) const override {
+    generator->Print("},\n", 3);
     if (field_index + 1 == field_count) {
-      generator->Print("}\n", 2);
       generator->Outdent();
       generator->Print("]\n", 2);
-    } else {
-      generator->Print("},\n", 3);
     }
   }
 
