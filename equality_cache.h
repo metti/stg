@@ -225,6 +225,45 @@ struct EqualityCache {
   Counter disunion_unknown;
 };
 
+struct SimpleEqualityCache {
+  explicit SimpleEqualityCache(Metrics& metrics)
+      : query_count(metrics, "simple_cache.query_count"),
+        query_equal_ids(metrics, "simple_cache.query_equal_ids"),
+        query_known_equality(metrics, "simple_cache.query_known_equality"),
+        known_equality_inserts(metrics, "simple_cache.known_equality_inserts") {
+  }
+
+  std::optional<bool> Query(const Pair& comparison) {
+    ++query_count;
+    const auto& [id1, id2] = comparison;
+    if (id1 == id2) {
+      ++query_equal_ids;
+      return {true};
+    }
+    if (known_equalities.count(comparison)) {
+      ++query_known_equality;
+      return {true};
+    }
+    return std::nullopt;
+  }
+
+  void AllSame(const std::vector<Pair>& comparisons) {
+    for (const auto& comparison : comparisons) {
+      ++known_equality_inserts;
+      known_equalities.insert(comparison);
+    }
+  }
+
+  void AllDifferent(const std::vector<Pair>&) {}
+
+  std::unordered_set<Pair> known_equalities;
+
+  Counter query_count;
+  Counter query_equal_ids;
+  Counter query_known_equality;
+  Counter known_equality_inserts;
+};
+
 }  // namespace stg
 
 #endif  // STG_EQUALITY_CACHE_H_

@@ -23,6 +23,7 @@
 #include "elf_reader.h"
 #include "error.h"
 #include "graph.h"
+#include "metrics.h"
 
 extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
   try {
@@ -31,8 +32,9 @@ extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
     // Luckily, such trivial copy can be easily tracked by fuzzer.
     std::vector<char> data_copy(data, data + size);
     stg::Graph graph;
+    stg::Metrics metrics;
     stg::elf::Read(graph, data_copy.data(), size, /* process_dwarf= */ true,
-                   /* verbose= */ false);
+                   /* verbose= */ false, metrics);
   } catch (const stg::Exception&) {
     // Pass as this is us catching invalid ELF properly.
   }

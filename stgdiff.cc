@@ -78,7 +78,7 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
       case InputFormat::ELF: {
         stg::Time read(metrics, "read ELF");
         roots.push_back(stg::elf::Read(graph, filename, process_dwarf,
-                                       /* verbose = */ false));
+                                       /* verbose = */ false, metrics));
         break;
       }
       case InputFormat::STG: {
