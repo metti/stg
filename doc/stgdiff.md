@@ -13,11 +13,12 @@ stgdiff
   [-x|--exact]
   [--skip-dwarf]
   [{-c|--compare-option} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes}] ...
-  [{-f|--format} {plain|flat|small|short|viz}] ...
+  [{-f|--format} <output-format>] ...
   [{-o|--output} {filename|-}] ...
   [{-F|--fidelity} {filename|-}]
 implicit defaults: --abi --format plain
 --exact (node equality) cannot be combined with --output
+output formats: plain flat small short viz
 ```
 
 ## Input

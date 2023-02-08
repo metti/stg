@@ -215,11 +215,12 @@ int main(int argc, char* argv[]) {
               << "  [{-c|--compare-option} "
                  "{ignore_symbol_type_presence_changes|"
                  "ignore_type_declaration_status_changes}] ...\n"
-              << "  [{-f|--format} {plain|flat|small|short|viz}] ...\n"
+              << "  [{-f|--format} <output-format>] ...\n"
               << "  [{-o|--output} {filename|-}] ...\n"
               << "  [{-F|--fidelity} {filename|-}]\n"
               << "implicit defaults: --abi --format plain\n"
-              << "--exact (node equality) cannot be combined with --output\n";
+              << "--exact (node equality) cannot be combined with --output\n"
+              << stg::reporting::OutputFormatUsage();
     return 1;
   };
   while (true) {
@@ -262,18 +263,12 @@ int main(int argc, char* argv[]) {
         }
         break;
       case 'f':
-        if (strcmp(argument, "plain") == 0) {
-          opt_output_format = stg::reporting::OutputFormat::PLAIN;
-        } else if (strcmp(argument, "flat") == 0) {
-          opt_output_format = stg::reporting::OutputFormat::FLAT;
-        } else if (strcmp(argument, "small") == 0) {
-          opt_output_format = stg::reporting::OutputFormat::SMALL;
-        } else if (strcmp(argument, "short") == 0) {
-          opt_output_format = stg::reporting::OutputFormat::SHORT;
-        } else if (strcmp(argument, "viz") == 0) {
-          opt_output_format = stg::reporting::OutputFormat::VIZ;
+        if (const auto format = stg::reporting::ParseOutputFormat(argument)) {
+          opt_output_format = format.value();
         } else {
-          return usage();
+          std::cerr << "unknown output format: " << argument << '\n'
+                    << stg::reporting::OutputFormatUsage();
+          return 1;
         }
         break;
       case 'o':
