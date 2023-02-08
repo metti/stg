@@ -207,21 +207,19 @@ int main(int argc, char* argv[]) {
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
-              << " [-m|--metrics]\n"
-              << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
-              << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
-              << " [{-x|--exact}]\n"
-              << " [--skip-dwarf]\n"
-              << " [{-c|--compare-option} "
+              << "  [-m|--metrics]\n"
+              << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
+              << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
+              << "  [-x|--exact]\n"
+              << "  [--skip-dwarf]\n"
+              << "  [{-c|--compare-option} "
                  "{ignore_symbol_type_presence_changes|"
                  "ignore_type_declaration_status_changes}] ...\n"
-              << " [{-f|--format} {plain|flat|small|short|viz}]\n"
-              << " [{-o|--output} {filename|-}] ...\n"
-              << " [{-F|--fidelity} {filename|-}]\n"
-              << "   implicit defaults: --abi --format plain\n"
-              << "   format, output and compare-option may be repeated\n"
-              << "   --exact (node equality) cannot be combined with --output\n"
-              << "\n";
+              << "  [{-f|--format} {plain|flat|small|short|viz}] ...\n"
+              << "  [{-o|--output} {filename|-}] ...\n"
+              << "  [{-F|--fidelity} {filename|-}]\n"
+              << "implicit defaults: --abi --format plain\n"
+              << "--exact (node equality) cannot be combined with --output\n";
     return 1;
   };
   while (true) {

@@ -7,18 +7,17 @@ libabigail, BTF, or ELF/DWARF.
 
 ```
 stgdiff
- [-m|--metrics]
- [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1
- [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2
- [{-x|--exact}]
- [--skip-dwarf]
- [{-c|--compare-option} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes}] ...
- [{-f|--format} {plain|flat|small|short|viz}]
- [{-o|--output} {filename|-}] ...
- [{-F|--fidelity} {filename|-}]
-   implicit defaults: --abi --format plain
-   format, output and compare-option may be repeated
-   --exact (node equality) cannot be combined with --output
+  [-m|--metrics]
+  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1
+  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2
+  [-x|--exact]
+  [--skip-dwarf]
+  [{-c|--compare-option} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes}] ...
+  [{-f|--format} {plain|flat|small|short|viz}] ...
+  [{-o|--output} {filename|-}] ...
+  [{-F|--fidelity} {filename|-}]
+implicit defaults: --abi --format plain
+--exact (node equality) cannot be combined with --output
 ```
 
 ## Input
