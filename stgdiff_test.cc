@@ -90,6 +90,24 @@ TEST_CASE("ignore") {
            "type_declaration_status_1.xml",
            stg::Ignore(stg::Ignore::TYPE_DECLARATION_STATUS_CHANGES),
            "empty",
+           true}),
+      IgnoreTestCase(
+          {"primitive type encoding",
+           stg::InputFormat::STG,
+           "primitive_type_encoding_0.stg",
+           stg::InputFormat::STG,
+           "primitive_type_encoding_1.stg",
+           stg::Ignore(),
+           "primitive_type_encoding_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"primitive type encoding ignored",
+           stg::InputFormat::STG,
+           "primitive_type_encoding_0.stg",
+           stg::InputFormat::STG,
+           "primitive_type_encoding_1.stg",
+           stg::Ignore(stg::Ignore::PRIMITIVE_TYPE_ENCODING),
+           "empty",
            true}));
 
   SECTION(test.name) {

@@ -41,9 +41,10 @@ struct IgnoreDescriptor {
   Ignore::Value value;
 };
 
-static constexpr std::array<IgnoreDescriptor, 2> kIgnores{{
+static constexpr std::array<IgnoreDescriptor, 3> kIgnores{{
   {"type_declaration_status_changes", Ignore::TYPE_DECLARATION_STATUS_CHANGES},
   {"symbol_type_presence_changes",    Ignore::SYMBOL_TYPE_PRESENCE_CHANGES   },
+  {"primitive_type_encoding",         Ignore::PRIMITIVE_TYPE_ENCODING        },
 }};
 
 std::optional<Ignore::Value> ParseIgnore(std::string_view ignore) {
@@ -251,7 +252,9 @@ Result Compare::operator()(const Primitive& x1, const Primitive& x2) {
     return result.MarkIncomparable();
   }
   result.diff_.holds_changes = !x1.name.empty();
-  result.MaybeAddNodeDiff("encoding", x1.encoding, x2.encoding);
+  if (!ignore.Test(Ignore::PRIMITIVE_TYPE_ENCODING)) {
+    result.MaybeAddNodeDiff("encoding", x1.encoding, x2.encoding);
+  }
   result.MaybeAddNodeDiff("byte size", x1.bytesize, x2.bytesize);
   return result;
 }

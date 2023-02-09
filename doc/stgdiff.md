@@ -19,7 +19,7 @@ stgdiff
 implicit defaults: --abi --format plain
 --exact (node equality) cannot be combined with --output
 output formats: plain flat small short viz
-ignore options: type_declaration_status_changes symbol_type_presence_changes
+ignore options: type_declaration_status_changes symbol_type_presence_changes primitive_type_encoding
 ```
 
 ## Input
@@ -81,6 +81,14 @@ XML output from `abidw`.
 
     Ignore changes in declaration status of types, thus `stgdiff` does not
     report loss or gain of user-defined type definitions.
+
+These options are useful when comparing ABI representations that differ in how
+much (DWARF) information they preserve.
+
+*   `ignore_primitive_type_encoding`
+
+    Ignore primitve type encodings during comparison. BTF provides a subset of
+    encoding information. libabigail XML lacks encoding information.
 
 ### Fidelity Reporting
 

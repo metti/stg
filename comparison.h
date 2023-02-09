@@ -47,6 +47,7 @@ struct Ignore {
   enum Value {
     SYMBOL_TYPE_PRESENCE_CHANGES = 1<<0,
     TYPE_DECLARATION_STATUS_CHANGES = 1<<1,
+    PRIMITIVE_TYPE_ENCODING = 1<<2,
   };
 
   using Bitset = std::underlying_type_t<Value>;
