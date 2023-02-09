@@ -68,39 +68,41 @@ The default behaviour is to compare two ABIs for equivalence.
 
 ### Options
 
-*   `-c|--compare-option`
+Note that `--compare-option ignore_foo` is equivalent to `--ignore foo`.
 
-These two options suppress noisy diffs that are inevitable when consuming ABI
-XML output from `abidw`.
+*   `-i|--ignore`
 
-*   `ignore_symbol_type_presence_changes`
+The following two ignore options suppress noisy diffs that are inevitable when
+consuming ABI XML output from `abidw`.
 
-    Ignore changes in the presence of types for symbols, thus `stgdiff` does not
-    report loss or gain of symbol type information.
+*   `symbol_type_presence` or `symbol_type_presence_changes`
 
-*   `ignore_type_declaration_status_changes`
+    Ignore changes in symbol type presence, thus `stgdiff` does not report loss
+    or gain of symbol type information.
 
-    Ignore changes in declaration status of types, thus `stgdiff` does not
-    report loss or gain of user-defined type definitions.
+*   `type_declaration_status` or `type_declaration_status_changes`
 
-These options are useful when comparing ABI representations that differ in how
-much (DWARF) information they preserve.
+    Ignore changes in type declaration status, thus `stgdiff` does not report
+    loss or gain of user-defined type definitions.
 
-*   `ignore_primitive_type_encoding`
+The following options are useful when comparing ABI representations that differ
+in how much (DWARF) information they preserve.
+
+*   `primitive_type_encoding`
 
     Ignore primitve type encodings during comparison. BTF provides a subset of
     encoding information. libabigail XML lacks encoding information.
 
-*   `ignore_member_size`
+*   `member_size`
 
     Ignore member sizes during comparison. libabigail XML does not model them.
 
-*   `ignore_enum_underlying_type`
+*   `enum_underlying_type`
 
     Ignore enum-underlying types during comparison. BTF doesn't model them.
     libabigail provides incomplete information.
 
-*   `ignore_qualifier`
+*   `qualifier`
 
     Ignore qualifiers during comparison. Both libabigail and STG interpret and
     adjust type qualifiers but sometimes do so differently.
@@ -249,11 +251,11 @@ return 0. Otherwise:
     stgdiff abi.0.xml abi.1.xml -f short -o - -f viz -o graph.viz
     ```
 
-*   Compare two ABI XML files, ignore type presence and type declaration status
-    changes, and print short report to stdout:
+*   Compare two ABI XML files, ignoring type presence and type declaration
+    status changes, and print short report to stdout:
 
     ```
-    stgdiff -f short -c ignore_symbol_type_presence_changes -c ignore_type_declaration_status_changes -a abi.0.xml abi.1.xml -o -
+    stgdiff -f short -i symbol_type_presence -i type_declaration_status -a abi.0.xml abi.1.xml -o -
     ```
 
 *   Compare ABI XML to ABI from ELF and print a short report to file:
