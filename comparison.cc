@@ -41,12 +41,13 @@ struct IgnoreDescriptor {
   Ignore::Value value;
 };
 
-static constexpr std::array<IgnoreDescriptor, 5> kIgnores{{
+static constexpr std::array<IgnoreDescriptor, 6> kIgnores{{
   {"type_declaration_status_changes", Ignore::TYPE_DECLARATION_STATUS_CHANGES},
   {"symbol_type_presence_changes",    Ignore::SYMBOL_TYPE_PRESENCE_CHANGES   },
   {"primitive_type_encoding",         Ignore::PRIMITIVE_TYPE_ENCODING        },
   {"member_size",                     Ignore::MEMBER_SIZE                    },
   {"enum_underlying_type",            Ignore::ENUM_UNDERLYING_TYPE           },
+  {"qualifier",                       Ignore::QUALIFIER                      },
 }};
 
 std::optional<Ignore::Value> ParseIgnore(std::string_view ignore) {
@@ -140,10 +141,14 @@ std::pair<bool, std::optional<Comparison>> Compare::operator()(Id id1, Id id2) {
     const auto end2 = qualifiers2.end();
     while (it1 != end1 || it2 != end2) {
       if (it2 == end2 || (it1 != end1 && *it1 < *it2)) {
-        result.AddNodeDiff(QualifiersMessage(*it1, "removed"));
+        if (!ignore.Test(Ignore::QUALIFIER)) {
+          result.AddNodeDiff(QualifiersMessage(*it1, "removed"));
+        }
         ++it1;
       } else if (it1 == end1 || (it2 != end2 && *it1 > *it2)) {
-        result.AddNodeDiff(QualifiersMessage(*it2, "added"));
+        if (!ignore.Test(Ignore::QUALIFIER)) {
+          result.AddNodeDiff(QualifiersMessage(*it2, "added"));
+        }
         ++it2;
       } else {
         ++it1;

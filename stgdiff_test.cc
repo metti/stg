@@ -144,6 +144,24 @@ TEST_CASE("ignore") {
            "enum_underlying_type_1.stg",
            stg::Ignore(stg::Ignore::ENUM_UNDERLYING_TYPE),
            "empty",
+           true}),
+      IgnoreTestCase(
+          {"qualifier",
+           stg::InputFormat::STG,
+           "qualifier_0.stg",
+           stg::InputFormat::STG,
+           "qualifier_1.stg",
+           stg::Ignore(),
+           "qualifier_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"qualifier ignored",
+           stg::InputFormat::STG,
+           "qualifier_0.stg",
+           stg::InputFormat::STG,
+           "qualifier_1.stg",
+           stg::Ignore(stg::Ignore::QUALIFIER),
+           "empty",
            true}));
 
   SECTION(test.name) {

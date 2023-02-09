@@ -19,7 +19,7 @@ stgdiff
 implicit defaults: --abi --format plain
 --exact (node equality) cannot be combined with --output
 output formats: plain flat small short viz
-ignore options: type_declaration_status_changes symbol_type_presence_changes primitive_type_encoding member_size enum_underlying_type
+ignore options: type_declaration_status_changes symbol_type_presence_changes primitive_type_encoding member_size enum_underlying_type qualifier
 ```
 
 ## Input
@@ -98,6 +98,11 @@ much (DWARF) information they preserve.
 
     Ignore enum-underlying types during comparison. BTF doesn't model them.
     libabigail provides incomplete information.
+
+*   `ignore_qualifier`
+
+    Ignore qualifiers during comparison. Both libabigail and STG interpret and
+    adjust type qualifiers but sometimes do so differently.
 
 ### Fidelity Reporting
 
