@@ -108,6 +108,24 @@ TEST_CASE("ignore") {
            "primitive_type_encoding_1.stg",
            stg::Ignore(stg::Ignore::PRIMITIVE_TYPE_ENCODING),
            "empty",
+           true}),
+      IgnoreTestCase(
+          {"member size",
+           stg::InputFormat::STG,
+           "member_size_0.stg",
+           stg::InputFormat::STG,
+           "member_size_1.stg",
+           stg::Ignore(),
+           "member_size_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"member size ignored",
+           stg::InputFormat::STG,
+           "member_size_0.stg",
+           stg::InputFormat::STG,
+           "member_size_1.stg",
+           stg::Ignore(stg::Ignore::MEMBER_SIZE),
+           "empty",
            true}));
 
   SECTION(test.name) {

@@ -41,10 +41,11 @@ struct IgnoreDescriptor {
   Ignore::Value value;
 };
 
-static constexpr std::array<IgnoreDescriptor, 3> kIgnores{{
+static constexpr std::array<IgnoreDescriptor, 4> kIgnores{{
   {"type_declaration_status_changes", Ignore::TYPE_DECLARATION_STATUS_CHANGES},
   {"symbol_type_presence_changes",    Ignore::SYMBOL_TYPE_PRESENCE_CHANGES   },
   {"primitive_type_encoding",         Ignore::PRIMITIVE_TYPE_ENCODING        },
+  {"member_size",                     Ignore::MEMBER_SIZE                    },
 }};
 
 std::optional<Ignore::Value> ParseIgnore(std::string_view ignore) {
@@ -368,7 +369,9 @@ Result Compare::operator()(const BaseClass& x1, const BaseClass& x2) {
 Result Compare::operator()(const Member& x1, const Member& x2) {
   Result result;
   result.MaybeAddNodeDiff("offset", x1.offset, x2.offset);
-  result.MaybeAddNodeDiff("size", x1.bitsize, x2.bitsize);
+  if (!ignore.Test(Ignore::MEMBER_SIZE)) {
+    result.MaybeAddNodeDiff("size", x1.bitsize, x2.bitsize);
+  }
   result.MaybeAddEdgeDiff("", (*this)(x1.type_id, x2.type_id));
   return result;
 }

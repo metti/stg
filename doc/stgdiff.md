@@ -19,7 +19,7 @@ stgdiff
 implicit defaults: --abi --format plain
 --exact (node equality) cannot be combined with --output
 output formats: plain flat small short viz
-ignore options: type_declaration_status_changes symbol_type_presence_changes primitive_type_encoding
+ignore options: type_declaration_status_changes symbol_type_presence_changes primitive_type_encoding member_size
 ```
 
 ## Input
@@ -89,6 +89,10 @@ much (DWARF) information they preserve.
 
     Ignore primitve type encodings during comparison. BTF provides a subset of
     encoding information. libabigail XML lacks encoding information.
+
+*   `ignore_member_size`
+
+    Ignore member sizes during comparison. libabigail XML does not model them.
 
 ### Fidelity Reporting
 

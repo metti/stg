@@ -48,6 +48,7 @@ struct Ignore {
     SYMBOL_TYPE_PRESENCE_CHANGES = 1<<0,
     TYPE_DECLARATION_STATUS_CHANGES = 1<<1,
     PRIMITIVE_TYPE_ENCODING = 1<<2,
+    MEMBER_SIZE = 1<<3,
   };
 
   using Bitset = std::underlying_type_t<Value>;
