@@ -1,7 +1,7 @@
 # `stgdiff`
 
 `stgdiff` is used to compare ABI representations from various sources, like
-libabigail, BTF, or ELF/DWARF.
+libabigail XML, BTF and ELF/DWARF.
 
 ## Usage
 
@@ -44,10 +44,9 @@ ignore options: type_declaration_status type_declaration_status_changes symbol_t
 
 *   `-e|--elf`
 
-    Read ABI information, stored inside ELF in DWARF format.
+    Read ABI information from ELF symbols and DWARF types.
 
-    NOTE: Only ELF symbol information, and not DWARF type information, is
-    currently processed.
+    NOTE: C++ DWARF type support is a work-in-progress.
 
 *   `-s|--stg`
 
