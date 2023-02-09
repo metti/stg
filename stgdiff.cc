@@ -212,15 +212,14 @@ int main(int argc, char* argv[]) {
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
               << "  [-x|--exact]\n"
               << "  [--skip-dwarf]\n"
-              << "  [{-c|--compare-option} "
-                 "{ignore_symbol_type_presence_changes|"
-                 "ignore_type_declaration_status_changes}] ...\n"
+              << "  [{-c|--compare-option} ignore_<ignore-option>] ...\n"
               << "  [{-f|--format} <output-format>] ...\n"
               << "  [{-o|--output} {filename|-}] ...\n"
               << "  [{-F|--fidelity} {filename|-}]\n"
               << "implicit defaults: --abi --format plain\n"
               << "--exact (node equality) cannot be combined with --output\n"
-              << stg::reporting::OutputFormatUsage();
+              << stg::reporting::OutputFormatUsage()
+              << stg::IgnoreUsage();
     return 1;
   };
   while (true) {
@@ -253,11 +252,15 @@ int main(int argc, char* argv[]) {
         inputs.emplace_back(opt_input_format, argument);
         break;
       case 'c':
-        if (strcmp(argument, "ignore_symbol_type_presence_changes") == 0) {
-          opt_ignore.Set(stg::Ignore::SYMBOL_TYPE_PRESENCE_CHANGES);
-        } else if (strcmp(argument,
-                          "ignore_type_declaration_status_changes") == 0) {
-          opt_ignore.Set(stg::Ignore::TYPE_DECLARATION_STATUS_CHANGES);
+        if (strncmp(argument, "ignore_", 7) == 0) {
+          const auto ignore_argument = argument + 7;
+          if (const auto ignore = stg::ParseIgnore(ignore_argument)) {
+            opt_ignore.Set(ignore.value());
+          } else {
+            std::cerr << "unknown ignore option: " << ignore_argument << '\n'
+                      << stg::IgnoreUsage();
+            return 1;
+          }
         } else {
           return usage();
         }

@@ -22,10 +22,12 @@
 #include "comparison.h"
 
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -33,6 +35,33 @@
 #include "order.h"
 
 namespace stg {
+
+struct IgnoreDescriptor {
+  std::string_view name;
+  Ignore::Value value;
+};
+
+static constexpr std::array<IgnoreDescriptor, 2> kIgnores{{
+  {"type_declaration_status_changes", Ignore::TYPE_DECLARATION_STATUS_CHANGES},
+  {"symbol_type_presence_changes",    Ignore::SYMBOL_TYPE_PRESENCE_CHANGES   },
+}};
+
+std::optional<Ignore::Value> ParseIgnore(std::string_view ignore) {
+  for (const auto& [name, value] : kIgnores) {
+    if (name == ignore) {
+      return {value};
+    }
+  }
+  return {};
+}
+
+std::ostream& operator<<(std::ostream& os, IgnoreUsage) {
+  os << "ignore options:";
+  for (const auto& [name, _] : kIgnores) {
+    os << ' ' << name;
+  }
+  return os << '\n';
+}
 
 std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
   std::ostringstream os;

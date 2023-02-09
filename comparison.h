@@ -31,6 +31,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -67,6 +68,11 @@ struct Ignore {
 
   Bitset bitset = 0;
 };
+
+std::optional<Ignore::Value> ParseIgnore(std::string_view ignore);
+
+struct IgnoreUsage {};
+std::ostream& operator<<(std::ostream& os, IgnoreUsage);
 
 using Comparison = std::pair<std::optional<Id>, std::optional<Id>>;
 
