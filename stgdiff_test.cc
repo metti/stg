@@ -126,6 +126,24 @@ TEST_CASE("ignore") {
            "member_size_1.stg",
            stg::Ignore(stg::Ignore::MEMBER_SIZE),
            "empty",
+           true}),
+      IgnoreTestCase(
+          {"enum underlying type",
+           stg::InputFormat::STG,
+           "enum_underlying_type_0.stg",
+           stg::InputFormat::STG,
+           "enum_underlying_type_1.stg",
+           stg::Ignore(),
+           "enum_underlying_type_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"enum underlying type ignored",
+           stg::InputFormat::STG,
+           "enum_underlying_type_0.stg",
+           stg::InputFormat::STG,
+           "enum_underlying_type_1.stg",
+           stg::Ignore(stg::Ignore::ENUM_UNDERLYING_TYPE),
+           "empty",
            true}));
 
   SECTION(test.name) {

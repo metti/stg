@@ -41,11 +41,12 @@ struct IgnoreDescriptor {
   Ignore::Value value;
 };
 
-static constexpr std::array<IgnoreDescriptor, 4> kIgnores{{
+static constexpr std::array<IgnoreDescriptor, 5> kIgnores{{
   {"type_declaration_status_changes", Ignore::TYPE_DECLARATION_STATUS_CHANGES},
   {"symbol_type_presence_changes",    Ignore::SYMBOL_TYPE_PRESENCE_CHANGES   },
   {"primitive_type_encoding",         Ignore::PRIMITIVE_TYPE_ENCODING        },
   {"member_size",                     Ignore::MEMBER_SIZE                    },
+  {"enum_underlying_type",            Ignore::ENUM_UNDERLYING_TYPE           },
 }};
 
 std::optional<Ignore::Value> ParseIgnore(std::string_view ignore) {
@@ -440,9 +441,11 @@ Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
                       result)) {
     return result;
   }
-  const auto type_diff = (*this)(definition1->underlying_type_id,
-                                 definition2->underlying_type_id);
-  result.MaybeAddEdgeDiff("underlying", type_diff);
+  if (!ignore.Test(Ignore::ENUM_UNDERLYING_TYPE)) {
+    const auto type_diff = (*this)(definition1->underlying_type_id,
+                                   definition2->underlying_type_id);
+    result.MaybeAddEdgeDiff("underlying", type_diff);
+  }
 
   const auto enums1 = definition1->enumerators;
   const auto enums2 = definition2->enumerators;

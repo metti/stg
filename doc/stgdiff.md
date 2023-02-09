@@ -19,7 +19,7 @@ stgdiff
 implicit defaults: --abi --format plain
 --exact (node equality) cannot be combined with --output
 output formats: plain flat small short viz
-ignore options: type_declaration_status_changes symbol_type_presence_changes primitive_type_encoding member_size
+ignore options: type_declaration_status_changes symbol_type_presence_changes primitive_type_encoding member_size enum_underlying_type
 ```
 
 ## Input
@@ -93,6 +93,11 @@ much (DWARF) information they preserve.
 *   `ignore_member_size`
 
     Ignore member sizes during comparison. libabigail XML does not model them.
+
+*   `ignore_enum_underlying_type`
+
+    Ignore enum-underlying types during comparison. BTF doesn't model them.
+    libabigail provides incomplete information.
 
 ### Fidelity Reporting
 
