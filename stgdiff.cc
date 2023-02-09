@@ -172,6 +172,7 @@ int main(int argc, char* argv[]) {
       {"elf",            no_argument,       nullptr, 'e'       },
       {"stg",            no_argument,       nullptr, 's'       },
       {"exact",          no_argument,       nullptr, 'x'       },
+      {"ignore",         required_argument, nullptr, 'i'       },
       {"compare-option", required_argument, nullptr, 'c'       },
       {"format",         required_argument, nullptr, 'f'       },
       {"output",         required_argument, nullptr, 'o'       },
@@ -186,6 +187,7 @@ int main(int argc, char* argv[]) {
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
               << "  [-x|--exact]\n"
               << "  [--skip-dwarf]\n"
+              << "  [{-i|--ignore} <ignore-option>] ...\n"
               << "  [{-c|--compare-option} ignore_<ignore-option>] ...\n"
               << "  [{-f|--format} <output-format>] ...\n"
               << "  [{-o|--output} {filename|-}] ...\n"
@@ -198,7 +200,7 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-mabesxc:f:o:F:", opts, &ix);
+    int c = getopt_long(argc, argv, "-mabesxi:c:f:o:F:", opts, &ix);
     if (c == -1) {
       break;
     }
@@ -224,6 +226,15 @@ int main(int argc, char* argv[]) {
         break;
       case 1:
         inputs.emplace_back(opt_input_format, argument);
+        break;
+      case 'i':
+        if (const auto ignore = stg::ParseIgnore(argument)) {
+          opt_ignore.Set(ignore.value());
+        } else {
+          std::cerr << "unknown ignore option: " << argument << '\n'
+                    << stg::IgnoreUsage();
+          return 1;
+        }
         break;
       case 'c':
         if (strncmp(argument, "ignore_", 7) == 0) {
