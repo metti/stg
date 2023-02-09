@@ -131,15 +131,15 @@ int RunExact(const Inputs& inputs, bool process_dwarf, stg::Metrics& metrics) {
              : kAbiChange;
 }
 
-int Run(const Inputs& inputs, const Outputs& outputs,
-        const stg::CompareOptions& compare_options, bool process_dwarf,
-        std::optional<const char*> fidelity, stg::Metrics& metrics) {
+int Run(const Inputs& inputs, const Outputs& outputs, stg::Ignore ignore,
+        bool process_dwarf, std::optional<const char*> fidelity,
+        stg::Metrics& metrics) {
   // Read inputs.
   stg::Graph graph;
   const auto roots = Read(inputs, graph, process_dwarf, metrics);
 
   // Compute differences.
-  stg::Compare compare{graph, compare_options, metrics};
+  stg::Compare compare{graph, ignore, metrics};
   std::pair<bool, std::optional<stg::Comparison>> result;
   {
     stg::Time compute(metrics, "compute diffs");
@@ -185,7 +185,7 @@ int main(int argc, char* argv[]) {
   bool opt_exact = false;
   bool opt_skip_dwarf = false;
   std::optional<const char*> opt_fidelity = std::nullopt;
-  stg::CompareOptions compare_options;
+  stg::Ignore opt_ignore;
   InputFormat opt_input_format = InputFormat::ABI;
   stg::reporting::OutputFormat opt_output_format =
       stg::reporting::OutputFormat::PLAIN;
@@ -254,10 +254,10 @@ int main(int argc, char* argv[]) {
         break;
       case 'c':
         if (strcmp(argument, "ignore_symbol_type_presence_changes") == 0) {
-          compare_options.ignore_symbol_type_presence_changes = true;
+          opt_ignore.Set(stg::Ignore::SYMBOL_TYPE_PRESENCE_CHANGES);
         } else if (strcmp(argument,
                           "ignore_type_declaration_status_changes") == 0) {
-          compare_options.ignore_type_declaration_status_changes = true;
+          opt_ignore.Set(stg::Ignore::TYPE_DECLARATION_STATUS_CHANGES);
         } else {
           return usage();
         }
@@ -296,7 +296,7 @@ int main(int argc, char* argv[]) {
 
   try {
     const int status = opt_exact ? RunExact(inputs, !opt_skip_dwarf, metrics)
-                                 : Run(inputs, outputs, compare_options,
+                                 : Run(inputs, outputs, opt_ignore,
                                        !opt_skip_dwarf, opt_fidelity, metrics);
     if (opt_metrics) {
       stg::Report(metrics, std::cerr);

@@ -31,11 +31,11 @@
 #include "proto_reader.h"
 #include "reporting.h"
 
-struct CompareOptionsTestCase {
+struct IgnoreTestCase {
   const std::string name;
   const std::string xml0;
   const std::string xml1;
-  const stg::CompareOptions compare_options;
+  const stg::Ignore ignore;
   const std::string expected_output;
   const bool expected_equals;
 };
@@ -44,32 +44,36 @@ std::string filename_to_path(const std::string& f) {
   return std::filesystem::path("testdata") / f;
 }
 
-TEST_CASE("compare options") {
-  const auto test_case =
-      GENERATE(CompareOptionsTestCase({"symbol type presence change",
-                                       "symbol_type_presence_0.xml",
-                                       "symbol_type_presence_1.xml",
-                                       {false, false},
-                                       "symbol_type_presence_small_diff",
-                                       false}),
-               CompareOptionsTestCase({"symbol type presence change pruned",
-                                       "symbol_type_presence_0.xml",
-                                       "symbol_type_presence_1.xml",
-                                       {true, false},
-                                       "empty",
-                                       true}),
-               CompareOptionsTestCase({"type declaration status change",
-                                       "type_declaration_status_0.xml",
-                                       "type_declaration_status_1.xml",
-                                       {false, false},
-                                       "type_declaration_status_small_diff",
-                                       false}),
-               CompareOptionsTestCase({"type declaration status change pruned",
-                                       "type_declaration_status_0.xml",
-                                       "type_declaration_status_1.xml",
-                                       {false, true},
-                                       "empty",
-                                       true}));
+TEST_CASE("ignore") {
+  const auto test_case = GENERATE(
+      IgnoreTestCase(
+          {"symbol type presence change",
+           "symbol_type_presence_0.xml",
+           "symbol_type_presence_1.xml",
+           stg::Ignore(),
+           "symbol_type_presence_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"symbol type presence change pruned",
+           "symbol_type_presence_0.xml",
+           "symbol_type_presence_1.xml",
+           stg::Ignore(stg::Ignore::SYMBOL_TYPE_PRESENCE_CHANGES),
+           "empty",
+           true}),
+      IgnoreTestCase(
+          {"type declaration status change",
+           "type_declaration_status_0.xml",
+           "type_declaration_status_1.xml",
+           stg::Ignore(),
+           "type_declaration_status_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"type declaration status change pruned",
+           "type_declaration_status_0.xml",
+           "type_declaration_status_1.xml",
+           stg::Ignore(stg::Ignore::TYPE_DECLARATION_STATUS_CHANGES),
+           "empty",
+           true}));
 
   SECTION(test_case.name) {
     stg::Metrics metrics;
@@ -82,7 +86,7 @@ TEST_CASE("compare options") {
         stg::abixml::Read(graph, filename_to_path(test_case.xml1), metrics);
 
     // Compute differences.
-    stg::Compare compare{graph, test_case.compare_options, metrics};
+    stg::Compare compare{graph, test_case.ignore, metrics};
     const auto& [equals, comparison] = compare(id0, id1);
 
     // Write SMALL reports.

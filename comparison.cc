@@ -236,11 +236,11 @@ Result Compare::operator()(const Array& x1, const Array& x2) {
   return result;
 }
 
-static bool CompareDefined(bool defined1, bool defined2, Result& result,
-                           bool ignore_diff) {
+bool Compare::CompareDefined(bool defined1, bool defined2, Result& result) {
   if (defined1 && defined2) {
     return true;
   }
+  const bool ignore_diff = ignore.Test(Ignore::TYPE_DECLARATION_STATUS_CHANGES);
   if (!ignore_diff && defined1 != defined2) {
     std::ostringstream os;
     os << "was " << (defined1 ? "fully defined" : "only declared")
@@ -361,8 +361,8 @@ Result Compare::operator()(const StructUnion& x1, const StructUnion& x2) {
 
   const auto& definition1 = x1.definition;
   const auto& definition2 = x2.definition;
-  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
-                      options.ignore_type_declaration_status_changes)) {
+  if (!CompareDefined(definition1.has_value(), definition2.has_value(),
+                      result)) {
     return result;
   }
 
@@ -401,8 +401,8 @@ Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
 
   const auto& definition1 = x1.definition;
   const auto& definition2 = x2.definition;
-  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
-                      options.ignore_type_declaration_status_changes)) {
+  if (!CompareDefined(definition1.has_value(), definition2.has_value(),
+                      result)) {
     return result;
   }
   const auto type_diff = (*this)(definition1->underlying_type_id,
@@ -549,11 +549,11 @@ Result Compare::operator()(const ElfSymbol& x1, const ElfSymbol& x2) {
   if (x1.type_id && x2.type_id) {
     result.MaybeAddEdgeDiff("", (*this)(*x1.type_id, *x2.type_id));
   } else if (x1.type_id) {
-    if (!options.ignore_symbol_type_presence_changes) {
+    if (!ignore.Test(Ignore::SYMBOL_TYPE_PRESENCE_CHANGES)) {
       result.AddEdgeDiff("", Removed(*x1.type_id));
     }
   } else if (x2.type_id) {
-    if (!options.ignore_symbol_type_presence_changes) {
+    if (!ignore.Test(Ignore::SYMBOL_TYPE_PRESENCE_CHANGES)) {
       result.AddEdgeDiff("", Added(*x2.type_id));
     }
   } else {
