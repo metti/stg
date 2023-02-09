@@ -70,7 +70,7 @@ TEST_CASE("ignore") {
            "symbol_type_presence_0.xml",
            stg::InputFormat::ABI,
            "symbol_type_presence_1.xml",
-           stg::Ignore(stg::Ignore::SYMBOL_TYPE_PRESENCE_CHANGES),
+           stg::Ignore(stg::Ignore::SYMBOL_TYPE_PRESENCE),
            "empty",
            true}),
       IgnoreTestCase(
@@ -88,7 +88,7 @@ TEST_CASE("ignore") {
            "type_declaration_status_0.xml",
            stg::InputFormat::ABI,
            "type_declaration_status_1.xml",
-           stg::Ignore(stg::Ignore::TYPE_DECLARATION_STATUS_CHANGES),
+           stg::Ignore(stg::Ignore::TYPE_DECLARATION_STATUS),
            "empty",
            true}),
       IgnoreTestCase(

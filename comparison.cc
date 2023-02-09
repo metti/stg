@@ -41,13 +41,15 @@ struct IgnoreDescriptor {
   Ignore::Value value;
 };
 
-static constexpr std::array<IgnoreDescriptor, 6> kIgnores{{
-  {"type_declaration_status_changes", Ignore::TYPE_DECLARATION_STATUS_CHANGES},
-  {"symbol_type_presence_changes",    Ignore::SYMBOL_TYPE_PRESENCE_CHANGES   },
-  {"primitive_type_encoding",         Ignore::PRIMITIVE_TYPE_ENCODING        },
-  {"member_size",                     Ignore::MEMBER_SIZE                    },
-  {"enum_underlying_type",            Ignore::ENUM_UNDERLYING_TYPE           },
-  {"qualifier",                       Ignore::QUALIFIER                      },
+static constexpr std::array<IgnoreDescriptor, 8> kIgnores{{
+  {"type_declaration_status",         Ignore::TYPE_DECLARATION_STATUS},
+  {"type_declaration_status_changes", Ignore::TYPE_DECLARATION_STATUS},
+  {"symbol_type_presence"        ,    Ignore::SYMBOL_TYPE_PRESENCE   },
+  {"symbol_type_presence_changes",    Ignore::SYMBOL_TYPE_PRESENCE   },
+  {"primitive_type_encoding",         Ignore::PRIMITIVE_TYPE_ENCODING},
+  {"member_size",                     Ignore::MEMBER_SIZE            },
+  {"enum_underlying_type",            Ignore::ENUM_UNDERLYING_TYPE   },
+  {"qualifier",                       Ignore::QUALIFIER              },
 }};
 
 std::optional<Ignore::Value> ParseIgnore(std::string_view ignore) {
@@ -279,7 +281,7 @@ bool Compare::CompareDefined(bool defined1, bool defined2, Result& result) {
   if (defined1 && defined2) {
     return true;
   }
-  const bool ignore_diff = ignore.Test(Ignore::TYPE_DECLARATION_STATUS_CHANGES);
+  const bool ignore_diff = ignore.Test(Ignore::TYPE_DECLARATION_STATUS);
   if (!ignore_diff && defined1 != defined2) {
     std::ostringstream os;
     os << "was " << (defined1 ? "fully defined" : "only declared")
@@ -592,11 +594,11 @@ Result Compare::operator()(const ElfSymbol& x1, const ElfSymbol& x2) {
   if (x1.type_id && x2.type_id) {
     result.MaybeAddEdgeDiff("", (*this)(*x1.type_id, *x2.type_id));
   } else if (x1.type_id) {
-    if (!ignore.Test(Ignore::SYMBOL_TYPE_PRESENCE_CHANGES)) {
+    if (!ignore.Test(Ignore::SYMBOL_TYPE_PRESENCE)) {
       result.AddEdgeDiff("", Removed(*x1.type_id));
     }
   } else if (x2.type_id) {
-    if (!ignore.Test(Ignore::SYMBOL_TYPE_PRESENCE_CHANGES)) {
+    if (!ignore.Test(Ignore::SYMBOL_TYPE_PRESENCE)) {
       result.AddEdgeDiff("", Added(*x2.type_id));
     }
   } else {

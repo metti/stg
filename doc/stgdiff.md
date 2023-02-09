@@ -20,7 +20,7 @@ stgdiff
 implicit defaults: --abi --format plain
 --exact (node equality) cannot be combined with --output
 output formats: plain flat small short viz
-ignore options: type_declaration_status_changes symbol_type_presence_changes primitive_type_encoding member_size enum_underlying_type qualifier
+ignore options: type_declaration_status type_declaration_status_changes symbol_type_presence symbol_type_presence_changes primitive_type_encoding member_size enum_underlying_type qualifier
 ```
 
 ## Input
