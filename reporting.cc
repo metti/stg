@@ -20,11 +20,14 @@
 
 #include "reporting.h"
 
+#include <array>
 #include <cstddef>
 #include <deque>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -38,6 +41,36 @@
 
 namespace stg {
 namespace reporting {
+
+struct FormatDescriptor {
+  std::string_view name;
+  OutputFormat value;
+};
+
+static constexpr std::array<FormatDescriptor, 5> kFormats{{
+  {"plain", OutputFormat::PLAIN},
+  {"flat",  OutputFormat::FLAT },
+  {"small", OutputFormat::SMALL},
+  {"short", OutputFormat::SHORT},
+  {"viz",   OutputFormat::VIZ  },
+}};
+
+std::optional<OutputFormat> ParseOutputFormat(std::string_view format) {
+  for (const auto& [name, value] : kFormats) {
+    if (name == format) {
+      return {value};
+    }
+  }
+  return {};
+}
+
+std::ostream& operator<<(std::ostream& os, OutputFormatUsage) {
+  os << "output formats:";
+  for (const auto& [name, _] : kFormats) {
+    os << ' ' << name;
+  }
+  return os << '\n';
+}
 
 namespace {
 

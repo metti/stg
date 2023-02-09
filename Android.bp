@@ -77,6 +77,7 @@ cc_library_host_static {
         "file_descriptor.cc",
         "fingerprint.cc",
         "graph.cc",
+        "input.cc",
         "metrics.cc",
         "naming.cc",
         "post_processing.cc",

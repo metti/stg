@@ -20,6 +20,8 @@
 #ifndef STG_REPORTING_H_
 #define STG_REPORTING_H_
 
+#include <string_view>
+#include <optional>
 #include <ostream>
 
 #include "comparison.h"
@@ -31,6 +33,11 @@ namespace stg {
 namespace reporting {
 
 enum class OutputFormat { PLAIN, FLAT, SMALL, SHORT, VIZ };
+
+std::optional<OutputFormat> ParseOutputFormat(std::string_view format);
+
+struct OutputFormatUsage {};
+std::ostream& operator<<(std::ostream&, OutputFormatUsage);
 
 struct Options {
   const OutputFormat format;
