@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020-2022 Google LLC
+// Copyright 2020-2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -35,15 +35,12 @@
 #include <utility>
 #include <vector>
 
-#include "abigail_reader.h"
-#include "btf_reader.h"
-#include "elf_reader.h"
 #include "equality.h"
 #include "error.h"
 #include "fidelity.h"
+#include "input.h"
 #include "graph.h"
 #include "metrics.h"
-#include "proto_reader.h"
 #include "reporting.h"
 
 namespace {
@@ -54,9 +51,7 @@ const int kAbiChange = 4;
 const int kFidelityChange = 8;
 const size_t kMaxCrcOnlyChanges = 3;
 
-enum class InputFormat { ABI, BTF, ELF, STG };
-
-using Inputs = std::vector<std::pair<InputFormat, const char*>>;
+using Inputs = std::vector<std::pair<stg::InputFormat, const char*>>;
 using Outputs =
     std::vector<std::pair<stg::reporting::OutputFormat, const char*>>;
 
@@ -64,29 +59,8 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
                           bool process_dwarf, stg::Metrics& metrics) {
   std::vector<stg::Id> roots;
   for (const auto& [format, filename] : inputs) {
-    switch (format) {
-      case InputFormat::ABI: {
-        stg::Time read(metrics, "read ABI");
-        roots.push_back(stg::abixml::Read(graph, filename, metrics));
-        break;
-      }
-      case InputFormat::BTF: {
-        stg::Time read(metrics, "read BTF");
-        roots.push_back(stg::btf::ReadFile(graph, filename));
-        break;
-      }
-      case InputFormat::ELF: {
-        stg::Time read(metrics, "read ELF");
-        roots.push_back(stg::elf::Read(graph, filename, process_dwarf,
-                                       /* verbose = */ false, metrics));
-        break;
-      }
-      case InputFormat::STG: {
-        stg::Time read(metrics, "read STG");
-        roots.push_back(stg::proto::Read(graph, filename));
-        break;
-      }
-    }
+    roots.push_back(stg::Read(graph, format, filename, process_dwarf,
+                              /* info = */ false, metrics));
   }
   return roots;
 }
@@ -186,7 +160,7 @@ int main(int argc, char* argv[]) {
   bool opt_skip_dwarf = false;
   std::optional<const char*> opt_fidelity = std::nullopt;
   stg::Ignore opt_ignore;
-  InputFormat opt_input_format = InputFormat::ABI;
+  stg::InputFormat opt_input_format = stg::InputFormat::ABI;
   stg::reporting::OutputFormat opt_output_format =
       stg::reporting::OutputFormat::PLAIN;
   Inputs inputs;
@@ -234,16 +208,16 @@ int main(int argc, char* argv[]) {
         opt_metrics = true;
         break;
       case 'a':
-        opt_input_format = InputFormat::ABI;
+        opt_input_format = stg::InputFormat::ABI;
         break;
       case 'b':
-        opt_input_format = InputFormat::BTF;
+        opt_input_format = stg::InputFormat::BTF;
         break;
       case 'e':
-        opt_input_format = InputFormat::ELF;
+        opt_input_format = stg::InputFormat::ELF;
         break;
       case 's':
-        opt_input_format = InputFormat::STG;
+        opt_input_format = stg::InputFormat::STG;
         break;
       case 'x':
         opt_exact = true;

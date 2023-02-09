@@ -25,16 +25,19 @@
 #include <string>
 
 #include <catch2/catch.hpp>
-#include "abigail_reader.h"
 #include "graph.h"
+#include "input.h"
 #include "metrics.h"
-#include "proto_reader.h"
 #include "reporting.h"
+
+namespace {
 
 struct IgnoreTestCase {
   const std::string name;
-  const std::string xml0;
-  const std::string xml1;
+  const stg::InputFormat format0;
+  const std::string file0;
+  const stg::InputFormat format1;
+  const std::string file1;
   const stg::Ignore ignore;
   const std::string expected_output;
   const bool expected_equals;
@@ -44,49 +47,61 @@ std::string filename_to_path(const std::string& f) {
   return std::filesystem::path("testdata") / f;
 }
 
+stg::Id Read(stg::Graph& graph, stg::InputFormat format,
+             const std::string& input, stg::Metrics& metrics) {
+  return stg::Read(graph, format, filename_to_path(input).c_str(),
+                   /* process_dwarf = */ false, /* info = */ false, metrics);
+}
+
 TEST_CASE("ignore") {
-  const auto test_case = GENERATE(
+  const auto test = GENERATE(
       IgnoreTestCase(
           {"symbol type presence change",
+           stg::InputFormat::ABI,
            "symbol_type_presence_0.xml",
+           stg::InputFormat::ABI,
            "symbol_type_presence_1.xml",
            stg::Ignore(),
            "symbol_type_presence_small_diff",
            false}),
       IgnoreTestCase(
           {"symbol type presence change pruned",
+           stg::InputFormat::ABI,
            "symbol_type_presence_0.xml",
+           stg::InputFormat::ABI,
            "symbol_type_presence_1.xml",
            stg::Ignore(stg::Ignore::SYMBOL_TYPE_PRESENCE_CHANGES),
            "empty",
            true}),
       IgnoreTestCase(
           {"type declaration status change",
+           stg::InputFormat::ABI,
            "type_declaration_status_0.xml",
+           stg::InputFormat::ABI,
            "type_declaration_status_1.xml",
            stg::Ignore(),
            "type_declaration_status_small_diff",
            false}),
       IgnoreTestCase(
           {"type declaration status change pruned",
+           stg::InputFormat::ABI,
            "type_declaration_status_0.xml",
+           stg::InputFormat::ABI,
            "type_declaration_status_1.xml",
            stg::Ignore(stg::Ignore::TYPE_DECLARATION_STATUS_CHANGES),
            "empty",
            true}));
 
-  SECTION(test_case.name) {
+  SECTION(test.name) {
     stg::Metrics metrics;
 
     // Read inputs.
     stg::Graph graph;
-    const auto id0 =
-        stg::abixml::Read(graph, filename_to_path(test_case.xml0), metrics);
-    const auto id1 =
-        stg::abixml::Read(graph, filename_to_path(test_case.xml1), metrics);
+    const auto id0 = Read(graph, test.format0, test.file0, metrics);
+    const auto id1 = Read(graph, test.format1, test.file1, metrics);
 
     // Compute differences.
-    stg::Compare compare{graph, test_case.ignore, metrics};
+    stg::Compare compare{graph, test.ignore, metrics};
     const auto& [equals, comparison] = compare(id0, id1);
 
     // Write SMALL reports.
@@ -100,9 +115,8 @@ TEST_CASE("ignore") {
     }
 
     // Check comparison outcome and report output.
-    CHECK(equals == test_case.expected_equals);
-    std::ifstream expected_output_file(
-        filename_to_path(test_case.expected_output));
+    CHECK(equals == test.expected_equals);
+    std::ifstream expected_output_file(filename_to_path(test.expected_output));
     std::ostringstream expected_output;
     expected_output << expected_output_file.rdbuf();
     CHECK(output.str() == expected_output.str());
@@ -117,7 +131,7 @@ struct ShortReportTestCase {
 };
 
 TEST_CASE("short report") {
-  const auto test_case = GENERATE(
+  const auto test = GENERATE(
       ShortReportTestCase(
           {"crc changes", "crc_0.xml", "crc_1.xml", "crc_changes_short_diff"}),
       ShortReportTestCase({"only crc changes", "crc_only_0.xml",
@@ -132,15 +146,13 @@ TEST_CASE("short report") {
                            "added_removed_symbols_only_1.xml",
                            "added_removed_symbols_only_short_diff"}));
 
-  SECTION(test_case.name) {
+  SECTION(test.name) {
     stg::Metrics metrics;
 
     // Read inputs.
     stg::Graph graph;
-    const auto id0 =
-        stg::abixml::Read(graph, filename_to_path(test_case.xml0), metrics);
-    const auto id1 =
-        stg::abixml::Read(graph, filename_to_path(test_case.xml1), metrics);
+    const auto id0 = Read(graph, stg::InputFormat::ABI, test.xml0, metrics);
+    const auto id1 = Read(graph, stg::InputFormat::ABI, test.xml1, metrics);
 
     // Compute differences.
     stg::Compare compare{graph, {}, metrics};
@@ -158,8 +170,7 @@ TEST_CASE("short report") {
 
     // Check comparison outcome and report output.
     CHECK(equals == false);
-    std::ifstream expected_output_file(
-        filename_to_path(test_case.expected_output));
+    std::ifstream expected_output_file(filename_to_path(test.expected_output));
     std::ostringstream expected_output;
     expected_output << expected_output_file.rdbuf();
     CHECK(output.str() == expected_output.str());
@@ -167,12 +178,14 @@ TEST_CASE("short report") {
 }
 
 TEST_CASE("fidelity diff") {
+  stg::Metrics metrics;
+
   // Read inputs.
   stg::Graph graph;
   const auto id0 =
-      stg::proto::Read(graph, filename_to_path("fidelity_diff_0.stg"));
+      Read(graph, stg::InputFormat::STG, "fidelity_diff_0.stg", metrics);
   const auto id1 =
-      stg::proto::Read(graph, filename_to_path("fidelity_diff_1.stg"));
+      Read(graph, stg::InputFormat::STG, "fidelity_diff_1.stg", metrics);
 
   // Compute fidelity diff.
   auto fidelity_diff = stg::GetFidelityTransitions(graph, id0, id1);
@@ -187,3 +200,5 @@ TEST_CASE("fidelity diff") {
   expected_report << expected_report_file.rdbuf();
   CHECK(report.str() == expected_report.str());
 }
+
+}  // namespace
