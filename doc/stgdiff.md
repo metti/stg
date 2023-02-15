@@ -19,7 +19,7 @@ stgdiff
 implicit defaults: --abi --format plain
 --exact (node equality) cannot be combined with --output
 output formats: plain flat small short viz
-ignore options: type_declaration_status type_declaration_status_changes symbol_type_presence symbol_type_presence_changes primitive_type_encoding member_size enum_underlying_type qualifier
+ignore options: type_declaration_status symbol_type_presence primitive_type_encoding member_size enum_underlying_type qualifier
 ```
 
 ## Input
@@ -71,12 +71,12 @@ The default behaviour is to compare two ABIs for equivalence.
 The following two ignore options suppress noisy diffs that are inevitable when
 consuming ABI XML output from `abidw`.
 
-*   `symbol_type_presence` or `symbol_type_presence_changes`
+*   `symbol_type_presence`
 
     Ignore changes in symbol type presence, thus `stgdiff` does not report loss
     or gain of symbol type information.
 
-*   `type_declaration_status` or `type_declaration_status_changes`
+*   `type_declaration_status`
 
     Ignore changes in type declaration status, thus `stgdiff` does not report
     loss or gain of user-defined type definitions.
