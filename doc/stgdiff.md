@@ -13,7 +13,6 @@ stgdiff
   [-x|--exact]
   [--skip-dwarf]
   [{-i|--ignore} <ignore-option>] ...
-  [{-c|--compare-option} ignore_<ignore-option>] ...
   [{-f|--format} <output-format>] ...
   [{-o|--output} {filename|-}] ...
   [{-F|--fidelity} {filename|-}]
@@ -66,8 +65,6 @@ ignore options: type_declaration_status type_declaration_status_changes symbol_t
 The default behaviour is to compare two ABIs for equivalence.
 
 ### Options
-
-Note that `--compare-option ignore_foo` is equivalent to `--ignore foo`.
 
 *   `-i|--ignore`
 

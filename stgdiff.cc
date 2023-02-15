@@ -173,7 +173,6 @@ int main(int argc, char* argv[]) {
       {"stg",            no_argument,       nullptr, 's'       },
       {"exact",          no_argument,       nullptr, 'x'       },
       {"ignore",         required_argument, nullptr, 'i'       },
-      {"compare-option", required_argument, nullptr, 'c'       },
       {"format",         required_argument, nullptr, 'f'       },
       {"output",         required_argument, nullptr, 'o'       },
       {"fidelity",       required_argument, nullptr, 'F'       },
@@ -188,7 +187,6 @@ int main(int argc, char* argv[]) {
               << "  [-x|--exact]\n"
               << "  [--skip-dwarf]\n"
               << "  [{-i|--ignore} <ignore-option>] ...\n"
-              << "  [{-c|--compare-option} ignore_<ignore-option>] ...\n"
               << "  [{-f|--format} <output-format>] ...\n"
               << "  [{-o|--output} {filename|-}] ...\n"
               << "  [{-F|--fidelity} {filename|-}]\n"
@@ -200,7 +198,7 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-mabesxi:c:f:o:F:", opts, &ix);
+    int c = getopt_long(argc, argv, "-mabesxi:f:o:F:", opts, &ix);
     if (c == -1) {
       break;
     }
@@ -234,20 +232,6 @@ int main(int argc, char* argv[]) {
           std::cerr << "unknown ignore option: " << argument << '\n'
                     << stg::IgnoreUsage();
           return 1;
-        }
-        break;
-      case 'c':
-        if (strncmp(argument, "ignore_", 7) == 0) {
-          const auto ignore_argument = argument + 7;
-          if (const auto ignore = stg::ParseIgnore(ignore_argument)) {
-            opt_ignore.Set(ignore.value());
-          } else {
-            std::cerr << "unknown ignore option: " << ignore_argument << '\n'
-                      << stg::IgnoreUsage();
-            return 1;
-          }
-        } else {
-          return usage();
         }
         break;
       case 'f':
