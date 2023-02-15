@@ -451,6 +451,8 @@ struct Unify {
 void ResolveTypes(Graph& graph,
                   const std::vector<std::reference_wrapper<Id>>& roots,
                   Metrics& metrics) {
+  const Time total(metrics, "resolve.total");
+
   // collect named types
   NamedTypes named_types(graph, metrics);
   {
