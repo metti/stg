@@ -29,7 +29,6 @@
 #include <functional>
 #include <iomanip>
 #include <ios>
-#include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
@@ -402,7 +401,7 @@ void Abigail::ProcessScope(xmlNodePtr scope) {
     if (type_id) {
       const auto id = GetNode(*type_id);
       if (graph_.Is(id)) {
-        std::cerr << "duplicate definition of type '" << *type_id << "'\n";
+        Warn() << "duplicate definition of type '" << *type_id << '\'';
         continue;
       }
       if (name == "function-type") {
@@ -691,7 +690,7 @@ void Abigail::ProcessMemberType(xmlNodePtr member_type) {
   const auto type_id = GetAttributeOrDie(decl, "id");
   const auto id = GetNode(type_id);
   if (graph_.Is(id)) {
-    std::cerr << "duplicate definition of type '" << type_id << "'\n";
+    Warn() << "duplicate definition of member type '" << type_id << '\'';
     return;
   }
   const auto name = GetElementName(decl);
