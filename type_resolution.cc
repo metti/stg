@@ -39,6 +39,7 @@ namespace {
 struct NamedTypes {
   NamedTypes(const Graph& graph, Metrics& metrics)
       : graph(graph),
+        seen(graph.MakeDenseIdSet()),
         nodes(metrics, "named_types.nodes"),
         types(metrics, "named_types.types"),
         definitions(metrics, "named_types.definitions"),
@@ -59,7 +60,7 @@ struct NamedTypes {
 
   // main entry point
   void operator()(Id id) {
-    if (seen.insert(id).second) {
+    if (seen.Insert(id)) {
       ++nodes;
       graph.Apply<void>(*this, id, id);
     }
@@ -167,7 +168,7 @@ struct NamedTypes {
   const Graph& graph;
   // ordered map for consistency and sequential processing of related types
   std::map<Type, Info> type_info;
-  std::unordered_set<Id> seen;
+  Graph::DenseIdSet seen;
   std::unordered_set<Id> incomplete;
   Counter nodes;
   Counter types;
@@ -178,8 +179,10 @@ struct NamedTypes {
 // Keep track of which type nodes have been unified together, avoiding mapping
 // definitions to declarations.
 struct UnificationCache {
-  UnificationCache(const std::unordered_set<Id>& incomplete, Metrics& metrics)
+  UnificationCache(const std::unordered_set<Id>& incomplete,
+                   Graph::DenseIdMapping& mapping, Metrics& metrics)
       : incomplete(incomplete),
+        mapping(mapping),
         find_query(metrics, "cache.find_query"),
         find_halved(metrics, "cache.find_halved"),
         union_known(metrics, "cache.union_known"),
@@ -191,16 +194,15 @@ struct UnificationCache {
     ++find_query;
     // path halving - tiny performance gain
     while (true) {
-      auto it = mapping.find(id);
-      if (it == mapping.end()) {
+      // note: safe to take references as mapping cannot grow after this
+      auto& parent = mapping[id];
+      if (parent == id) {
         return id;
       }
-      auto& parent = it->second;
-      auto parent_it = mapping.find(parent);
-      if (parent_it == mapping.end()) {
+      auto& parent_parent = mapping[parent];
+      if (parent_parent == parent) {
         return parent;
       }
-      auto parent_parent = parent_it->second;
       id = parent = parent_parent;
       ++find_halved;
     }
@@ -217,19 +219,19 @@ struct UnificationCache {
     const bool prefer1 = incomplete.find(fid1) == incomplete.end();
     const bool prefer2 = incomplete.find(fid2) == incomplete.end();
     if (prefer1 == prefer2) {
-      mapping.insert({fid1, fid2});
+      mapping[fid1] = fid2;
       ++union_unknown;
     } else if (prefer1 < prefer2) {
-      mapping.insert({fid1, fid2});
+      mapping[fid1] = fid2;
       ++union_unknown_forced1;
     } else {
-      mapping.insert({fid2, fid1});
+      mapping[fid2] = fid1;
       ++union_unknown_forced2;
     }
   }
 
   const std::unordered_set<Id>& incomplete;
-  std::unordered_map<Id, Id> mapping;
+  Graph::DenseIdMapping& mapping;
   Counter find_query;
   Counter find_halved;
   Counter union_known;
@@ -462,7 +464,8 @@ void ResolveTypes(Graph& graph,
     }
   }
 
-  UnificationCache cache(named_types.incomplete, metrics);
+  Graph::DenseIdMapping mapping = graph.MakeDenseIdMapping();
+  UnificationCache cache(named_types.incomplete, mapping, metrics);
   {
     const Time time(metrics, "resolve.unification");
     Counter definition_unified(metrics, "resolve.definition.unified");
@@ -515,7 +518,7 @@ void ResolveTypes(Graph& graph,
       }
     };
     Substitute<decltype(remap)> substitute(graph, remap);
-    for (const auto& id : named_types.seen) {
+    named_types.seen.ForEach([&](Id id) {
       const Id fid = cache.Find(id);
       if (fid != id) {
         graph.Remove(id);
@@ -524,7 +527,7 @@ void ResolveTypes(Graph& graph,
         substitute(id);
         ++retained;
       }
-    }
+    });
 
     // Update roots
     for (Id& root : roots) {
