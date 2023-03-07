@@ -1,7 +1,7 @@
 # `stgdiff`
 
 `stgdiff` is used to compare ABI representations from various sources, like
-libabigail, BTF, or ELF/DWARF.
+libabigail XML, BTF and ELF/DWARF.
 
 ## Usage
 
@@ -13,14 +13,13 @@ stgdiff
   [-x|--exact]
   [--skip-dwarf]
   [{-i|--ignore} <ignore-option>] ...
-  [{-c|--compare-option} ignore_<ignore-option>] ...
   [{-f|--format} <output-format>] ...
   [{-o|--output} {filename|-}] ...
   [{-F|--fidelity} {filename|-}]
 implicit defaults: --abi --format plain
 --exact (node equality) cannot be combined with --output
 output formats: plain flat small short viz
-ignore options: type_declaration_status type_declaration_status_changes symbol_type_presence symbol_type_presence_changes primitive_type_encoding member_size enum_underlying_type qualifier
+ignore options: type_declaration_status symbol_type_presence primitive_type_encoding member_size enum_underlying_type qualifier
 ```
 
 ## Input
@@ -44,10 +43,9 @@ ignore options: type_declaration_status type_declaration_status_changes symbol_t
 
 *   `-e|--elf`
 
-    Read ABI information, stored inside ELF in DWARF format.
+    Read ABI information from ELF symbols and DWARF types.
 
-    NOTE: Only ELF symbol information, and not DWARF type information, is
-    currently processed.
+    NOTE: C++ DWARF type support is a work-in-progress.
 
 *   `-s|--stg`
 
@@ -68,48 +66,53 @@ The default behaviour is to compare two ABIs for equivalence.
 
 ### Options
 
-*   `-c|--compare-option`
+*   `-i|--ignore`
 
-These two options suppress noisy diffs that are inevitable when consuming ABI
-XML output from `abidw`.
+The following two ignore options suppress noisy diffs that are inevitable when
+consuming ABI XML output from `abidw`.
 
-*   `ignore_symbol_type_presence_changes`
+*   `symbol_type_presence`
 
-    Ignore changes in the presence of types for symbols, thus `stgdiff` does not
-    report loss or gain of symbol type information.
+    Ignore changes in symbol type presence, thus `stgdiff` does not report loss
+    or gain of symbol type information.
 
-*   `ignore_type_declaration_status_changes`
+*   `type_declaration_status`
 
-    Ignore changes in declaration status of types, thus `stgdiff` does not
-    report loss or gain of user-defined type definitions.
+    Ignore changes in type declaration status, thus `stgdiff` does not report
+    loss or gain of user-defined type definitions.
 
-These options are useful when comparing ABI representations that differ in how
-much (DWARF) information they preserve.
+The following options are useful when comparing ABI representations that differ
+in how much (DWARF) information they preserve.
 
-*   `ignore_primitive_type_encoding`
+*   `primitive_type_encoding`
 
     Ignore primitve type encodings during comparison. BTF provides a subset of
     encoding information. libabigail XML lacks encoding information.
 
-*   `ignore_member_size`
+*   `member_size`
 
     Ignore member sizes during comparison. libabigail XML does not model them.
 
-*   `ignore_enum_underlying_type`
+*   `enum_underlying_type`
 
     Ignore enum-underlying types during comparison. BTF doesn't model them.
     libabigail provides incomplete information.
 
-*   `ignore_qualifier`
+*   `qualifier`
 
     Ignore qualifiers during comparison. Both libabigail and STG interpret and
     adjust type qualifiers but sometimes do so differently.
 
 ### Fidelity Reporting
 
-Details to follow.
-
 *   `-F|--fidelity`
+
+Compares ABI representations for fidelity of symbol and type information. It
+reports the following kinds of fidelity changes:
+
+*   Addition or removal of types (fully defined or declaration only)
+*   Loss or gain of type definitions
+*   Loss or gain of type information for symbols
 
 ## Output formats
 
@@ -249,15 +252,21 @@ return 0. Otherwise:
     stgdiff abi.0.xml abi.1.xml -f short -o - -f viz -o graph.viz
     ```
 
-*   Compare two ABI XML files, ignore type presence and type declaration status
-    changes, and print short report to stdout:
+*   Compare two ABI XML files, ignoring type presence and type declaration
+    status changes, and print short report to stdout:
 
     ```
-    stgdiff -f short -c ignore_symbol_type_presence_changes -c ignore_type_declaration_status_changes -a abi.0.xml abi.1.xml -o -
+    stgdiff -f short -i symbol_type_presence -i type_declaration_status -a abi.0.xml abi.1.xml -o -
     ```
 
 *   Compare ABI XML to ABI from ELF and print a short report to file:
 
     ```
     stgdiff -f short -a abi.xml -e example.o -o example.diff
+    ```
+
+*   Compare two STG files and print fidelity report to stdout:
+
+    ```
+    stgdiff -s abi.0.stg abi.1.stg -F -
     ```

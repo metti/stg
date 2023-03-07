@@ -312,6 +312,69 @@ std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding);
 // Concrete graph type.
 class Graph {
  public:
+  // Roughly equivalent to std::set<Id> but with constant time operations and
+  // key set limited to allocated Ids.
+  class DenseIdSet {
+   public:
+    explicit DenseIdSet(size_t size) : ids_(size, false) {}
+    bool Insert(Id id) {
+      const auto ix = id.ix_;
+      if (ix >= ids_.size()) {
+        ids_.resize(ix + 1);
+      }
+      if (ids_[ix]) {
+        return false;
+      }
+      ids_[ix] = true;
+      return true;
+    }
+    template <typename Function>
+    void ForEach(Function&& function) const {
+      for (size_t ix = 0; ix < ids_.size(); ++ix) {
+        if (ids_[ix]) {
+          function(Id(ix));
+        }
+      }
+    }
+
+   private:
+    std::vector<bool> ids_;
+  };
+
+  // Roughly equivalent to std::map<Id, Id>, defaulted to the identity mapping,
+  // but with constant time operations and key set limited to allocated Ids.
+  class DenseIdMapping {
+   public:
+    explicit DenseIdMapping(size_t size) {
+      ids_.reserve(size);
+      for (size_t ix = 0; ix < size; ++ix) {
+        ids_.emplace_back(ix);
+      }
+    }
+    Id& operator[](Id id) {
+      const auto ix = id.ix_;
+      const auto limit = ids_.size();
+      if (ix >= limit) {
+        ids_.reserve(ix + 1);
+        for (size_t iy = limit; iy <= ix; ++iy) {
+          ids_.emplace_back(iy);
+        }
+      }
+      return ids_[ix];
+    }
+
+   private:
+    std::vector<Id> ids_;
+  };
+
+  DenseIdSet MakeDenseIdSet() const {
+    return DenseIdSet(indirection_.size());
+  }
+
+  DenseIdMapping MakeDenseIdMapping() const {
+    return DenseIdMapping(indirection_.size());
+  }
+
   bool Is(Id id) const {
     return indirection_[id.ix_].first != Which::ABSENT;
   }
