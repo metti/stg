@@ -142,6 +142,7 @@ int Run(const Inputs& inputs, const Outputs& outputs, stg::Ignore ignore,
 
   // Compute fidelity diff if requested.
   if (fidelity) {
+    const stg::Time report(metrics, "fidelity");
     status |= RunFidelity(*fidelity, graph, roots);
   }
 
