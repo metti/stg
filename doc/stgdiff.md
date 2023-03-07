@@ -105,9 +105,14 @@ in how much (DWARF) information they preserve.
 
 ### Fidelity Reporting
 
-Details to follow.
-
 *   `-F|--fidelity`
+
+Compares ABI representations for fidelity of symbol and type information. It
+reports the following kinds of fidelity changes:
+
+*   Addition or removal of types (fully defined or declaration only)
+*   Loss or gain of type definitions
+*   Loss or gain of type information for symbols
 
 ## Output formats
 
@@ -258,4 +263,10 @@ return 0. Otherwise:
 
     ```
     stgdiff -f short -a abi.xml -e example.o -o example.diff
+    ```
+
+*   Compare two STG files and print fidelity report to stdout:
+
+    ```
+    stgdiff -s abi.0.stg abi.1.stg -F -
     ```
