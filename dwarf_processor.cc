@@ -334,14 +334,13 @@ class Processor {
     }
   }
 
-  std::vector<Id> GetUnresolvedIds() {
-    std::vector<Id> result;
+  void CheckUnresolvedIds() const {
     for (const auto& [offset, id] : id_map_) {
       if (!graph_.Is(id)) {
-        result.push_back(id);
+        Die() << "unresolved id " << id << ", DWARF offset 0x" << std::hex
+              << offset;
       }
     }
-    return result;
   }
 
  private:
@@ -624,7 +623,7 @@ Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
   for (auto& entry : entries) {
     processor.Process(entry);
   }
-  Check(processor.GetUnresolvedIds().empty()) << "unresolved ids";
+  processor.CheckUnresolvedIds();
 
   return result;
 }
