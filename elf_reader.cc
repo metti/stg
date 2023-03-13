@@ -190,8 +190,8 @@ class Typing {
 
   void ResolveTypes() {
     std::vector<std::reference_wrapper<Id>> ids;
-    ids.reserve(types_.all_ids.size() + types_.symbols.size());
-    for (auto& id : types_.all_ids) {
+    ids.reserve(types_.named_type_ids.size() + types_.symbols.size());
+    for (auto& id : types_.named_type_ids) {
       ids.push_back(std::ref(id));
     }
     for (auto& symbol : types_.symbols) {

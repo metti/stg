@@ -393,7 +393,10 @@ class Processor {
       // However, it is not guaranteed and we should do something if we find an
       // example.
       CheckNoChildren(entry);
-      AddProcessedNode<StructUnion>(entry, kind, std::move(name));
+      const Id id = AddProcessedNode<StructUnion>(entry, kind, name);
+      if (!name.empty()) {
+        AddNamedTypeNode(id);
+      }
       return;
     }
 
@@ -429,10 +432,14 @@ class Processor {
 
     // TODO: support base classes
     // TODO: support methods
-    AddProcessedNode<StructUnion>(entry, kind, std::move(name), byte_size,
-                                  /* base_classes = */ std::vector<Id>{},
-                                  /* methods = */ std::vector<Id>{},
-                                  std::move(members));
+    const Id id = AddProcessedNode<StructUnion>(
+        entry, kind, name, byte_size,
+        /* base_classes = */ std::vector<Id>{},
+        /* methods = */ std::vector<Id>{},
+        std::move(members));
+    if (!name.empty()) {
+      AddNamedTypeNode(id);
+    }
   }
 
   void ProcessMember(Entry& entry) {
@@ -482,7 +489,10 @@ class Processor {
       // However, it is not guaranteed and we should do something if we find an
       // example.
       CheckNoChildren(entry);
-      AddProcessedNode<Enumeration>(entry, name);
+      const Id id = AddProcessedNode<Enumeration>(entry, name);
+      if (!name.empty()) {
+        AddNamedTypeNode(id);
+      }
       return;
     }
     auto underlying_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
@@ -503,8 +513,11 @@ class Processor {
       enumerators.emplace_back(enumerator_name,
                                static_cast<int64_t>(*value_optional));
     }
-    AddProcessedNode<Enumeration>(entry, std::move(name), underlying_type_id,
-                                  std::move(enumerators));
+    const Id id = AddProcessedNode<Enumeration>(entry, name, underlying_type_id,
+                                                std::move(enumerators));
+    if (!name.empty()) {
+      AddNamedTypeNode(id);
+    }
   }
 
   void ProcessVariable(Entry& entry) {
@@ -565,7 +578,7 @@ class Processor {
               << EntryToString(child);
       }
     }
-    auto id = AddProcessedNode<Function>(entry, return_type_id, parameters);
+    const Id id = AddProcessedNode<Function>(entry, return_type_id, parameters);
 
     if (entry.GetFlag(DW_AT_external)) {
       auto address = entry.MaybeGetAddress(DW_AT_low_pc);
@@ -601,8 +614,11 @@ class Processor {
   Id AddProcessedNode(Entry& entry, Args&&... args) {
     auto id = GetIdForEntry(entry);
     graph_.Set<Node>(id, std::forward<Args>(args)...);
-    result_.all_ids.push_back(id);
     return id;
+  }
+
+  void AddNamedTypeNode(Id id) {
+    result_.named_type_ids.push_back(id);
   }
 
   Graph& graph_;
