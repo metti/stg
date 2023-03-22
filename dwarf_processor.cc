@@ -242,8 +242,11 @@ size_t GetDataBitOffset(Entry& entry, size_t bit_size,
     const size_t bitfield_adjusment =
         CalculateBitfieldAdjustment(entry, bit_size, is_little_endian_binary);
     return bit_offset + bitfield_adjusment;
+  } else {
+    // If the beginning of the data member is the same as the beginning of the
+    // containing entity then neither attribute is required.
+    return 0;
   }
-  Die() << "Member has no DW_AT_data_bit_offset or DW_AT_data_member_location";
 }
 
 }  // namespace
