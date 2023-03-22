@@ -20,9 +20,9 @@
 #include "proto_reader.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <fstream>
-#include <iostream>
 #include <map>
 #include <optional>
 #include <string>
@@ -404,6 +404,25 @@ Type Transformer::Transform(const Type& x) {
   return x;
 }
 
+const std::array<uint32_t, 1> kSupportedFormatVersions = {0};
+
+void CheckFormatVersion(uint32_t version, std::optional<std::string> path) {
+  Check(std::count(kSupportedFormatVersions.begin(),
+                   kSupportedFormatVersions.end(), version) > 0)
+      << "STG format version " << version
+      << " is not supported, minimum supported version: "
+      << kSupportedFormatVersions.front();
+  if (version != kSupportedFormatVersions.back()) {
+    auto warn = Warn();
+    warn << "STG format version " << version
+         << " is deprecated, consider upgrading stg format to latest version ("
+         << kSupportedFormatVersions.back() << ")";
+    if (path) {
+      warn << " with: stg --stg " << *path << " --output " << *path;
+    }
+  }
+}
+
 }  // namespace
 
 Id Read(Graph& graph, const std::string& path) {
@@ -413,12 +432,14 @@ Id Read(Graph& graph, const std::string& path) {
   google::protobuf::io::IstreamInputStream is(&ifs);
   proto::STG stg;
   google::protobuf::TextFormat::Parse(&is, &stg);
+  CheckFormatVersion(stg.version(), path);
   return Transformer(graph).Transform(stg);
 }
 
 Id ReadFromString(Graph& graph, const std::string_view input) {
   proto::STG stg;
   google::protobuf::TextFormat::ParseFromString(std::string(input), &stg);
+  CheckFormatVersion(stg.version(), std::nullopt);
   return Transformer(graph).Transform(stg);
 }
 

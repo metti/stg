@@ -234,20 +234,21 @@ message Symbols {
 }
 
 message STG {
-  fixed32 root_id = 1;
-  repeated Void void = 2;
-  repeated Variadic variadic = 3;
-  repeated PointerReference pointer_reference = 4;
-  repeated Typedef typedef = 5;
-  repeated Qualified qualified = 6;
-  repeated Primitive primitive = 7;
-  repeated Array array = 8;
-  repeated BaseClass base_class = 9;
-  repeated Method method = 10;
-  repeated Member member = 11;
-  repeated StructUnion struct_union = 12;
-  repeated Enumeration enumeration = 13;
-  repeated Function function = 14;
-  repeated ElfSymbol elf_symbol = 15;
-  optional Symbols symbols = 16;
+  uint32 version = 1;
+  fixed32 root_id = 2;
+  repeated Void void = 3;
+  repeated Variadic variadic = 4;
+  repeated PointerReference pointer_reference = 5;
+  repeated Typedef typedef = 6;
+  repeated Qualified qualified = 7;
+  repeated Primitive primitive = 8;
+  repeated Array array = 9;
+  repeated BaseClass base_class = 10;
+  repeated Method method = 11;
+  repeated Member member = 12;
+  repeated StructUnion struct_union = 13;
+  repeated Enumeration enumeration = 14;
+  repeated Function function = 15;
+  repeated ElfSymbol elf_symbol = 16;
+  optional Symbols symbols = 17;
 }

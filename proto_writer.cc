@@ -451,6 +451,8 @@ class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
   }
 };
 
+const uint32_t kWrittenFormatVersion = 0;
+
 }  // namespace
 
 void Print(const STG& stg, std::ostream& os) {
@@ -471,6 +473,7 @@ void Writer::Write(const Id& root, std::ostream& os) {
     auto get_id = [](Id id) { return id.ix_; };
     stg.set_root_id(Transform<decltype(get_id)>(graph_, stg, get_id)(root));
   }
+  stg.set_version(kWrittenFormatVersion);
   Print(stg, os);
 }
 
