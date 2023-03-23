@@ -378,7 +378,9 @@ class Processor {
   void ProcessTypedef(Entry& entry) {
     std::string type_name = GetName(entry);
     auto referred_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
-    AddProcessedNode<Typedef>(entry, std::move(type_name), referred_type_id);
+    const Id id = AddProcessedNode<Typedef>(entry, std::move(type_name),
+                                            referred_type_id);
+    AddNamedTypeNode(id);
   }
 
   template<typename Node, typename KindType>

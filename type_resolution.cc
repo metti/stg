@@ -45,7 +45,7 @@ struct NamedTypes {
         definitions(metrics, "named_types.definitions"),
         declarations(metrics, "named_types.declarations") {}
 
-  enum class Tag { STRUCT, UNION, ENUM };
+  enum class Tag { STRUCT, UNION, ENUM, TYPEDEF };
   using Type = std::pair<Tag, std::string>;
   struct Info {
     std::vector<Id> definitions;
@@ -83,7 +83,10 @@ struct NamedTypes {
     (*this)(x.pointee_type_id);
   }
 
-  void operator()(const Typedef& x, Id) {
+  void operator()(const Typedef& x, Id id) {
+    auto& info = GetInfo(Tag::TYPEDEF, x.name);
+    info.definitions.push_back(id);
+    ++definitions;
     (*this)(x.referred_type_id);
   }
 
