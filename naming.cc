@@ -162,7 +162,7 @@ Name Describe::operator()(const Member& x) {
   }
   if (x.bitsize) {
     description = description.Add(
-        Side::RIGHT, Precedence::ATOMIC, " : " + std::to_string(x.bitsize));
+        Side::RIGHT, Precedence::ATOMIC, ':' + std::to_string(x.bitsize));
   }
   return description;
 }
