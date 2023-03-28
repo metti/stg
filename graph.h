@@ -432,8 +432,8 @@ class Graph {
       reference = {Which::ELF_SYMBOL, elf_symbol_.size()};
       elf_symbol_.emplace_back(std::forward<Args>(args)...);
     } else if constexpr (std::is_same_v<Node, Interface>) {
-      reference = {Which::SYMBOLS, symbols_.size()};
-      symbols_.emplace_back(std::forward<Args>(args)...);
+      reference = {Which::INTERFACE, interface_.size()};
+      interface_.emplace_back(std::forward<Args>(args)...);
     } else {
       // unfortunately we cannot static_assert(false, "missing case")
       static_assert(std::is_same<Node, Node*>::value, "missing case");
@@ -488,7 +488,7 @@ class Graph {
     ENUMERATION,
     FUNCTION,
     ELF_SYMBOL,
-    SYMBOLS,
+    INTERFACE,
   };
 
   std::vector<std::pair<Which, size_t>> indirection_;
@@ -507,7 +507,7 @@ class Graph {
   std::vector<Enumeration> enumeration_;
   std::vector<Function> function_;
   std::vector<ElfSymbol> elf_symbol_;
-  std::vector<Interface> symbols_;
+  std::vector<Interface> interface_;
 };
 
 template <typename Result, typename FunctionObject, typename... Args>
@@ -544,8 +544,8 @@ Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) const {
       return function(function_[ix], std::forward<Args>(args)...);
     case Which::ELF_SYMBOL:
       return function(elf_symbol_[ix], std::forward<Args>(args)...);
-    case Which::SYMBOLS:
-      return function(symbols_[ix], std::forward<Args>(args)...);
+    case Which::INTERFACE:
+      return function(interface_[ix], std::forward<Args>(args)...);
   }
 }
 
@@ -602,8 +602,8 @@ Result Graph::Apply2(
     case Which::ELF_SYMBOL:
       return function(elf_symbol_[ix1], elf_symbol_[ix2],
                       std::forward<Args>(args)...);
-    case Which::SYMBOLS:
-      return function(symbols_[ix1], symbols_[ix2],
+    case Which::INTERFACE:
+      return function(interface_[ix1], interface_[ix2],
                       std::forward<Args>(args)...);
   }
 }
