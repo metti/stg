@@ -23,7 +23,6 @@
 #include <ostream>
 #include <set>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -189,10 +188,10 @@ void Fidelity::operator()(const Interface& x, Id) {
 }
 
 template <typename T>
-std::set<std::string_view> GetKeys(
+std::set<std::string> GetKeys(
     const std::unordered_map<std::string, T>& x1,
     const std::unordered_map<std::string, T>& x2) {
-  std::set<std::string_view> keys;
+  std::set<std::string> keys;
   for (const auto& [key, _] : x1) {
     keys.insert(key);
   }
@@ -226,15 +225,15 @@ template <typename T>
 void InsertTransitions(FidelityDiff& diff,
                        const std::unordered_map<std::string, T>& x1,
                        const std::unordered_map<std::string, T>& x2) {
-  for (auto key : GetKeys(x1, x2)) {
-    auto it1 = x1.find(key.data());
-    auto it2 = x2.find(key.data());
+  for (const auto& key : GetKeys(x1, x2)) {
+    auto it1 = x1.find(key);
+    auto it2 = x2.find(key);
     auto transition = std::make_pair(it1 == x1.end() ? T() : it1->second,
                                      it2 == x2.end() ? T() : it2->second);
     auto transition_severity = GetTransitionSeverity(transition);
     if (transition_severity != FidelityDiffSeverity::SKIP) {
       diff.severity = std::max(diff.severity, transition_severity);
-      InsertTransition(diff, transition, key.data());
+      InsertTransition(diff, transition, key);
     }
   }
 }
