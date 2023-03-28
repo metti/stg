@@ -123,7 +123,7 @@ struct Substitute {
     }
   }
 
-  void operator()(Symbols& x) {
+  void operator()(Interface& x) {
     Update(x.symbols);
   }
 

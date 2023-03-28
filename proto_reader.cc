@@ -229,7 +229,7 @@ void Transformer::AddNode(const Symbols& x) {
   for (const auto& [symbol, id] : x.symbol()) {
     symbols.emplace(symbol, GetId(id));
   }
-  AddNode<stg::Symbols>(GetId(x.id()), symbols);
+  AddNode<stg::Interface>(GetId(x.id()), symbols);
 }
 
 template <typename STGType, typename... Args>

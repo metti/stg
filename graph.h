@@ -300,8 +300,8 @@ std::string VersionedSymbolName(const ElfSymbol&);
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc);
 
-struct Symbols {
-  explicit Symbols(const std::map<std::string, Id>& symbols)
+struct Interface {
+  explicit Interface(const std::map<std::string, Id>& symbols)
       : symbols(symbols) {}
 
   std::map<std::string, Id> symbols;
@@ -431,7 +431,7 @@ class Graph {
     } else if constexpr (std::is_same_v<Node, ElfSymbol>) {
       reference = {Which::ELF_SYMBOL, elf_symbol_.size()};
       elf_symbol_.emplace_back(std::forward<Args>(args)...);
-    } else if constexpr (std::is_same_v<Node, Symbols>) {
+    } else if constexpr (std::is_same_v<Node, Interface>) {
       reference = {Which::SYMBOLS, symbols_.size()};
       symbols_.emplace_back(std::forward<Args>(args)...);
     } else {
@@ -507,7 +507,7 @@ class Graph {
   std::vector<Enumeration> enumeration_;
   std::vector<Function> function_;
   std::vector<ElfSymbol> elf_symbol_;
-  std::vector<Symbols> symbols_;
+  std::vector<Interface> symbols_;
 };
 
 template <typename Result, typename FunctionObject, typename... Args>

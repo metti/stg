@@ -49,7 +49,7 @@ class StableHash {
   HashValue operator()(const Enumeration&);
   HashValue operator()(const Function&);
   HashValue operator()(const ElfSymbol&);
-  HashValue operator()(const Symbols&);
+  HashValue operator()(const Interface&);
 
  private:
   const Graph& graph_;

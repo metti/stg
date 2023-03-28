@@ -283,7 +283,7 @@ struct Compare {
   Result operator()(const Enumeration&, const Enumeration&);
   Result operator()(const Function&, const Function&);
   Result operator()(const ElfSymbol&, const ElfSymbol&);
-  Result operator()(const Symbols&, const Symbols&);
+  Result operator()(const Interface&, const Interface&);
 
   const Graph& graph;
   const Ignore ignore;

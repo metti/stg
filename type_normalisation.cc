@@ -144,7 +144,7 @@ struct FindQualifiedTypesAndFunctions {
     }
   }
 
-  void operator()(const Symbols& x, Id) {
+  void operator()(const Interface& x, Id) {
     for (auto& [_, id] : x.symbols) {
       (*this)(id);
     }

@@ -210,7 +210,7 @@ struct Equals {
     return result;
   }
 
-  bool operator()(const Symbols& x1, const Symbols& x2) {
+  bool operator()(const Interface& x1, const Interface& x2) {
     return (*this)(x1.symbols, x2.symbols);
   }
 

@@ -228,8 +228,8 @@ Name Describe::operator()(const ElfSymbol& x) {
       : Name{name};
 }
 
-Name Describe::operator()(const Symbols&) {
-  return Name{"symbols"};
+Name Describe::operator()(const Interface&) {
+  return Name{"interface"};
 }
 
 std::string DescribeKind::operator()(Id id) {
@@ -254,8 +254,8 @@ std::string DescribeKind::operator()(const ElfSymbol& x) {
   return os.str();
 }
 
-std::string DescribeKind::operator()(const Symbols&) {
-  return "symbols";
+std::string DescribeKind::operator()(const Interface&) {
+  return "interface";
 }
 
 template <typename Node>

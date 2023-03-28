@@ -88,7 +88,7 @@ struct Fidelity {
   void operator()(const Enumeration&, Id);
   void operator()(const Function&, Id);
   void operator()(const ElfSymbol&, Id);
-  void operator()(const Symbols&, Id);
+  void operator()(const Interface&, Id);
 
   const Graph& graph;
   Describe describe;
@@ -182,7 +182,7 @@ void Fidelity::operator()(const ElfSymbol& x, Id) {
   }
 }
 
-void Fidelity::operator()(const Symbols& x, Id) {
+void Fidelity::operator()(const Interface& x, Id) {
   for (const auto& [_, id] : x.symbols) {
     (*this)(id);
   }

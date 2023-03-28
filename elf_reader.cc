@@ -369,7 +369,7 @@ Id Reader::Read() {
         std::string(symbol.name),
         graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
   }
-  auto root = graph_.Add<Symbols>(std::move(symbols_map));
+  auto root = graph_.Add<Interface>(std::move(symbols_map));
   // Types produced by ELF/DWARF readers may require removing useless
   // qualifiers.
   RemoveUselessQualifiers(graph_, root);

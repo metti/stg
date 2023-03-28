@@ -606,7 +606,7 @@ Result Compare::operator()(const ElfSymbol& x1, const ElfSymbol& x2) {
   return result;
 }
 
-Result Compare::operator()(const Symbols& x1, const Symbols& x2) {
+Result Compare::operator()(const Interface& x1, const Interface& x2) {
   Result result;
   result.diff_.holds_changes = true;
 

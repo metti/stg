@@ -157,8 +157,8 @@ HashValue StableHash::operator()(const ElfSymbol& x) {
   return hash;
 }
 
-HashValue StableHash::operator()(const Symbols&) {
-  return hash_("symtab");
+HashValue StableHash::operator()(const Interface&) {
+  return hash_("interface");
 }
 
 }  // namespace stg

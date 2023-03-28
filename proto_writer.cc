@@ -75,7 +75,7 @@ struct Transform {
   void operator()(const stg::Enumeration&, uint32_t);
   void operator()(const stg::Function&, uint32_t);
   void operator()(const stg::ElfSymbol&, uint32_t);
-  void operator()(const stg::Symbols&, uint32_t);
+  void operator()(const stg::Interface&, uint32_t);
 
   PointerReference::Kind operator()(stg::PointerReference::Kind);
   Qualified::Qualifier operator()(stg::Qualifier);
@@ -276,7 +276,7 @@ void Transform<MapId>::operator()(const stg::ElfSymbol& x, uint32_t id) {
 }
 
 template <typename MapId>
-void Transform<MapId>::operator()(const stg::Symbols& x, uint32_t id) {
+void Transform<MapId>::operator()(const stg::Interface& x, uint32_t id) {
   auto& symbols = *stg.mutable_symbols();
   symbols.set_id(id);
   for (const auto& [symbol, id] : x.symbols) {

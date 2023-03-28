@@ -131,7 +131,7 @@ struct Hasher {
     return hash('S', x.symbol_name);
   }
 
-  HashValue operator()(const Symbols& x) {
+  HashValue operator()(const Interface& x) {
     for (const auto& [name, symbol] : x.symbols) {
       todo.insert(symbol);
     }
