@@ -31,7 +31,7 @@ TEST_CASE("GetKsymtabSymbols") {
   };
   const auto ksymtab = stg::elf::internal::GetKsymtabSymbols(all_symbols);
   REQUIRE(ksymtab.size() == 1);
-  CHECK(*ksymtab.begin() == "foo");  // NOLINT(readability/check)
+  CHECK(*ksymtab.begin() == "foo");
 }
 
 }  // namespace Test

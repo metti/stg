@@ -23,7 +23,6 @@
 #include <ostream>
 #include <set>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -77,6 +76,7 @@ struct Fidelity {
   void operator()(const Void&, Id);
   void operator()(const Variadic&, Id);
   void operator()(const PointerReference&, Id);
+  void operator()(const PointerToMember&, Id);
   void operator()(const Typedef&, Id);
   void operator()(const Qualified&, Id);
   void operator()(const Primitive&, Id);
@@ -88,7 +88,7 @@ struct Fidelity {
   void operator()(const Enumeration&, Id);
   void operator()(const Function&, Id);
   void operator()(const ElfSymbol&, Id);
-  void operator()(const Symbols&, Id);
+  void operator()(const Interface&, Id);
 
   const Graph& graph;
   Describe describe;
@@ -114,6 +114,11 @@ void Fidelity::operator()(const Void&, Id) {}
 void Fidelity::operator()(const Variadic&, Id) {}
 
 void Fidelity::operator()(const PointerReference& x, Id) {
+  (*this)(x.pointee_type_id);
+}
+
+void Fidelity::operator()(const PointerToMember& x, Id) {
+  (*this)(x.containing_type_id);
   (*this)(x.pointee_type_id);
 }
 
@@ -182,17 +187,17 @@ void Fidelity::operator()(const ElfSymbol& x, Id) {
   }
 }
 
-void Fidelity::operator()(const Symbols& x, Id) {
+void Fidelity::operator()(const Interface& x, Id) {
   for (const auto& [_, id] : x.symbols) {
     (*this)(id);
   }
 }
 
 template <typename T>
-std::set<std::string_view> GetKeys(
+std::set<std::string> GetKeys(
     const std::unordered_map<std::string, T>& x1,
     const std::unordered_map<std::string, T>& x2) {
-  std::set<std::string_view> keys;
+  std::set<std::string> keys;
   for (const auto& [key, _] : x1) {
     keys.insert(key);
   }
@@ -226,15 +231,15 @@ template <typename T>
 void InsertTransitions(FidelityDiff& diff,
                        const std::unordered_map<std::string, T>& x1,
                        const std::unordered_map<std::string, T>& x2) {
-  for (auto key : GetKeys(x1, x2)) {
-    auto it1 = x1.find(key.data());
-    auto it2 = x2.find(key.data());
+  for (const auto& key : GetKeys(x1, x2)) {
+    auto it1 = x1.find(key);
+    auto it2 = x2.find(key);
     auto transition = std::make_pair(it1 == x1.end() ? T() : it1->second,
                                      it2 == x2.end() ? T() : it2->second);
     auto transition_severity = GetTransitionSeverity(transition);
     if (transition_severity != FidelityDiffSeverity::SKIP) {
       diff.severity = std::max(diff.severity, transition_severity);
-      InsertTransition(diff, transition, key.data());
+      InsertTransition(diff, transition, key);
     }
   }
 }

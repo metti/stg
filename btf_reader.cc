@@ -515,7 +515,7 @@ void Structs::PrintStrings(MemoryRange memory) {
 }
 
 Id Structs::BuildSymbols() {
-  return graph_.Add<Symbols>(btf_symbols_);
+  return graph_.Add<Interface>(btf_symbols_);
 }
 
 Id ReadFile(Graph& graph, const std::string& path, bool verbose) {

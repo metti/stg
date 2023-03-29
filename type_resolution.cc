@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "error.h"
+#include "graph.h"
 #include "substitution.h"
 
 namespace stg {
@@ -45,7 +46,7 @@ struct NamedTypes {
         definitions(metrics, "named_types.definitions"),
         declarations(metrics, "named_types.declarations") {}
 
-  enum class Tag { STRUCT, UNION, ENUM };
+  enum class Tag { STRUCT, UNION, ENUM, TYPEDEF };
   using Type = std::pair<Tag, std::string>;
   struct Info {
     std::vector<Id> definitions;
@@ -83,7 +84,15 @@ struct NamedTypes {
     (*this)(x.pointee_type_id);
   }
 
-  void operator()(const Typedef& x, Id) {
+  void operator()(const PointerToMember& x, Id) {
+    (*this)(x.containing_type_id);
+    (*this)(x.pointee_type_id);
+  }
+
+  void operator()(const Typedef& x, Id id) {
+    auto& info = GetInfo(Tag::TYPEDEF, x.name);
+    info.definitions.push_back(id);
+    ++definitions;
     (*this)(x.referred_type_id);
   }
 
@@ -159,7 +168,7 @@ struct NamedTypes {
     }
   }
 
-  void operator()(const Symbols& x, Id) {
+  void operator()(const Interface& x, Id) {
     for (const auto& [_, symbol] : x.symbols) {
       (*this)(symbol);
     }
@@ -330,6 +339,11 @@ struct Unify {
         && (*this)(x1.pointee_type_id, x2.pointee_type_id);
   }
 
+  bool operator()(const PointerToMember& x1, const PointerToMember& x2) {
+    return (*this)(x1.containing_type_id, x2.containing_type_id)
+        && (*this)(x1.pointee_type_id, x2.pointee_type_id);
+  }
+
   bool operator()(const Typedef& x1, const Typedef& x2) {
     return x1.name == x2.name
         && (*this)(x1.referred_type_id, x2.referred_type_id);
@@ -422,7 +436,7 @@ struct Unify {
     return result;
   }
 
-  bool operator()(const Symbols& x1, const Symbols& x2) {
+  bool operator()(const Interface& x1, const Interface& x2) {
     return (*this)(x1.symbols, x2.symbols);
   }
 

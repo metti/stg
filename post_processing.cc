@@ -23,7 +23,7 @@
 #include <iostream>
 #include <map>
 #include <ostream>
-#include <regex>  // NOLINT
+#include <regex>
 #include <sstream>
 #include <string>
 #include <unordered_map>

@@ -61,6 +61,7 @@ struct Describe {
   Name operator()(const Void&);
   Name operator()(const Variadic&);
   Name operator()(const PointerReference&);
+  Name operator()(const PointerToMember&);
   Name operator()(const Typedef&);
   Name operator()(const Qualified&);
   Name operator()(const Primitive&);
@@ -72,7 +73,7 @@ struct Describe {
   Name operator()(const Enumeration&);
   Name operator()(const Function&);
   Name operator()(const ElfSymbol&);
-  Name operator()(const Symbols&);
+  Name operator()(const Interface&);
   const Graph& graph;
   NameCache& names;
 };
@@ -84,7 +85,7 @@ struct DescribeKind {
   std::string operator()(const Member&);
   std::string operator()(const Method&);
   std::string operator()(const ElfSymbol&);
-  std::string operator()(const Symbols&);
+  std::string operator()(const Interface&);
   template <typename Node>
   std::string operator()(const Node&);
   const Graph& graph;

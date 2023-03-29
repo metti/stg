@@ -272,6 +272,7 @@ struct Compare {
   Result operator()(const Void&, const Void&);
   Result operator()(const Variadic&, const Variadic&);
   Result operator()(const PointerReference&, const PointerReference&);
+  Result operator()(const PointerToMember&, const PointerToMember&);
   Result operator()(const Typedef&, const Typedef&);
   Result operator()(const Qualified&, const Qualified&);
   Result operator()(const Primitive&, const Primitive&);
@@ -283,7 +284,7 @@ struct Compare {
   Result operator()(const Enumeration&, const Enumeration&);
   Result operator()(const Function&, const Function&);
   Result operator()(const ElfSymbol&, const ElfSymbol&);
-  Result operator()(const Symbols&, const Symbols&);
+  Result operator()(const Interface&, const Interface&);
 
   const Graph& graph;
   const Ignore ignore;
