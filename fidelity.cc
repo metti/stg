@@ -76,6 +76,7 @@ struct Fidelity {
   void operator()(const Void&, Id);
   void operator()(const Variadic&, Id);
   void operator()(const PointerReference&, Id);
+  void operator()(const PointerToMember&, Id);
   void operator()(const Typedef&, Id);
   void operator()(const Qualified&, Id);
   void operator()(const Primitive&, Id);
@@ -113,6 +114,11 @@ void Fidelity::operator()(const Void&, Id) {}
 void Fidelity::operator()(const Variadic&, Id) {}
 
 void Fidelity::operator()(const PointerReference& x, Id) {
+  (*this)(x.pointee_type_id);
+}
+
+void Fidelity::operator()(const PointerToMember& x, Id) {
+  (*this)(x.containing_type_id);
   (*this)(x.pointee_type_id);
 }
 

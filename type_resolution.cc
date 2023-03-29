@@ -84,6 +84,11 @@ struct NamedTypes {
     (*this)(x.pointee_type_id);
   }
 
+  void operator()(const PointerToMember& x, Id) {
+    (*this)(x.containing_type_id);
+    (*this)(x.pointee_type_id);
+  }
+
   void operator()(const Typedef& x, Id id) {
     auto& info = GetInfo(Tag::TYPEDEF, x.name);
     info.definitions.push_back(id);
@@ -331,6 +336,11 @@ struct Unify {
   bool operator()(const PointerReference& x1,
                   const PointerReference& x2) {
     return x1.kind == x2.kind
+        && (*this)(x1.pointee_type_id, x2.pointee_type_id);
+  }
+
+  bool operator()(const PointerToMember& x1, const PointerToMember& x2) {
+    return (*this)(x1.containing_type_id, x2.containing_type_id)
         && (*this)(x1.pointee_type_id, x2.pointee_type_id);
   }
 

@@ -54,6 +54,7 @@ struct Transformer {
   void AddNode(const Void&);
   void AddNode(const Variadic&);
   void AddNode(const PointerReference&);
+  void AddNode(const PointerToMember&);
   void AddNode(const Typedef&);
   void AddNode(const Qualified&);
   void AddNode(const Primitive&);
@@ -94,6 +95,7 @@ Id Transformer::Transform(const proto::STG& x) {
   AddNodes(x.void_());
   AddNodes(x.variadic());
   AddNodes(x.pointer_reference());
+  AddNodes(x.pointer_to_member());
   AddNodes(x.typedef_());
   AddNodes(x.qualified());
   AddNodes(x.primitive());
@@ -137,6 +139,11 @@ void Transformer::AddNode(const Variadic& x) {
 void Transformer::AddNode(const PointerReference& x) {
   AddNode<stg::PointerReference>(GetId(x.id()), x.kind(),
                                  GetId(x.pointee_type_id()));
+}
+
+void Transformer::AddNode(const PointerToMember& x) {
+  AddNode<stg::PointerToMember>(GetId(x.id()), GetId(x.containing_type_id()),
+                                GetId(x.pointee_type_id()));
 }
 
 void Transformer::AddNode(const Typedef& x) {

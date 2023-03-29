@@ -49,6 +49,10 @@ struct Hasher {
     return hash('P', static_cast<uint32_t>(x.kind), (*this)(x.pointee_type_id));
   }
 
+  HashValue operator()(const PointerToMember& x) {
+    return hash('N', (*this)(x.containing_type_id), (*this)(x.pointee_type_id));
+  }
+
   HashValue operator()(const Typedef& x) {
     todo.insert(x.referred_type_id);
     return hash('T', x.name);

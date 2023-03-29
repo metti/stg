@@ -32,11 +32,17 @@ Name Name::Add(Side side, Precedence precedence,
   std::ostringstream left;
   std::ostringstream right;
 
-  // Bits on the left need (sometimes) to be separated by whitespace.
+  // Bits on the left require whitespace separation when an identifier is being
+  // added. While it would be simpler to unconditionally add a space, we choose
+  // to only do this for identifiers and not for pointer and reference tokens,
+  // except for the longer pointer-to-member syntax.
+  //
+  // For illegal types containing && & or & && this could result in &&&.
   left << left_;
   if (bracket) {
     left << '(';
-  } else if (side == Side::LEFT && precedence == Precedence::ATOMIC)  {
+  } else if (side == Side::LEFT
+             && (precedence == Precedence::ATOMIC || text.size() > 2)) {
     left << ' ';
   }
 
@@ -130,6 +136,13 @@ Name Describe::operator()(const PointerReference& x) {
   }
   return (*this)(x.pointee_type_id)
           .Add(Side::LEFT, Precedence::POINTER, sign);
+}
+
+Name Describe::operator()(const PointerToMember& x) {
+  std::ostringstream os;
+  os << (*this)(x.containing_type_id) << "::*";
+  return (*this)(x.pointee_type_id).Add(Side::LEFT, Precedence::POINTER,
+                                        os.str());
 }
 
 Name Describe::operator()(const Typedef& x) {

@@ -70,6 +70,11 @@ struct Substitute {
     Update(x.pointee_type_id);
   }
 
+  void operator()(PointerToMember& x) {
+    Update(x.containing_type_id);
+    Update(x.pointee_type_id);
+  }
+
   void operator()(Typedef& x) {
     Update(x.referred_type_id);
   }

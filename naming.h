@@ -61,6 +61,7 @@ struct Describe {
   Name operator()(const Void&);
   Name operator()(const Variadic&);
   Name operator()(const PointerReference&);
+  Name operator()(const PointerToMember&);
   Name operator()(const Typedef&);
   Name operator()(const Qualified&);
   Name operator()(const Primitive&);

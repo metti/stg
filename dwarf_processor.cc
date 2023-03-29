@@ -296,6 +296,9 @@ class Processor {
         ProcessReference<PointerReference>(
             entry, PointerReference::Kind::RVALUE_REFERENCE);
         break;
+      case DW_TAG_ptr_to_member_type:
+        ProcessPointerToMember(entry);
+        break;
       case DW_TAG_compile_unit:
         ProcessCompileUnit(entry);
         break;
@@ -387,6 +390,15 @@ class Processor {
   void ProcessReference(Entry& entry, KindType kind) {
     auto referred_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
     AddProcessedNode<Node>(entry, kind, referred_type_id);
+  }
+
+  void ProcessPointerToMember(Entry& entry) {
+    const Id containing_type_id =
+        GetIdForReferredType(entry.MaybeGetReference(DW_AT_containing_type));
+    const Id pointee_type_id =
+        GetIdForReferredType(MaybeGetReferredType(entry));
+    AddProcessedNode<PointerToMember>(entry, containing_type_id,
+                                      pointee_type_id);
   }
 
   void ProcessStructUnion(Entry& entry, StructUnion::Kind kind) {

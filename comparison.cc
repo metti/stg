@@ -243,6 +243,15 @@ Result Compare::operator()(const PointerReference& x1,
   return result;
 }
 
+Result Compare::operator()(const PointerToMember& x1,
+                           const PointerToMember& x2) {
+  Result result;
+  result.MaybeAddEdgeDiff(
+      "containing", (*this)(x1.containing_type_id, x2.containing_type_id));
+  result.MaybeAddEdgeDiff("", (*this)(x1.pointee_type_id, x2.pointee_type_id));
+  return result;
+}
+
 Result Compare::operator()(const Typedef&, const Typedef&) {
   // Compare will never attempt to directly compare Typedefs.
   Die() << "internal error: Compare(Typedef)";

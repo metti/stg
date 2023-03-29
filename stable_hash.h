@@ -38,6 +38,7 @@ class StableHash {
   HashValue operator()(const Void&);
   HashValue operator()(const Variadic&);
   HashValue operator()(const PointerReference&);
+  HashValue operator()(const PointerToMember&);
   HashValue operator()(const Typedef&);
   HashValue operator()(const Qualified&);
   HashValue operator()(const Primitive&);

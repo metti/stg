@@ -88,6 +88,11 @@ struct FindQualifiedTypesAndFunctions {
     (*this)(x.pointee_type_id);
   }
 
+  void operator()(const PointerToMember& x, Id) {
+    (*this)(x.containing_type_id);
+    (*this)(x.pointee_type_id);
+  }
+
   // Typedefs are not considered when looking for useless qualifiers.
   void operator()(const Typedef& x, Id) {
     (*this)(x.referred_type_id);

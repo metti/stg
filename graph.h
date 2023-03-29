@@ -103,6 +103,15 @@ struct PointerReference {
 
 std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind);
 
+struct PointerToMember {
+  PointerToMember(Id containing_type_id, Id pointee_type_id)
+      : containing_type_id(containing_type_id), pointee_type_id(pointee_type_id)
+  {}
+
+  Id containing_type_id;
+  Id pointee_type_id;
+};
+
 struct Typedef {
   Typedef(const std::string& name, Id referred_type_id)
       : name(name), referred_type_id(referred_type_id) {}
@@ -398,6 +407,9 @@ class Graph {
     } else if constexpr (std::is_same_v<Node, PointerReference>) {
       reference = {Which::POINTER_REFERENCE, pointer_reference_.size()};
       pointer_reference_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, PointerToMember>) {
+      reference = {Which::POINTER_TO_MEMBER, pointer_to_member_.size()};
+      pointer_to_member_.emplace_back(std::forward<Args>(args)...);
     } else if constexpr (std::is_same_v<Node, Typedef>) {
       reference = {Which::TYPEDEF, typedef_.size()};
       typedef_.emplace_back(std::forward<Args>(args)...);
@@ -477,6 +489,7 @@ class Graph {
     VOID,
     VARIADIC,
     POINTER_REFERENCE,
+    POINTER_TO_MEMBER,
     TYPEDEF,
     QUALIFIED,
     PRIMITIVE,
@@ -496,6 +509,7 @@ class Graph {
   std::vector<Void> void_;
   std::vector<Variadic> variadic_;
   std::vector<PointerReference> pointer_reference_;
+  std::vector<PointerToMember> pointer_to_member_;
   std::vector<Typedef> typedef_;
   std::vector<Qualified> qualified_;
   std::vector<Primitive> primitive_;
@@ -522,6 +536,8 @@ Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) const {
       return function(variadic_[ix], std::forward<Args>(args)...);
     case Which::POINTER_REFERENCE:
       return function(pointer_reference_[ix], std::forward<Args>(args)...);
+    case Which::POINTER_TO_MEMBER:
+      return function(pointer_to_member_[ix], std::forward<Args>(args)...);
     case Which::TYPEDEF:
       return function(typedef_[ix], std::forward<Args>(args)...);
     case Which::QUALIFIED:
@@ -568,6 +584,9 @@ Result Graph::Apply2(
                       std::forward<Args>(args)...);
     case Which::POINTER_REFERENCE:
       return function(pointer_reference_[ix1], pointer_reference_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::POINTER_TO_MEMBER:
+      return function(pointer_to_member_[ix1], pointer_to_member_[ix2],
                       std::forward<Args>(args)...);
     case Which::TYPEDEF:
       return function(typedef_[ix1], typedef_[ix2],
