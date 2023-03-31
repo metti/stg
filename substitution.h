@@ -130,6 +130,7 @@ struct Substitute {
 
   void operator()(Interface& x) {
     Update(x.symbols);
+    Update(x.types);
   }
 
   Graph& graph;

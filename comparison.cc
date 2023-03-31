@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <array>
+#include <map>
 #include <optional>
 #include <ostream>
 #include <sstream>
@@ -371,6 +372,46 @@ void CompareNodes(Result& result, Compare& compare, const std::vector<Id>& ids1,
   }
 }
 
+void CompareNodes(Result& result, Compare& compare,
+                  const std::map<std::string, Id>& x1,
+                  const std::map<std::string, Id>& x2) {
+  // Group diffs into removed, added and changed symbols for readability.
+  std::vector<Id> removed;
+  std::vector<Id> added;
+  std::vector<std::pair<Id, Id>> in_both;
+
+  auto it1 = x1.begin();
+  auto it2 = x2.begin();
+  const auto end1 = x1.end();
+  const auto end2 = x2.end();
+  while (it1 != end1 || it2 != end2) {
+    if (it2 == end2 || (it1 != end1 && it1->first < it2->first)) {
+      // removed
+      removed.push_back(it1->second);
+      ++it1;
+    } else if (it1 == end1 || (it2 != end2 && it1->first > it2->first)) {
+      // added
+      added.push_back(it2->second);
+      ++it2;
+    } else {
+      // in both
+      in_both.emplace_back(it1->second, it2->second);
+      ++it1;
+      ++it2;
+    }
+  }
+
+  for (const auto symbol1 : removed) {
+    result.AddEdgeDiff("", compare.Removed(symbol1));
+  }
+  for (const auto symbol2 : added) {
+    result.AddEdgeDiff("", compare.Added(symbol2));
+  }
+  for (const auto& [symbol1, symbol2] : in_both) {
+    result.MaybeAddEdgeDiff("", compare(symbol1, symbol2));
+  }
+}
+
 }  // namespace
 
 Result Compare::operator()(const BaseClass& x1, const BaseClass& x2) {
@@ -627,45 +668,8 @@ Result Compare::operator()(const ElfSymbol& x1, const ElfSymbol& x2) {
 Result Compare::operator()(const Interface& x1, const Interface& x2) {
   Result result;
   result.diff_.holds_changes = true;
-
-  // Group diffs into removed, added and changed symbols for readability.
-  std::vector<Id> removed;
-  std::vector<Id> added;
-  std::vector<std::pair<Id, Id>> in_both;
-
-  const auto& symbols1 = x1.symbols;
-  const auto& symbols2 = x2.symbols;
-  auto it1 = symbols1.begin();
-  auto it2 = symbols2.begin();
-  const auto end1 = symbols1.end();
-  const auto end2 = symbols2.end();
-  while (it1 != end1 || it2 != end2) {
-    if (it2 == end2 || (it1 != end1 && it1->first < it2->first)) {
-      // removed
-      removed.push_back(it1->second);
-      ++it1;
-    } else if (it1 == end1 || (it2 != end2 && it1->first > it2->first)) {
-      // added
-      added.push_back(it2->second);
-      ++it2;
-    } else {
-      // in both
-      in_both.emplace_back(it1->second, it2->second);
-      ++it1;
-      ++it2;
-    }
-  }
-
-  for (const auto symbol1 : removed) {
-    result.AddEdgeDiff("", Removed(symbol1));
-  }
-  for (const auto symbol2 : added) {
-    result.AddEdgeDiff("", Added(symbol2));
-  }
-  for (const auto& [symbol1, symbol2] : in_both) {
-    result.MaybeAddEdgeDiff("", (*this)(symbol1, symbol2));
-  }
-
+  CompareNodes(result, *this, x1.symbols, x2.symbols);
+  CompareNodes(result, *this, x1.types, x2.types);
   return result;
 }
 

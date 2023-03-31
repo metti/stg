@@ -27,6 +27,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "deduplication.h"
@@ -45,22 +46,22 @@ namespace {
 Metrics metrics;
 
 struct GetInterface {
-  const std::map<std::string, Id>& operator()(const Interface& x) {
-    return x.symbols;
+  Interface& operator()(Interface& x) {
+    return x;
   }
 
   template <typename Node>
-  const std::map<std::string, Id>& operator()(const Node&) {
+  Interface& operator()(Node&) {
     Die() << "expected an Interface root node";
   }
 };
 
+// TODO: Implement merging for rooted types.
 Id Merge(Graph& graph, const std::vector<Id>& roots) {
   std::map<std::string, Id> symbols;
   GetInterface get;
   for (auto root : roots) {
-    for (const auto& x :
-         graph.Apply<const std::map<std::string, Id>&>(get, root)) {
+    for (const auto& x : graph.Apply<Interface&>(get, root).symbols) {
       if (!symbols.insert(x).second) {
         Die() << "merge failed with duplicate symbol: " << x.first;
       }
@@ -73,14 +74,13 @@ Id Merge(Graph& graph, const std::vector<Id>& roots) {
 void Filter(Graph& graph, Id root, const SymbolFilter& filter) {
   std::map<std::string, Id> symbols;
   GetInterface get;
-  for (const auto& x :
-       graph.Apply<const std::map<std::string, Id>&>(get, root)) {
+  auto& interface = graph.Apply<Interface&>(get, root);
+  for (const auto& x : interface.symbols) {
     if (filter(x.first)) {
       symbols.insert(x);
     }
   }
-  graph.Unset(root);
-  graph.Set<Interface>(root, symbols);
+  std::swap(interface.symbols, symbols);
 }
 
 void Write(const Graph& graph, Id root, const char* output, bool stable) {

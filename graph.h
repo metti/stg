@@ -312,8 +312,12 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc);
 struct Interface {
   explicit Interface(const std::map<std::string, Id>& symbols)
       : symbols(symbols) {}
+  Interface(const std::map<std::string, Id>& symbols,
+            const std::map<std::string, Id>& types)
+      : symbols(symbols), types(types) {}
 
   std::map<std::string, Id> symbols;
+  std::map<std::string, Id> types;
 };
 
 std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding);
