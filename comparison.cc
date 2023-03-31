@@ -298,9 +298,10 @@ bool Compare::CompareDefined(bool defined1, bool defined2, Result& result) {
   return false;
 }
 
+namespace {
+
 using KeyIndexPairs = std::vector<std::pair<std::string, size_t>>;
-static KeyIndexPairs MatchingKeys(const Graph& graph,
-                                  const std::vector<Id>& ids) {
+KeyIndexPairs MatchingKeys(const Graph& graph, const std::vector<Id>& ids) {
   KeyIndexPairs keys;
   const auto size = ids.size();
   keys.reserve(size);
@@ -318,8 +319,7 @@ static KeyIndexPairs MatchingKeys(const Graph& graph,
 
 using MatchedPairs =
     std::vector<std::pair<std::optional<size_t>, std::optional<size_t>>>;
-static MatchedPairs PairUp(const KeyIndexPairs& keys1,
-                           const KeyIndexPairs& keys2) {
+MatchedPairs PairUp(const KeyIndexPairs& keys1, const KeyIndexPairs& keys2) {
   MatchedPairs pairs;
   pairs.reserve(std::max(keys1.size(), keys2.size()));
   auto it1 = keys1.begin();
@@ -345,10 +345,8 @@ static MatchedPairs PairUp(const KeyIndexPairs& keys1,
   return pairs;
 }
 
-static void CompareNodes(Result& result, Compare& compare,
-                         const std::vector<Id>& ids1,
-                         const std::vector<Id>& ids2,
-                         const bool reorder) {
+void CompareNodes(Result& result, Compare& compare, const std::vector<Id>& ids1,
+                  const std::vector<Id>& ids2, const bool reorder) {
   const auto keys1 = MatchingKeys(compare.graph, ids1);
   const auto keys2 = MatchingKeys(compare.graph, ids2);
   auto pairs = PairUp(keys1, keys2);
@@ -372,6 +370,8 @@ static void CompareNodes(Result& result, Compare& compare,
     }
   }
 }
+
+}  // namespace
 
 Result Compare::operator()(const BaseClass& x1, const BaseClass& x2) {
   Result result;
