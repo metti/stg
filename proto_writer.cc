@@ -286,7 +286,7 @@ void Transform<MapId>::operator()(const stg::ElfSymbol& x, uint32_t id) {
 
 template <typename MapId>
 void Transform<MapId>::operator()(const stg::Interface& x, uint32_t id) {
-  auto& symbols = *stg.mutable_symbols();
+  auto& symbols = *stg.add_symbols();
   symbols.set_id(id);
   for (const auto& [symbol, id] : x.symbols) {
     (*symbols.mutable_symbol())[symbol] = (*this)(id);

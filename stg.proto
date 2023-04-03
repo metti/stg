@@ -257,5 +257,5 @@ message STG {
   repeated Enumeration enumeration = 15;
   repeated Function function = 16;
   repeated ElfSymbol elf_symbol = 17;
-  optional Symbols symbols = 18;
+  repeated Symbols symbols = 18;
 }

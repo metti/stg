@@ -107,9 +107,7 @@ Id Transformer::Transform(const proto::STG& x) {
   AddNodes(x.enumeration());
   AddNodes(x.function());
   AddNodes(x.elf_symbol());
-  if (x.has_symbols()) {
-    AddNode(x.symbols());
-  }
+  AddNodes(x.symbols());
   return GetId(x.root_id());
 }
 
