@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cstdint>
 #include <fstream>
 #include <map>
@@ -32,6 +33,7 @@
 
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/repeated_field.h>
+#include <google/protobuf/repeated_ptr_field.h>
 #include <google/protobuf/text_format.h>
 #include "error.h"
 #include "graph.h"
@@ -67,10 +69,14 @@ struct Transformer {
   void AddNode(const Function&);
   void AddNode(const ElfSymbol&);
   void AddNode(const Symbols&);
+  void AddNode(const Interface&);
   template <typename STGType, typename... Args>
   void AddNode(Args&&...);
 
   std::vector<Id> Transform(const google::protobuf::RepeatedField<uint32_t>&);
+  template <typename GetKey>
+  std::map<std::string, Id> Transform(GetKey,
+                                      const google::protobuf::RepeatedField<uint32_t>&);
   stg::PointerReference::Kind Transform(PointerReference::Kind);
   stg::Qualifier Transform(Qualified::Qualifier);
   stg::Primitive::Encoding Transform(Primitive::Encoding);
@@ -108,6 +114,7 @@ Id Transformer::Transform(const proto::STG& x) {
   AddNodes(x.function());
   AddNodes(x.elf_symbol());
   AddNodes(x.symbols());
+  AddNodes(x.interface());
   return GetId(x.root_id());
 }
 
@@ -237,6 +244,12 @@ void Transformer::AddNode(const Symbols& x) {
   AddNode<stg::Interface>(GetId(x.id()), symbols);
 }
 
+void Transformer::AddNode(const Interface& x) {
+  const InterfaceKey get_key(graph);
+  AddNode<stg::Interface>(GetId(x.id()), Transform(get_key, x.symbol_id()),
+                          Transform(get_key, x.type_id()));
+}
+
 template <typename STGType, typename... Args>
 void Transformer::AddNode(Args&&... args) {
   graph.Set<STGType>(Transform(args)...);
@@ -248,6 +261,20 @@ std::vector<Id> Transformer::Transform(
   result.reserve(ids.size());
   for (uint32_t id : ids) {
     result.push_back(GetId(id));
+  }
+  return result;
+}
+
+template <typename GetKey>
+std::map<std::string, Id> Transformer::Transform(
+    GetKey get_key, const google::protobuf::RepeatedField<uint32_t>& ids) {
+  std::map<std::string, Id> result;
+  for (auto id : ids) {
+    const Id stg_id = GetId(id);
+    const auto [it, inserted] = result.emplace(get_key(stg_id), stg_id);
+    if (!inserted) {
+      Die() << "found conflicting interface nodes: " << it->first << '\n';
+    }
   }
   return result;
 }
@@ -409,7 +436,7 @@ Type Transformer::Transform(const Type& x) {
   return x;
 }
 
-const std::array<uint32_t, 1> kSupportedFormatVersions = {0};
+const std::array<uint32_t, 2> kSupportedFormatVersions = {0, 1};
 
 void CheckFormatVersion(uint32_t version, std::optional<std::string> path) {
   Check(std::count(kSupportedFormatVersions.begin(),
