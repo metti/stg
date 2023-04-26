@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2022-2023 Google LLC
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -15,22 +15,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Giuliano Procida
+// Author: Siddharth Nayyar
 
-#ifndef STG_INPUT_H_
-#define STG_INPUT_H_
+#ifndef STG_READER_OPTIONS_H_
+#define STG_READER_OPTIONS_H_
 
-#include "graph.h"
-#include "metrics.h"
-#include "reader_options.h"
+#include <type_traits>
 
 namespace stg {
 
-enum class InputFormat { ABI, BTF, ELF, STG };
+struct ReadOptions {
+  enum Value {
+    INFO = 1 << 0,
+    SKIP_DWARF = 1 << 1,
+  };
 
-Id Read(Graph& graph, InputFormat format, const char* input,
-        ReadOptions options, Metrics& metrics);
+  using Bitset = std::underlying_type_t<Value>;
+
+  ReadOptions() = default;
+  template <typename... Values>
+  explicit ReadOptions(Values... values) {
+    for (auto value : {values...}) {
+      Set(value);
+    }
+  }
+
+  void Set(Value other) {
+    bitset |= static_cast<Bitset>(other);
+  }
+
+  bool Test(Value other) const {
+    return static_cast<bool>(bitset & static_cast<Bitset>(other));
+  }
+
+  Bitset bitset = 0;
+};
 
 }  // namespace stg
 
-#endif  // STG_INPUT_H_
+#endif  // STG_READER_OPTIONS_H_

@@ -39,6 +39,7 @@
 #include "equality_cache.h"
 #include "graph.h"
 #include "metrics.h"
+#include "reader_options.h"
 #include "type_normalisation.h"
 #include "type_resolution.h"
 
@@ -284,22 +285,20 @@ class Typing {
 
 class Reader {
  public:
-  Reader(Graph& graph, const std::string& path, bool process_dwarf,
-         bool verbose, Metrics& metrics)
+  Reader(Graph& graph, const std::string& path, ReadOptions options,
+         Metrics& metrics)
       : graph_(graph),
         dwarf_(path),
-        elf_(dwarf_.GetElf(), verbose),
-        process_dwarf_(process_dwarf),
-        verbose_(verbose),
+        elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
+        options_(options),
         typing_(graph_, metrics) {}
 
-  Reader(Graph& graph, char* data, size_t size, bool process_dwarf,
-         bool verbose, Metrics& metrics)
+  Reader(Graph& graph, char* data, size_t size, ReadOptions options,
+         Metrics& metrics)
       : graph_(graph),
         dwarf_(data, size),
-        elf_(dwarf_.GetElf(), verbose),
-        process_dwarf_(process_dwarf),
-        verbose_(verbose),
+        elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
+        options_(options),
         typing_(graph_, metrics) {}
 
   Id Read();
@@ -311,8 +310,7 @@ class Reader {
   // an Elf* from dwarf::Handler without owning it.
   dwarf::Handler dwarf_;
   elf::ElfLoader elf_;
-  bool process_dwarf_;
-  bool verbose_;
+  ReadOptions options_;
 
   // Data extracted from ELF
   CRCValuesMap crc_values_;
@@ -322,7 +320,7 @@ class Reader {
 
 Id Reader::Read() {
   const auto all_symbols = elf_.GetElfSymbols();
-  if (verbose_) {
+  if (options_.Test(ReadOptions::INFO)) {
     std::cout << "Parsed " << all_symbols.size() << " symbols\n";
   }
 
@@ -345,7 +343,7 @@ Id Reader::Read() {
     namespaces_ = GetNamespacesMap(all_symbols, elf_);
   }
 
-  if (verbose_) {
+  if (options_.Test(ReadOptions::INFO)) {
     std::cout << "File has " << public_functions_and_variables.size()
               << " public functions and variables:\n";
     for (const auto& symbol : public_functions_and_variables) {
@@ -356,7 +354,7 @@ Id Reader::Read() {
     }
   }
 
-  if (process_dwarf_) {
+  if (!options_.Test(ReadOptions::SKIP_DWARF)) {
     typing_.GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary());
   }
 
@@ -397,15 +395,14 @@ ElfSymbol Reader::SymbolTableEntryToElfSymbol(
 }  // namespace
 }  // namespace internal
 
-Id Read(Graph& graph, const std::string& path, bool process_dwarf,
-        bool verbose, Metrics& metrics) {
-  return internal::Reader(graph, path, process_dwarf, verbose, metrics).Read();
+Id Read(Graph& graph, const std::string& path, ReadOptions options,
+        Metrics& metrics) {
+  return internal::Reader(graph, path, options, metrics).Read();
 }
 
-Id Read(Graph& graph, char* data, size_t size, bool process_dwarf,
-        bool verbose, Metrics& metrics) {
-  return internal::Reader(graph, data, size, process_dwarf, verbose, metrics)
-      .Read();
+Id Read(Graph& graph, char* data, size_t size, ReadOptions options,
+        Metrics& metrics) {
+  return internal::Reader(graph, data, size, options, metrics).Read();
 }
 
 }  // namespace elf

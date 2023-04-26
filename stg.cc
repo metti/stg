@@ -37,6 +37,7 @@
 #include "input.h"
 #include "metrics.h"
 #include "proto_writer.h"
+#include "reader_options.h"
 #include "symbol_filter.h"
 #include "type_resolution.h"
 
@@ -105,11 +106,10 @@ int main(int argc, char* argv[]) {
   };
   // Process arguments.
   bool opt_metrics = false;
-  bool opt_info = false;
   bool opt_keep_duplicates = false;
   bool opt_unstable = false;
   std::unique_ptr<stg::SymbolFilter> opt_symbols;
-  bool opt_skip_dwarf = false;
+  stg::ReadOptions opt_read_options;
   stg::InputFormat opt_input_format = stg::InputFormat::ABI;
   std::vector<const char*> inputs;
   std::vector<const char*> outputs;
@@ -153,7 +153,7 @@ int main(int argc, char* argv[]) {
         opt_metrics = true;
         break;
       case 'i':
-        opt_info = true;
+        opt_read_options.Set(stg::ReadOptions::INFO);
         break;
       case 'd':
         opt_keep_duplicates = true;
@@ -186,7 +186,7 @@ int main(int argc, char* argv[]) {
         outputs.push_back(argument);
         break;
       case kSkipDwarf:
-        opt_skip_dwarf = true;
+        opt_read_options.Set(stg::ReadOptions::SKIP_DWARF);
         break;
       default:
         return usage();
@@ -199,7 +199,7 @@ int main(int argc, char* argv[]) {
     roots.reserve(inputs.size());
     for (auto input : inputs) {
       roots.push_back(stg::Read(graph, opt_input_format, input,
-                                !opt_skip_dwarf, opt_info, stg::metrics));
+                                opt_read_options, stg::metrics));
     }
     stg::Id root = roots.size() == 1 ? roots[0] : stg::Merge(graph, roots);
     if (opt_symbols) {

@@ -29,14 +29,15 @@
 #include "elf_loader.h"
 #include "graph.h"
 #include "metrics.h"
+#include "reader_options.h"
 
 namespace stg {
 namespace elf {
 
-Id Read(Graph& graph, const std::string& path, bool process_dwarf,
-        bool verbose, Metrics& metrics);
-Id Read(Graph& graph, char* data, size_t size, bool process_dwarf,
-        bool verbose, Metrics& metrics);
+Id Read(Graph& graph, const std::string& path, ReadOptions options,
+        Metrics& metrics);
+Id Read(Graph& graph, char* data, size_t size, ReadOptions options,
+        Metrics& metrics);
 
 // For unit tests only
 namespace internal {
