@@ -286,10 +286,13 @@ void Transform<MapId>::operator()(const stg::ElfSymbol& x, uint32_t id) {
 
 template <typename MapId>
 void Transform<MapId>::operator()(const stg::Interface& x, uint32_t id) {
-  auto& symbols = *stg.add_symbols();
-  symbols.set_id(id);
-  for (const auto& [symbol, id] : x.symbols) {
-    (*symbols.mutable_symbol())[symbol] = (*this)(id);
+  auto& interface = *stg.add_interface();
+  interface.set_id(id);
+  for (const auto& [_, id] : x.symbols) {
+    interface.add_symbol_id((*this)(id));
+  }
+  for (const auto& [_, id] : x.types) {
+    interface.add_type_id((*this)(id));
   }
 }
 
@@ -461,7 +464,7 @@ class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
   }
 };
 
-const uint32_t kWrittenFormatVersion = 0;
+const uint32_t kWrittenFormatVersion = 1;
 
 }  // namespace
 
