@@ -76,10 +76,10 @@ xmlNodePtr Next(xmlNodePtr node) {
   return xmlNextElementSibling(node);
 }
 
-xmlNodePtr GetOnlyChild(const std::string& name, xmlNodePtr element) {
+xmlNodePtr GetOnlyChild(xmlNodePtr element) {
   xmlNodePtr child = Child(element);
   if (child == nullptr || Next(child) != nullptr) {
-    Die() << "element '" << name << "' without exactly one child";
+    Die() << "element '" << element->name << "' without exactly one child";
   }
   return child;
 }
@@ -652,7 +652,7 @@ Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {
 
 std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
                                              xmlNodePtr data_member) {
-  xmlNodePtr decl = GetOnlyChild("data-member", data_member);
+  xmlNodePtr decl = GetOnlyChild(data_member);
   CheckElementName("var-decl", decl);
   if (ReadAttribute<bool>(data_member, "static", false)) {
     ProcessDecl(true, decl);
@@ -670,7 +670,7 @@ std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
 }
 
 Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
-  xmlNodePtr decl = GetOnlyChild("member-function", method);
+  xmlNodePtr decl = GetOnlyChild(method);
   CheckElementName("function-decl", decl);
   static const std::string missing = "{missing}";
   const auto mangled_name = ReadAttribute(decl, "mangled-name", missing);
@@ -686,7 +686,7 @@ Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
 }
 
 void Abigail::ProcessMemberType(xmlNodePtr member_type) {
-  xmlNodePtr decl = GetOnlyChild("member-type", member_type);
+  xmlNodePtr decl = GetOnlyChild(member_type);
   const auto type_id = GetAttributeOrDie(decl, "id");
   const auto id = GetNode(type_id);
   if (graph_.Is(id)) {
