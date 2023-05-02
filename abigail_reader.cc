@@ -276,7 +276,7 @@ Id Abigail::GetVariadic() {
 Function Abigail::MakeFunctionType(xmlNodePtr function) {
   std::vector<Id> parameters;
   std::optional<Id> return_type;
-  for (auto child = xmlFirstElementChild(function); child;
+  for (auto* child = xmlFirstElementChild(function); child;
        child = xmlNextElementSibling(child)) {
     const auto child_name = GetElementName(child);
     if (return_type) {
@@ -311,7 +311,7 @@ Id Abigail::ProcessRoot(xmlNodePtr root) {
 }
 
 void Abigail::ProcessCorpusGroup(xmlNodePtr group) {
-  for (auto corpus = xmlFirstElementChild(group); corpus;
+  for (auto* corpus = xmlFirstElementChild(group); corpus;
        corpus = xmlNextElementSibling(corpus)) {
     CheckElementName("abi-corpus", corpus);
     ProcessCorpus(corpus);
@@ -319,7 +319,7 @@ void Abigail::ProcessCorpusGroup(xmlNodePtr group) {
 }
 
 void Abigail::ProcessCorpus(xmlNodePtr corpus) {
-  for (auto element = xmlFirstElementChild(corpus); element;
+  for (auto* element = xmlFirstElementChild(corpus); element;
        element = xmlNextElementSibling(element)) {
     const auto name = GetElementName(element);
     if (name == "elf-function-symbols" || name == "elf-variable-symbols") {
@@ -335,7 +335,7 @@ void Abigail::ProcessCorpus(xmlNodePtr corpus) {
 }
 
 void Abigail::ProcessSymbols(xmlNodePtr symbols) {
-  for (auto element = xmlFirstElementChild(symbols); element;
+  for (auto* element = xmlFirstElementChild(symbols); element;
        element = xmlNextElementSibling(element)) {
     CheckElementName("elf-symbol", element);
     ProcessSymbol(element);
@@ -393,7 +393,7 @@ bool Abigail::ProcessUserDefinedType(const std::string& name, Id id,
 }
 
 void Abigail::ProcessScope(xmlNodePtr scope) {
-  for (auto element = xmlFirstElementChild(scope); element;
+  for (auto* element = xmlFirstElementChild(scope); element;
        element = xmlNextElementSibling(element)) {
     const auto name = GetElementName(element);
     const auto type_id = GetAttribute(element, "id");
@@ -507,7 +507,7 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
 
 void Abigail::ProcessArray(Id id, xmlNodePtr array) {
   std::vector<size_t> dimensions;
-  for (auto child = xmlFirstElementChild(array); child;
+  for (auto* child = xmlFirstElementChild(array); child;
        child = xmlNextElementSibling(child)) {
     CheckElementName("subrange", child);
     const auto length = ReadAttribute<uint64_t>(child, "length", &ParseLength);
@@ -588,7 +588,7 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
   std::vector<Id> base_classes;
   std::vector<Id> methods;
   std::vector<Id> members;
-  for (xmlNodePtr child = xmlFirstElementChild(struct_union); child;
+  for (auto* child = xmlFirstElementChild(struct_union); child;
        child = xmlNextElementSibling(child)) {
     const auto child_name = GetElementName(child);
     if (child_name == "data-member") {
@@ -627,7 +627,7 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
   const auto type = GetEdge(underlying);
 
   std::vector<std::pair<std::string, int64_t>> enumerators;
-  for (xmlNodePtr enumerator = xmlNextElementSibling(underlying); enumerator;
+  for (auto* enumerator = xmlNextElementSibling(underlying); enumerator;
        enumerator = xmlNextElementSibling(enumerator)) {
     CheckElementName("enumerator", enumerator);
     const auto enumerator_name = GetAttributeOrDie(enumerator, "name");
