@@ -48,14 +48,17 @@ namespace abixml {
 
 namespace {
 
+// Cast a libxml string to C string.
 const char* FromLibxml(const xmlChar* str) {
   return reinterpret_cast<const char*>(str);
 }
 
+// Cast a C string to a libxml string.
 const xmlChar* ToLibxml(const char* str) {
   return reinterpret_cast<const xmlChar*>(str);
 }
 
+// Get the name of an XML element.
 std::string GetElementName(xmlNodePtr element) {
   return std::string(FromLibxml(element->name));
 }
@@ -84,6 +87,7 @@ xmlNodePtr GetOnlyChild(xmlNodePtr element) {
   return child;
 }
 
+// Get an optional attribute.
 std::optional<std::string> GetAttribute(xmlNodePtr node, const char* name) {
   std::optional<std::string> result;
   xmlChar* attribute = xmlGetProp(node, ToLibxml(name));
@@ -94,6 +98,7 @@ std::optional<std::string> GetAttribute(xmlNodePtr node, const char* name) {
   return result;
 }
 
+// Get an attribute.
 std::string GetAttributeOrDie(xmlNodePtr node, const char* name) {
   xmlChar* attribute = xmlGetProp(node, ToLibxml(name));
   if (!attribute) {
