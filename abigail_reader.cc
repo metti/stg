@@ -559,10 +559,8 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
 
 void Abigail::ProcessStructUnion(Id id, bool is_struct,
                                  xmlNodePtr struct_union) {
-  // TODO
-  // Libabigail is reporting wrong information for is-declaration-only so it is
-  // not reliable. We are looking at the children of the element instead.
-  // It can be removed once the bug is fixed.
+  // Libabigail sometimes reports is-declaration-only but still provides some
+  // child elements. So we check both things.
   const bool forward =
       ReadAttribute<bool>(struct_union, "is-declaration-only", false)
       && Child(struct_union) == nullptr;
