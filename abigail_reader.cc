@@ -78,8 +78,9 @@ xmlNodePtr Next(xmlNodePtr node) {
 
 xmlNodePtr GetOnlyChild(const std::string& name, xmlNodePtr element) {
   xmlNodePtr child = Child(element);
-  Check(child != nullptr && Next(child) == nullptr)
-      << name << " with not exactly one child element";
+  if (child == nullptr || Next(child) != nullptr) {
+    Die() << "element '" << name << "' without exactly one child";
+  }
   return child;
 }
 
