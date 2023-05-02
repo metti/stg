@@ -19,16 +19,14 @@
 
 #include "elf_reader.h"
 
-#include <algorithm>
 #include <functional>
+#include <iomanip>
 #include <ios>
 #include <iostream>
-#include <iterator>
 #include <map>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -37,6 +35,7 @@
 #include "elf_loader.h"
 #include "equality.h"
 #include "equality_cache.h"
+#include "error.h"
 #include "graph.h"
 #include "metrics.h"
 #include "reader_options.h"
@@ -48,6 +47,25 @@ namespace elf {
 namespace internal {
 
 namespace {
+
+struct IsTypeDefined {
+  bool operator()(const Typedef&) const {
+    return true;
+  }
+
+  bool operator()(const StructUnion& x) const {
+    return x.definition.has_value();
+  }
+
+  bool operator()(const Enumeration& x) const {
+    return x.definition.has_value();
+  }
+
+  template <typename Node>
+  bool operator()(const Node&) const {
+    Die() << "expected a Typedef/StructUnion/Enumeration node";
+  }
+};
 
 template <typename M, typename K>
 std::optional<typename M::mapped_type> MaybeGet(const M& map, const K& key) {
@@ -183,10 +201,12 @@ class Typing {
         equality_cache_(metrics),
         equals_(graph, equality_cache_) {}
 
-  void GetTypesFromDwarf(dwarf::Handler& dwarf, bool is_little_endian_binary) {
+  const std::vector<Id>& GetTypesFromDwarf(dwarf::Handler& dwarf,
+                                           bool is_little_endian_binary) {
     types_ = dwarf::Process(dwarf, is_little_endian_binary, graph_);
     ResolveTypes();
     FillAddressToId();
+    return types_.named_type_ids;
   }
 
   void ResolveTypes() {
@@ -354,8 +374,22 @@ Id Reader::Read() {
     }
   }
 
+  std::map<std::string, Id> types_map;
   if (!options_.Test(ReadOptions::SKIP_DWARF)) {
-    typing_.GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary());
+    const auto& named_type_ids =
+        typing_.GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary());
+    if (options_.Test(ReadOptions::TYPE_ROOTS)) {
+      const IsTypeDefined is_type_defined;
+      const InterfaceKey get_key(graph_);
+      for (const auto id : named_type_ids) {
+        if (graph_.Apply<bool>(is_type_defined, id)) {
+          const auto [it, inserted] = types_map.emplace(get_key(id), id);
+          if (!inserted) {
+            Die() << "found conflicting interface type: " << it->first;
+          }
+        }
+      }
+    }
   }
 
   std::map<std::string, Id> symbols_map;
@@ -367,7 +401,8 @@ Id Reader::Read() {
         std::string(symbol.name),
         graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
   }
-  auto root = graph_.Add<Interface>(std::move(symbols_map));
+  auto root =
+      graph_.Add<Interface>(std::move(symbols_map), std::move(types_map));
   // Types produced by ELF/DWARF readers may require removing useless
   // qualifiers.
   RemoveUselessQualifiers(graph_, root);
