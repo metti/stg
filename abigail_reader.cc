@@ -88,7 +88,7 @@ std::optional<std::string> GetAttribute(xmlNodePtr node, const char* name) {
   std::optional<std::string> result;
   xmlChar* attribute = xmlGetProp(node, ToLibxml(name));
   if (attribute) {
-    result = {FromLibxml(attribute)};
+    result.emplace(FromLibxml(attribute));
     xmlFree(attribute);
   }
   return result;
