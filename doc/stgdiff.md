@@ -215,7 +215,7 @@ symbol table nodes.
 
 ## Exact Node Equality
 
-**  `-x|--exact`: perform exact node equality (ignoring node identity) instead
+*   `-x|--exact`: perform exact node equality (ignoring node identity) instead
     of generating an ABI equivalence diff graph; no outputs may be specified.
 
 ## Other options:
