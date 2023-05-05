@@ -105,7 +105,7 @@ std::string GetAttributeOrDie(xmlNodePtr node, const char* name) {
     Die() << "element '" << FromLibxml(node->name)
           << "' missing attribute '" << name << "'";
   }
-  std::string result = FromLibxml(attribute);
+  const std::string result(FromLibxml(attribute));
   xmlFree(attribute);
   return result;
 }
