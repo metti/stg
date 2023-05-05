@@ -23,6 +23,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -114,7 +115,7 @@ class Abigail {
   void ProcessSymbols(xmlNodePtr symbols);
   void ProcessSymbol(xmlNodePtr symbol);
 
-  bool ProcessUserDefinedType(const std::string& name, Id id, xmlNodePtr decl);
+  bool ProcessUserDefinedType(std::string_view name, Id id, xmlNodePtr decl);
   void ProcessScope(xmlNodePtr scope);
 
   void ProcessInstr(xmlNodePtr instr);

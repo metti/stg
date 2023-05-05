@@ -33,6 +33,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -47,8 +48,8 @@ namespace abixml {
 
 namespace {
 
-// Cast a libxml string to C string.
-const char* FromLibxml(const xmlChar* str) {
+// Cast a libxml string to C string and present it as a string_view.
+std::string_view FromLibxml(const xmlChar* str) {
   return reinterpret_cast<const char*>(str);
 }
 
@@ -58,8 +59,8 @@ const xmlChar* ToLibxml(const char* str) {
 }
 
 // Get the name of an XML element.
-std::string GetName(xmlNodePtr element) {
-  return std::string(FromLibxml(element->name));
+std::string_view GetName(xmlNodePtr element) {
+  return FromLibxml(element->name);
 }
 
 void CheckName(const char* name, xmlNodePtr element) {
@@ -385,7 +386,7 @@ void Abigail::ProcessSymbol(xmlNodePtr symbol) {
   }
 }
 
-bool Abigail::ProcessUserDefinedType(const std::string& name, Id id,
+bool Abigail::ProcessUserDefinedType(std::string_view name, Id id,
                                      xmlNodePtr decl) {
   if (name == "typedef-decl") {
     ProcessTypedef(id, decl);
