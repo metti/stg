@@ -25,7 +25,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <iomanip>
 #include <ios>
@@ -64,8 +63,8 @@ std::string GetName(xmlNodePtr element) {
 }
 
 void CheckName(const char* name, xmlNodePtr element) {
-  const auto element_name = FromLibxml(element->name);
-  if (strcmp(element_name, name) != 0) {
+  const auto element_name = GetName(element);
+  if (element_name != name) {
     Die() << "expected element '" << name
           << "' but got '" << element_name << "'";
   }
@@ -82,7 +81,7 @@ xmlNodePtr Next(xmlNodePtr node) {
 xmlNodePtr GetOnlyChild(xmlNodePtr element) {
   xmlNodePtr child = Child(element);
   if (child == nullptr || Next(child) != nullptr) {
-    Die() << "element '" << element->name << "' without exactly one child";
+    Die() << "element '" << GetName(element) << "' without exactly one child";
   }
   return child;
 }
@@ -102,7 +101,7 @@ std::optional<std::string> GetAttribute(xmlNodePtr node, const char* name) {
 std::string GetAttributeOrDie(xmlNodePtr node, const char* name) {
   xmlChar* attribute = xmlGetProp(node, ToLibxml(name));
   if (!attribute) {
-    Die() << "element '" << FromLibxml(node->name)
+    Die() << "element '" << GetName(node)
           << "' missing attribute '" << name << "'";
   }
   const std::string result(FromLibxml(attribute));
@@ -193,7 +192,7 @@ T GetParsedValueOrDie(xmlNodePtr element, const char* name,
   if (parse) {
     return *parse;
   }
-  Die() << "element '" << FromLibxml(element->name)
+  Die() << "element '" << GetName(element)
         << "' has attribute '" << name
         << "' with bad value '" << value << "'";
 }
@@ -301,7 +300,7 @@ Function Abigail::MakeFunctionType(xmlNodePtr function) {
     } else if (child_name == "return") {
       return_type = {GetEdge(child)};
     } else {
-      Die() << "unrecognised " << FromLibxml(function->name)
+      Die() << "unrecognised " << GetName(function)
             << " child element '" << child_name << "'";
     }
   }
