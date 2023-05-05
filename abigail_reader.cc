@@ -59,11 +59,11 @@ const xmlChar* ToLibxml(const char* str) {
 }
 
 // Get the name of an XML element.
-std::string GetElementName(xmlNodePtr element) {
+std::string GetName(xmlNodePtr element) {
   return std::string(FromLibxml(element->name));
 }
 
-void CheckElementName(const char* name, xmlNodePtr element) {
+void CheckName(const char* name, xmlNodePtr element) {
   const auto element_name = FromLibxml(element->name);
   if (strcmp(element_name, name) != 0) {
     Die() << "expected element '" << name
@@ -291,7 +291,7 @@ Function Abigail::MakeFunctionType(xmlNodePtr function) {
   std::vector<Id> parameters;
   std::optional<Id> return_type;
   for (auto* child = Child(function); child; child = Next(child)) {
-    const auto child_name = GetElementName(child);
+    const auto child_name = GetName(child);
     if (return_type) {
       Die() << "unexpected element after return-type";
     }
@@ -312,7 +312,7 @@ Function Abigail::MakeFunctionType(xmlNodePtr function) {
 }
 
 Id Abigail::ProcessRoot(xmlNodePtr root) {
-  const auto name = GetElementName(root);
+  const auto name = GetName(root);
   if (name == "abi-corpus-group") {
     ProcessCorpusGroup(root);
   } else if (name == "abi-corpus") {
@@ -325,14 +325,14 @@ Id Abigail::ProcessRoot(xmlNodePtr root) {
 
 void Abigail::ProcessCorpusGroup(xmlNodePtr group) {
   for (auto* corpus = Child(group); corpus; corpus = Next(corpus)) {
-    CheckElementName("abi-corpus", corpus);
+    CheckName("abi-corpus", corpus);
     ProcessCorpus(corpus);
   }
 }
 
 void Abigail::ProcessCorpus(xmlNodePtr corpus) {
   for (auto* element = Child(corpus); element; element = Next(element)) {
-    const auto name = GetElementName(element);
+    const auto name = GetName(element);
     if (name == "elf-function-symbols" || name == "elf-variable-symbols") {
       ProcessSymbols(element);
     } else if (name == "elf-needed") {
@@ -347,7 +347,7 @@ void Abigail::ProcessCorpus(xmlNodePtr corpus) {
 
 void Abigail::ProcessSymbols(xmlNodePtr symbols) {
   for (auto* element = Child(symbols); element; element = Next(element)) {
-    CheckElementName("elf-symbol", element);
+    CheckName("elf-symbol", element);
     ProcessSymbol(element);
   }
 }
@@ -404,7 +404,7 @@ bool Abigail::ProcessUserDefinedType(const std::string& name, Id id,
 
 void Abigail::ProcessScope(xmlNodePtr scope) {
   for (auto* element = Child(scope); element; element = Next(element)) {
-    const auto name = GetElementName(element);
+    const auto name = GetName(element);
     const auto type_id = GetAttribute(element, "id");
     // all type elements have "id", all non-types do not
     if (type_id) {
@@ -517,7 +517,7 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
 void Abigail::ProcessArray(Id id, xmlNodePtr array) {
   std::vector<size_t> dimensions;
   for (auto* child = Child(array); child; child = Next(child)) {
-    CheckElementName("subrange", child);
+    CheckName("subrange", child);
     const auto length = ReadAttribute<uint64_t>(child, "length", &ParseLength);
     dimensions.push_back(length);
   }
@@ -595,7 +595,7 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
   std::vector<Id> methods;
   std::vector<Id> members;
   for (auto* child = Child(struct_union); child; child = Next(child)) {
-    const auto child_name = GetElementName(child);
+    const auto child_name = GetName(child);
     if (child_name == "data-member") {
       if (const auto member = ProcessDataMember(is_struct, child)) {
         members.push_back(*member);
@@ -628,13 +628,13 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
 
   xmlNodePtr underlying = Child(enumeration);
   Check(underlying) << "enum-decl has no child elements";
-  CheckElementName("underlying-type", underlying);
+  CheckName("underlying-type", underlying);
   const auto type = GetEdge(underlying);
 
   std::vector<std::pair<std::string, int64_t>> enumerators;
   for (auto* enumerator = Next(underlying); enumerator;
        enumerator = Next(enumerator)) {
-    CheckElementName("enumerator", enumerator);
+    CheckName("enumerator", enumerator);
     const auto enumerator_name = GetAttributeOrDie(enumerator, "name");
     // libabigail currently supports anything that fits in an int64_t
     const auto enumerator_value =
@@ -658,7 +658,7 @@ Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {
 std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
                                              xmlNodePtr data_member) {
   xmlNodePtr decl = GetOnlyChild(data_member);
-  CheckElementName("var-decl", decl);
+  CheckName("var-decl", decl);
   if (ReadAttribute<bool>(data_member, "static", false)) {
     ProcessDecl(true, decl);
     return {};
@@ -676,7 +676,7 @@ std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
 
 Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
   xmlNodePtr decl = GetOnlyChild(method);
-  CheckElementName("function-decl", decl);
+  CheckName("function-decl", decl);
   static const std::string missing = "{missing}";
   const auto mangled_name = ReadAttribute(decl, "mangled-name", missing);
   const auto name = GetAttributeOrDie(decl, "name");
@@ -698,7 +698,7 @@ void Abigail::ProcessMemberType(xmlNodePtr member_type) {
     Warn() << "duplicate definition of member type '" << type_id << '\'';
     return;
   }
-  const auto name = GetElementName(decl);
+  const auto name = GetName(decl);
   if (!ProcessUserDefinedType(name, id, decl)) {
     Die() << "unrecognised member-type child element '" << name << "'";
   }
