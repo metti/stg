@@ -766,7 +766,8 @@ Id Read(Graph& graph, const std::string& path, Metrics& metrics) {
         std::remove_pointer<xmlParserCtxtPtr>::type, void(*)(xmlParserCtxtPtr)>
         context(xmlNewParserCtxt(), xmlFreeParserCtxt);
     document.reset(
-        xmlCtxtReadFd(context.get(), fd.Value(), nullptr, nullptr, 0));
+        xmlCtxtReadFd(context.get(), fd.Value(), nullptr, nullptr,
+                      XML_PARSE_NONET));
   }
   Check(document != nullptr) << "failed to parse input as XML";
 
