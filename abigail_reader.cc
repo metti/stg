@@ -72,11 +72,11 @@ void CheckName(const char* name, xmlNodePtr element) {
 }
 
 xmlNodePtr Child(xmlNodePtr node) {
-  return xmlFirstElementChild(node);
+  return node->children;
 }
 
 xmlNodePtr Next(xmlNodePtr node) {
-  return xmlNextElementSibling(node);
+  return node->next;
 }
 
 xmlNodePtr GetOnlyChild(xmlNodePtr element) {
@@ -108,6 +108,12 @@ std::string GetAttributeOrDie(xmlNodePtr node, const char* name) {
   const std::string result(FromLibxml(attribute));
   xmlFree(attribute);
   return result;
+}
+
+// Remove a node and free its storage.
+void RemoveNode(xmlNodePtr node) {
+  xmlUnlinkNode(node);
+  xmlFreeNode(node);
 }
 
 template <typename T>
@@ -229,6 +235,36 @@ T ReadAttribute(xmlNodePtr element, const char* name,
   return GetParsedValueOrDie(element, name, value, parse(value));
 }
 
+// Remove non-element nodes, recursively.
+//
+// This simplifies subsequent manipulation. This should only remove comment,
+// text and possibly CDATA nodes.
+void StripNonElements(xmlNodePtr node) {
+  switch (node->type) {
+    case XML_COMMENT_NODE:
+    case XML_TEXT_NODE:
+    case XML_CDATA_SECTION_NODE:
+      RemoveNode(node);
+      break;
+    case XML_ELEMENT_NODE: {
+      xmlNodePtr child = Child(node);
+      while (child) {
+        xmlNodePtr next = Next(child);
+        StripNonElements(child);
+        child = next;
+      }
+      break;
+    }
+    default:
+      Die() << "unexpected XML node type: " << node->type;
+  }
+}
+
+void Tidy(xmlNodePtr root) {
+  // Strip non-element nodes to simplify other operations.
+  StripNonElements(root);
+}
+
 std::optional<uint64_t> ParseLength(const std::string& value) {
   if (value == "infinite" || value == "unknown") {
     return {0};
@@ -312,6 +348,7 @@ Function Abigail::MakeFunctionType(xmlNodePtr function) {
 }
 
 Id Abigail::ProcessRoot(xmlNodePtr root) {
+  Tidy(root);
   const auto name = GetName(root);
   if (name == "abi-corpus-group") {
     ProcessCorpusGroup(root);
