@@ -43,6 +43,8 @@ The tool can be passed any number of inputs to combine into a unified ABI.
     *   (rare) duplicate data members are removed
     *   (partial and entire) duplicate type definitions are removed
 
+    After parsing, function parameter and return type qualifiers are removed.
+
 *   `-b|--btf`
 
     Read ABI information from the `.BTF` ELF section. BTF only covers the C type

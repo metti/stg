@@ -35,6 +35,8 @@ ignore options: type_declaration_status symbol_type_presence primitive_type_enco
     *   (rare) duplicate data members are removed
     *   (partial and entire) duplicate type definitions are removed
 
+    After parsing, function parameter and return type qualifiers are removed.
+
 *   `-b|--btf`
 
     Read ABI information from the `.BTF` ELF section. BTF only covers the C type

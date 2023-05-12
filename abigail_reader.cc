@@ -46,6 +46,7 @@
 #include "error.h"
 #include "file_descriptor.h"
 #include "graph.h"
+#include "type_normalisation.h"
 
 namespace stg {
 namespace abixml {
@@ -753,7 +754,9 @@ Id Abigail::ProcessRoot(xmlNodePtr root) {
   } else {
     Die() << "unrecognised root element '" << name << "'";
   }
-  return BuildSymbols();
+  const Id id = BuildSymbols();
+  RemoveUselessQualifiers(graph_, id);
+  return id;
 }
 
 void Abigail::ProcessCorpusGroup(xmlNodePtr group) {
