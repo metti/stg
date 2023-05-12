@@ -21,9 +21,11 @@
 #ifndef STG_ABIGAIL_READER_H_
 #define STG_ABIGAIL_READER_H_
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -144,6 +146,14 @@ class Abigail {
 };
 
 Id Read(Graph& graph, const std::string& path, Metrics& metrics);
+
+// Exposed for testing.
+void Clean(xmlNodePtr root);
+bool EqualTree(xmlNodePtr left, xmlNodePtr right);
+bool SubTree(xmlNodePtr left, xmlNodePtr right);
+using Document =
+    std::unique_ptr<std::remove_pointer_t<xmlDocPtr>, void(*)(xmlDocPtr)>;
+Document Read(const std::string& path, Metrics& metrics);
 
 }  // namespace abixml
 }  // namespace stg

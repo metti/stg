@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2021-2022 Google LLC
+// Copyright 2021-2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -23,6 +23,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -31,10 +33,12 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -108,6 +112,16 @@ std::string GetAttributeOrDie(xmlNodePtr node, const char* name) {
   const std::string result(FromLibxml(attribute));
   xmlFree(attribute);
   return result;
+}
+
+// Set an attribute value.
+void SetAttribute(xmlNodePtr node, const char* name, const char* value) {
+  xmlSetProp(node, ToLibxml(name), ToLibxml(value));
+}
+
+// Unset an attribute value.
+void UnsetAttribute(xmlNodePtr node, const char* name) {
+  xmlUnsetProp(node, ToLibxml(name));
 }
 
 // Remove a node and free its storage.
@@ -260,9 +274,390 @@ void StripNonElements(xmlNodePtr node) {
   }
 }
 
-void Tidy(xmlNodePtr root) {
+// Determine whether one XML element is a subtree of another, and optionally,
+// actually equal to it.
+bool SubOrEqualTree(bool also_equal, xmlNodePtr left, xmlNodePtr right) {
+  // Node names must match.
+  const auto left_name = GetName(left);
+  const auto right_name = GetName(right);
+  if (left_name != right_name) {
+    return false;
+  }
+
+  // Attributes may be missing on the left, but must match otherwise.
+  size_t left_attributes = 0;
+  for (auto* p = left->properties; p; p = p->next) {
+    ++left_attributes;
+    const auto attribute = FromLibxml(p->name);
+    const char* attribute_name = attribute.data();
+    const auto left_value = GetAttributeOrDie(left, attribute_name);
+    const auto right_value = GetAttribute(right, attribute_name);
+    if (!right_value || left_value != right_value.value()) {
+      return false;
+    }
+  }
+  // To also be equal, we just need to check the counts are the same.
+  if (also_equal) {
+    size_t right_attributes = 0;
+    for (auto* p = right->properties; p; p = p->next) {
+      ++right_attributes;
+    }
+    if (left_attributes != right_attributes) {
+      return false;
+    }
+  }
+
+  // The left subelements must be a subsequence of the right ones and to also be
+  // equal, we must not have skipped any right ones.
+  xmlNodePtr left_child = Child(left);
+  xmlNodePtr right_child = Child(right);
+  while (left_child != nullptr && right_child != nullptr) {
+    if (SubOrEqualTree(also_equal, left_child, right_child)) {
+      left_child = Next(left_child);
+    } else if (also_equal) {
+      return false;
+    }
+    right_child = Next(right_child);
+  }
+  return left_child == nullptr && (right_child == nullptr || !also_equal);
+}
+
+}  // namespace
+
+// Determine whether one XML element is a subtree of another.
+bool SubTree(xmlNodePtr left, xmlNodePtr right) {
+  return SubOrEqualTree(false, left, right);
+}
+
+// Determine whether one XML element is the same as another.
+bool EqualTree(xmlNodePtr left, xmlNodePtr right) {
+  return SubOrEqualTree(true, left, right);
+}
+
+// Find a maximal XML element if one exists.
+std::optional<size_t> MaximalTree(const std::vector<xmlNodePtr>& nodes) {
+  if (nodes.empty()) {
+    return std::nullopt;
+  }
+
+  // Find a potentially maximal candidate by scanning through and retaining the
+  // new node if it's a supertree of the current candidate.
+  const auto count = nodes.size();
+  std::vector<bool> ok(count);
+  size_t candidate = 0;
+  ok[candidate] = true;
+  for (size_t ix = 1; ix < count; ++ix) {
+    if (SubTree(nodes[candidate], nodes[ix])) {
+      candidate = ix;
+      ok[candidate] = true;
+    }
+  }
+
+  // Verify the candidate is indeed maximal by comparing it with the nodes not
+  // already known to be subtrees of it.
+  const auto& candidate_node = nodes[candidate];
+  for (size_t ix = 0; ix < count; ++ix) {
+    const auto& node = nodes[ix];
+    if (!ok[ix] && !SubTree(node, candidate_node)) {
+      return std::nullopt;
+    }
+  }
+
+  return std::make_optional(candidate);
+}
+
+namespace {
+
+// Check if string_view is in an array.
+template<size_t N>
+bool Contains(const std::array<std::string_view, N>& haystack,
+              std::string_view needle) {
+  return std::find(haystack.begin(), haystack.end(), needle) != haystack.end();
+}
+
+// Remove source location attributes.
+//
+// This simplifies element comparison later.
+void StripLocationInfo(xmlNodePtr node) {
+  static const std::array<std::string_view, 7> has_location_info = {
+    "class-decl",
+    "enum-decl",
+    "function-decl",
+    "parameter",
+    "typedef-decl",
+    "union-decl",
+    "var-decl"
+  };
+
+  if (Contains(has_location_info, GetName(node))) {
+    UnsetAttribute(node, "filepath");
+    UnsetAttribute(node, "line");
+    UnsetAttribute(node, "column");
+  }
+  for (auto* child = Child(node); child; child = Next(child)) {
+    StripLocationInfo(child);
+  }
+}
+
+// Remove access attribute.
+//
+// This simplifies element comparison later in a very specific way: libabigail
+// (possibly older versions) uses the access specifier for the type it's trying
+// to "emit in scope", even for its containing types, making deduplicating types
+// trickier. We don't care about access anyway, so just remove it everywhere.
+void StripAccess(xmlNodePtr node) {
+  static const std::array<std::string_view, 5> has_access = {
+    "base-class",
+    "data-member",
+    "member-function",
+    "member-template",
+    "member-type",
+  };
+
+  if (Contains(has_access, GetName(node))) {
+    UnsetAttribute(node, "access");
+  }
+  for (auto* child = Child(node); child; child = Next(child)) {
+    StripAccess(child);
+  }
+}
+
+// Elements corresponding to named types that can be anonymous or marked as
+// unreachable by libabigail, so user-defined types, excepting typedefs.
+const std::array<std::string_view, 3> kNamedTypes = {
+  "class-decl",
+  "enum-decl",
+  "union-decl",
+};
+
+// Remove attributes emitted by abidw --load-all-types.
+//
+// With this invocation and if any user-defined types are deemed unreachable,
+// libabigail will output a tracking-non-reachable-types attribute on top-level
+// elements and an is-non-reachable attribute on each such type element.
+//
+// We have our own graph-theoretic notion of reachability and these attributes
+// have no ABI relevance and can interfere with element comparisons.
+void StripReachabilityAttributes(xmlNodePtr node) {
+  const auto node_name = GetName(node);
+
+  if (node_name == "abi-corpus-group" || node_name == "abi-corpus") {
+    UnsetAttribute(node, "tracking-non-reachable-types");
+  } else if (Contains(kNamedTypes, node_name)) {
+    UnsetAttribute(node, "is-non-reachable");
+  }
+
+  for (auto* child = Child(node); child; child = Next(child)) {
+    StripReachabilityAttributes(child);
+  }
+}
+
+// Tidy anonymous types in various ways.
+//
+// 1. Normalise anonymous type names by dropping the name attribute.
+//
+// Anonymous type names take the form __anonymous_foo__N where foo is one of
+// enum, struct or union and N is an optional numerical suffix. We don't care
+// about these names but they may cause trouble when comparing elements.
+//
+// 2. Reanonymise anonymous types that have been given names.
+//
+// At some point abidw changed its behaviour given an anonymous with a naming
+// typedef. In addition to linking the typedef and type in both directions, the
+// code now gives (some) anonymous types the same name as the typedef. This
+// misrepresents the original types.
+//
+// Such types should be anonymous. We set is-anonymous and drop the name.
+//
+// 3. Discard naming typedef backlinks.
+//
+// The attribute naming-typedef-id is a backwards link from an anonymous type to
+// the typedef that refers to it.
+//
+// We don't care about these attributes and they may cause comparison issues.
+void TidyAnonymousTypes(xmlNodePtr node) {
+  if (Contains(kNamedTypes, GetName(node))) {
+    const bool is_anon = ReadAttribute<bool>(node, "is-anonymous", false);
+    const auto naming_attribute = GetAttribute(node, "naming-typedef-id");
+    if (is_anon) {
+      UnsetAttribute(node, "name");
+    } else if (naming_attribute) {
+      SetAttribute(node, "is-anonymous", "yes");
+      UnsetAttribute(node, "name");
+    }
+    if (naming_attribute) {
+      UnsetAttribute(node, "naming-typedef-id");
+    }
+  }
+
+  for (auto* child = Child(node); child; child = Next(child)) {
+    TidyAnonymousTypes(child);
+  }
+}
+
+// Remove duplicate data members.
+void RemoveDuplicateDataMembers(xmlNodePtr root) {
+  std::vector<xmlNodePtr> types;
+
+  // find all structs and unions
+  std::function<void(xmlNodePtr)> dfs = [&](xmlNodePtr node) {
+    const auto node_name = GetName(node);
+    // preorder in case we delete a nested element
+    for (auto* child = Child(node); child; child = Next(child)) {
+      dfs(child);
+    }
+    if (node_name == "class-decl" || node_name == "union-decl") {
+      types.push_back(node);
+    }
+  };
+  dfs(root);
+
+  for (const auto& node : types) {
+    // filter data members
+    std::vector<xmlNodePtr> data_members;
+    for (auto* child = Child(node); child; child = Next(child)) {
+      if (GetName(child) == "data-member") {
+        data_members.push_back(child);
+      }
+    }
+    // remove identical duplicate data members - O(n^2)
+    for (size_t i = 0; i < data_members.size(); ++i) {
+      xmlNodePtr& i_node = data_members[i];
+      bool duplicate = false;
+      for (size_t j = 0; j < i; ++j) {
+        const xmlNodePtr& j_node = data_members[j];
+        if (j_node != nullptr && EqualTree(i_node, j_node)) {
+          duplicate = true;
+          break;
+        }
+      }
+      if (duplicate) {
+        Warn() << "found duplicate data-member";
+        RemoveNode(i_node);
+        i_node = nullptr;
+      }
+    }
+  }
+}
+
+// Eliminate non-conflicting / report conflicting duplicate definitions.
+//
+// XML elements representing types are sometimes emitted multiple times,
+// identically. Also, member typedefs are sometimes emitted separately from
+// their types, resulting in duplicate XML fragments.
+//
+// Both these issues can be resolved by first detecting duplicate occurrences of
+// a given type id and then checking to see if there's an instance that subsumes
+// the others, which can then be eliminated.
+//
+// This function eliminates exact type duplicates and duplicates where there is
+// at least one maximal definition. It can report the remaining duplicate
+// definitions.
+//
+// If a type has duplicate definitions in multiple namespace scopes or
+// definitions with different effective names, these are considered to be
+// *conflicting* duplicate definitions. TODO: update text
+void HandleDuplicateTypes(xmlNodePtr root) {
+  // Convenience typedef referring to a namespace scope.
+  using namespace_scope = std::vector<std::string>;
+  // map of type-id to pair of set of namespace scopes and vector of
+  // xmlNodes
+  std::unordered_map<
+      std::string,
+      std::pair<
+          std::set<namespace_scope>,
+          std::vector<xmlNodePtr>>> types;
+  namespace_scope namespaces;
+
+  // find all type occurrences
+  std::function<void(xmlNodePtr)> dfs = [&](xmlNodePtr node) {
+    const auto node_name = GetName(node);
+    std::optional<std::string> namespace_name;
+    if (node_name == "namespace-decl") {
+      namespace_name = GetAttribute(node, "name");
+    }
+    if (namespace_name) {
+      namespaces.push_back(namespace_name.value());
+    }
+    if (node_name == "abi-corpus-group"
+        || node_name == "abi-corpus"
+        || node_name == "abi-instr"
+        || namespace_name) {
+      for (auto* child = Child(node); child; child = Next(child)) {
+        dfs(child);
+      }
+    } else {
+      const auto id = GetAttribute(node, "id");
+      if (id) {
+        auto& info = types[id.value()];
+        info.first.insert(namespaces);
+        info.second.push_back(node);
+      }
+    }
+    if (namespace_name) {
+      namespaces.pop_back();
+    }
+  };
+  dfs(root);
+
+  for (const auto& [id, scopes_and_definitions] : types) {
+    const auto& [scopes, definitions] = scopes_and_definitions;
+
+    if (scopes.size() > 1) {
+      Warn() << "conflicting scopes found for type '" << id << '\'';
+      continue;
+    }
+
+    const auto possible_maximal = MaximalTree(definitions);
+    if (!possible_maximal) {
+      Warn() << "unresolvable duplicate definitions found for type '" << id
+             << '\'';
+      continue;
+    }
+
+    // Remove all but the maximal definition.
+    const size_t maximal = possible_maximal.value();
+    for (size_t ix = 0; ix < definitions.size(); ++ix) {
+      if (ix != maximal) {
+        RemoveNode(definitions[ix]);
+      }
+    }
+  }
+}
+
+}  // namespace
+
+// Remove XML nodes and attributes that are neither used or wanted.
+void Clean(xmlNodePtr root) {
   // Strip non-element nodes to simplify other operations.
   StripNonElements(root);
+
+  // Strip location information.
+  StripLocationInfo(root);
+
+  // Strip access.
+  StripAccess(root);
+
+  // Strip reachability attributes.
+  StripReachabilityAttributes(root);
+}
+
+namespace {
+
+// Transform XML elements to improve their semantics.
+void Tidy(xmlNodePtr root) {
+  // Normalise anonymous type names.
+  // Reanonymise anonymous types.
+  // Discard naming typedef backlinks.
+  TidyAnonymousTypes(root);
+
+  // Remove duplicate data members.
+  RemoveDuplicateDataMembers(root);
+
+  // Eliminate complete duplicates and extra fragments of types.
+  // Report conflicting duplicate defintions.
+  // Record whether there are conflicting duplicate definitions.
+  HandleDuplicateTypes(root);
 }
 
 std::optional<uint64_t> ParseLength(const std::string& value) {
@@ -348,6 +743,7 @@ Function Abigail::MakeFunctionType(xmlNodePtr function) {
 }
 
 Id Abigail::ProcessRoot(xmlNodePtr root) {
+  Clean(root);
   Tidy(root);
   const auto name = GetName(root);
   if (name == "abi-corpus-group") {
@@ -790,17 +1186,16 @@ Id Abigail::BuildSymbols() {
   return graph_.Add<Interface>(symbols);
 }
 
-Id Read(Graph& graph, const std::string& path, Metrics& metrics) {
+Document Read(const std::string& path, Metrics& metrics) {
   // Open input for reading.
   FileDescriptor fd(path.c_str(), O_RDONLY);
 
   // Read the XML.
-  std::unique_ptr<std::remove_pointer<xmlDocPtr>::type, void(*)(xmlDocPtr)>
-      document(nullptr, xmlFreeDoc);
+  Document document(nullptr, xmlFreeDoc);
   {
     Time t(metrics, "abigail.libxml_parse");
     std::unique_ptr<
-        std::remove_pointer<xmlParserCtxtPtr>::type, void(*)(xmlParserCtxtPtr)>
+        std::remove_pointer_t<xmlParserCtxtPtr>, void(*)(xmlParserCtxtPtr)>
         context(xmlNewParserCtxt(), xmlFreeParserCtxt);
     document.reset(
         xmlCtxtReadFd(context.get(), fd.Value(), nullptr, nullptr,
@@ -808,10 +1203,13 @@ Id Read(Graph& graph, const std::string& path, Metrics& metrics) {
   }
   Check(document != nullptr) << "failed to parse input as XML";
 
-  // Get the root element.
+  return document;
+}
+
+Id Read(Graph& graph, const std::string& path, Metrics& metrics) {
+  const Document document = Read(path, metrics);
   xmlNodePtr root = xmlDocGetRootElement(document.get());
   Check(root) << "XML document has no root element";
-
   return Abigail(graph).ProcessRoot(root);
 }
 
