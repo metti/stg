@@ -191,7 +191,7 @@ struct Result {
 struct HashComparison {
   size_t operator()(const Comparison& comparison) const {
     size_t seed = 0;
-    std::hash<std::optional<Id>> h;
+    const std::hash<std::optional<Id>> h;
     combine_hash(seed, h(comparison.first));
     combine_hash(seed, h(comparison.second));
     return seed;

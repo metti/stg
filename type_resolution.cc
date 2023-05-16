@@ -21,7 +21,6 @@
 
 #include <functional>
 #include <map>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -55,6 +54,12 @@ struct NamedTypes {
 
   void operator()(const std::vector<Id>& ids) {
     for (auto id : ids) {
+      (*this)(id);
+    }
+  }
+
+  void operator()(const std::map<std::string, Id>& x) {
+    for (const auto& [_, id] : x) {
       (*this)(id);
     }
   }
@@ -169,9 +174,8 @@ struct NamedTypes {
   }
 
   void operator()(const Interface& x, Id) {
-    for (const auto& [_, symbol] : x.symbols) {
-      (*this)(symbol);
-    }
+    (*this)(x.symbols);
+    (*this)(x.types);
   }
 
   const Graph& graph;
@@ -437,7 +441,8 @@ struct Unify {
   }
 
   bool operator()(const Interface& x1, const Interface& x2) {
-    return (*this)(x1.symbols, x2.symbols);
+    return (*this)(x1.symbols, x2.symbols)
+        && (*this)(x1.types, x2.types);
   }
 
   bool Mismatch() {

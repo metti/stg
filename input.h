@@ -22,13 +22,14 @@
 
 #include "graph.h"
 #include "metrics.h"
+#include "reader_options.h"
 
 namespace stg {
 
 enum class InputFormat { ABI, BTF, ELF, STG };
 
-Id Read(Graph& graph, InputFormat format, const char* input, bool process_dwarf,
-        bool info, Metrics& metrics);
+Id Read(Graph& graph, InputFormat format, const char* input,
+        ReadOptions options, Metrics& metrics);
 
 }  // namespace stg
 

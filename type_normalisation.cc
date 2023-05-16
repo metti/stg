@@ -19,6 +19,8 @@
 
 #include "type_normalisation.h"
 
+#include <map>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -76,6 +78,12 @@ struct FindQualifiedTypesAndFunctions {
 
   void operator()(const std::vector<Id>& ids) {
     for (const auto& id : ids) {
+      (*this)(id);
+    }
+  }
+
+  void operator()(const std::map<std::string, Id>& x) {
+    for (const auto& [_, id] : x) {
       (*this)(id);
     }
   }
@@ -150,9 +158,8 @@ struct FindQualifiedTypesAndFunctions {
   }
 
   void operator()(const Interface& x, Id) {
-    for (auto& [_, id] : x.symbols) {
-      (*this)(id);
-    }
+    (*this)(x.symbols);
+    (*this)(x.types);
   }
 
   const Graph& graph;

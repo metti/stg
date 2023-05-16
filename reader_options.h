@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2022 Google LLC
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -17,28 +17,41 @@
 //
 // Author: Siddharth Nayyar
 
-#ifndef STG_PROTO_WRITER_H_
-#define STG_PROTO_WRITER_H_
+#ifndef STG_READER_OPTIONS_H_
+#define STG_READER_OPTIONS_H_
 
-#include <ostream>
-
-#include "graph.h"
-#include "stg.pb.h"
+#include <type_traits>
 
 namespace stg {
-namespace proto {
 
-class Writer {
- public:
-  Writer(const stg::Graph& graph)
-      : graph_(graph) {}
-  void Write(const Id&, std::ostream&);
+struct ReadOptions {
+  enum Value {
+    INFO = 1 << 0,
+    SKIP_DWARF = 1 << 1,
+    TYPE_ROOTS = 1 << 2,
+  };
 
- private:
-  const stg::Graph& graph_;
+  using Bitset = std::underlying_type_t<Value>;
+
+  ReadOptions() = default;
+  template <typename... Values>
+  explicit ReadOptions(Values... values) {
+    for (auto value : {values...}) {
+      Set(value);
+    }
+  }
+
+  void Set(Value other) {
+    bitset |= static_cast<Bitset>(other);
+  }
+
+  bool Test(Value other) const {
+    return static_cast<bool>(bitset & static_cast<Bitset>(other));
+  }
+
+  Bitset bitset = 0;
 };
 
-}  // namespace proto
 }  // namespace stg
 
-#endif  // STG_PROTO_WRITER_H_
+#endif  // STG_READER_OPTIONS_H_

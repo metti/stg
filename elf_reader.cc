@@ -19,16 +19,14 @@
 
 #include "elf_reader.h"
 
-#include <algorithm>
 #include <functional>
+#include <iomanip>
 #include <ios>
 #include <iostream>
-#include <iterator>
 #include <map>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -37,8 +35,10 @@
 #include "elf_loader.h"
 #include "equality.h"
 #include "equality_cache.h"
+#include "error.h"
 #include "graph.h"
 #include "metrics.h"
+#include "reader_options.h"
 #include "type_normalisation.h"
 #include "type_resolution.h"
 
@@ -47,6 +47,25 @@ namespace elf {
 namespace internal {
 
 namespace {
+
+struct IsTypeDefined {
+  bool operator()(const Typedef&) const {
+    return true;
+  }
+
+  bool operator()(const StructUnion& x) const {
+    return x.definition.has_value();
+  }
+
+  bool operator()(const Enumeration& x) const {
+    return x.definition.has_value();
+  }
+
+  template <typename Node>
+  bool operator()(const Node&) const {
+    Die() << "expected a Typedef/StructUnion/Enumeration node";
+  }
+};
 
 template <typename M, typename K>
 std::optional<typename M::mapped_type> MaybeGet(const M& map, const K& key) {
@@ -182,10 +201,12 @@ class Typing {
         equality_cache_(metrics),
         equals_(graph, equality_cache_) {}
 
-  void GetTypesFromDwarf(dwarf::Handler& dwarf, bool is_little_endian_binary) {
+  const std::vector<Id>& GetTypesFromDwarf(dwarf::Handler& dwarf,
+                                           bool is_little_endian_binary) {
     types_ = dwarf::Process(dwarf, is_little_endian_binary, graph_);
     ResolveTypes();
     FillAddressToId();
+    return types_.named_type_ids;
   }
 
   void ResolveTypes() {
@@ -284,22 +305,20 @@ class Typing {
 
 class Reader {
  public:
-  Reader(Graph& graph, const std::string& path, bool process_dwarf,
-         bool verbose, Metrics& metrics)
+  Reader(Graph& graph, const std::string& path, ReadOptions options,
+         Metrics& metrics)
       : graph_(graph),
         dwarf_(path),
-        elf_(dwarf_.GetElf(), verbose),
-        process_dwarf_(process_dwarf),
-        verbose_(verbose),
+        elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
+        options_(options),
         typing_(graph_, metrics) {}
 
-  Reader(Graph& graph, char* data, size_t size, bool process_dwarf,
-         bool verbose, Metrics& metrics)
+  Reader(Graph& graph, char* data, size_t size, ReadOptions options,
+         Metrics& metrics)
       : graph_(graph),
         dwarf_(data, size),
-        elf_(dwarf_.GetElf(), verbose),
-        process_dwarf_(process_dwarf),
-        verbose_(verbose),
+        elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
+        options_(options),
         typing_(graph_, metrics) {}
 
   Id Read();
@@ -311,8 +330,7 @@ class Reader {
   // an Elf* from dwarf::Handler without owning it.
   dwarf::Handler dwarf_;
   elf::ElfLoader elf_;
-  bool process_dwarf_;
-  bool verbose_;
+  ReadOptions options_;
 
   // Data extracted from ELF
   CRCValuesMap crc_values_;
@@ -322,7 +340,7 @@ class Reader {
 
 Id Reader::Read() {
   const auto all_symbols = elf_.GetElfSymbols();
-  if (verbose_) {
+  if (options_.Test(ReadOptions::INFO)) {
     std::cout << "Parsed " << all_symbols.size() << " symbols\n";
   }
 
@@ -345,7 +363,7 @@ Id Reader::Read() {
     namespaces_ = GetNamespacesMap(all_symbols, elf_);
   }
 
-  if (verbose_) {
+  if (options_.Test(ReadOptions::INFO)) {
     std::cout << "File has " << public_functions_and_variables.size()
               << " public functions and variables:\n";
     for (const auto& symbol : public_functions_and_variables) {
@@ -356,8 +374,22 @@ Id Reader::Read() {
     }
   }
 
-  if (process_dwarf_) {
-    typing_.GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary());
+  std::map<std::string, Id> types_map;
+  if (!options_.Test(ReadOptions::SKIP_DWARF)) {
+    const auto& named_type_ids =
+        typing_.GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary());
+    if (options_.Test(ReadOptions::TYPE_ROOTS)) {
+      const IsTypeDefined is_type_defined;
+      const InterfaceKey get_key(graph_);
+      for (const auto id : named_type_ids) {
+        if (graph_.Apply<bool>(is_type_defined, id)) {
+          const auto [it, inserted] = types_map.emplace(get_key(id), id);
+          if (!inserted) {
+            Die() << "found conflicting interface type: " << it->first;
+          }
+        }
+      }
+    }
   }
 
   std::map<std::string, Id> symbols_map;
@@ -369,7 +401,8 @@ Id Reader::Read() {
         std::string(symbol.name),
         graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
   }
-  auto root = graph_.Add<Interface>(std::move(symbols_map));
+  auto root =
+      graph_.Add<Interface>(std::move(symbols_map), std::move(types_map));
   // Types produced by ELF/DWARF readers may require removing useless
   // qualifiers.
   RemoveUselessQualifiers(graph_, root);
@@ -397,15 +430,14 @@ ElfSymbol Reader::SymbolTableEntryToElfSymbol(
 }  // namespace
 }  // namespace internal
 
-Id Read(Graph& graph, const std::string& path, bool process_dwarf,
-        bool verbose, Metrics& metrics) {
-  return internal::Reader(graph, path, process_dwarf, verbose, metrics).Read();
+Id Read(Graph& graph, const std::string& path, ReadOptions options,
+        Metrics& metrics) {
+  return internal::Reader(graph, path, options, metrics).Read();
 }
 
-Id Read(Graph& graph, char* data, size_t size, bool process_dwarf,
-        bool verbose, Metrics& metrics) {
-  return internal::Reader(graph, data, size, process_dwarf, verbose, metrics)
-      .Read();
+Id Read(Graph& graph, char* data, size_t size, ReadOptions options,
+        Metrics& metrics) {
+  return internal::Reader(graph, data, size, options, metrics).Read();
 }
 
 }  // namespace elf
