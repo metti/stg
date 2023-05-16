@@ -30,7 +30,7 @@ namespace proto {
 
 class Writer {
  public:
-  Writer(const stg::Graph& graph)
+  explicit Writer(const stg::Graph& graph)
       : graph_(graph) {}
   void Write(const Id&, std::ostream&);
 
