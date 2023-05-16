@@ -14,6 +14,7 @@ stg
   [-i|--info]
   [-d|--keep-duplicates]
   [-u|--unstable]
+  [-t|--types]
   [-S|--symbols <filter>]
   [--skip-dwarf]
   [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...
@@ -68,6 +69,11 @@ The tool can be passed any number of inputs to combine into a unified ABI.
 
 ### Options
 
+*   `--types`
+
+    Captures all named types found in ELF files as interface types, regardless
+    of whether those types are reachable by any symbol.
+
 *   `--skip-dwarf`
 
     Disable DWARF processing, when reading ELF files. For other formats this
@@ -75,9 +81,16 @@ The tool can be passed any number of inputs to combine into a unified ABI.
 
 ## Merge
 
-If multiple (or zero) inputs are provided, then a symbol merge operation is run.
+If multiple (or zero) inputs are provided, then ABI roots from all inputs are
+merged.
 
-The resulting ABI has the union of the inputs' symbols, which must be disjoint.
+### Symbols
+
+Symbols must be disjoint across all inputs.
+
+### Types
+
+Merging is not yet supported with type roots.
 
 ## Filter
 

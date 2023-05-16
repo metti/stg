@@ -11,6 +11,7 @@ stgdiff
   [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1
   [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2
   [-x|--exact]
+  [-t|--types]
   [--skip-dwarf]
   [{-i|--ignore} <ignore-option>] ...
   [{-f|--format} <output-format>] ...
@@ -59,6 +60,11 @@ ignore options: type_declaration_status symbol_type_presence primitive_type_enco
     NOTE: The `.stg` format is still novel and subject to change.
 
 ### Options
+
+*   `--types`
+
+    Captures all named types found in ELF files as interface types, regardless
+    of whether those types are reachable by any symbol.
 
 *   `--skip-dwarf`
 
@@ -274,4 +280,11 @@ return 0. Otherwise:
 
     ```
     stgdiff -s abi.0.stg abi.1.stg -F -
+    ```
+
+*   Compare symbols and named types in two ELF files and print a short report to
+    stdout:
+
+    ```
+    stgdiff -f short -t -e example1.o example2.o -o -
     ```
