@@ -57,12 +57,16 @@ struct GetInterface {
   }
 };
 
-// TODO: Implement merging for rooted types.
 Id Merge(Graph& graph, const std::vector<Id>& roots) {
   std::map<std::string, Id> symbols;
   GetInterface get;
   for (auto root : roots) {
-    for (const auto& x : graph.Apply<Interface&>(get, root).symbols) {
+    const auto& interface = graph.Apply<Interface&>(get, root);
+    // TODO: Implement merging interfaces with type roots.
+    if (!interface.types.empty()) {
+      Die() << "merging interfaces with type roots is not yet supported";
+    }
+    for (const auto& x : interface.symbols) {
       if (!symbols.insert(x).second) {
         Die() << "merge failed with duplicate symbol: " << x.first;
       }
