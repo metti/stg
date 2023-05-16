@@ -88,11 +88,11 @@ void Filter(Graph& graph, Id root, const SymbolFilter& filter) {
   std::swap(interface.symbols, symbols);
 }
 
-void Write(const Graph& graph, Id root, const char* output, bool stable) {
+void Write(const Graph& graph, Id root, const char* output) {
   std::ofstream os(output);
   {
     Time x(metrics, "write");
-    proto::Writer writer(graph, stable);
+    proto::Writer writer(graph);
     writer.Write(root, os);
     os << std::flush;
   }
@@ -111,7 +111,6 @@ int main(int argc, char* argv[]) {
   // Process arguments.
   bool opt_metrics = false;
   bool opt_keep_duplicates = false;
-  bool opt_unstable = false;
   std::unique_ptr<stg::SymbolFilter> opt_symbols;
   stg::ReadOptions opt_read_options;
   stg::InputFormat opt_input_format = stg::InputFormat::ABI;
@@ -121,7 +120,6 @@ int main(int argc, char* argv[]) {
       {"metrics",         no_argument,       nullptr, 'm'       },
       {"info",            no_argument,       nullptr, 'i'       },
       {"keep-duplicates", no_argument,       nullptr, 'd'       },
-      {"unstable",        no_argument,       nullptr, 'u'       },
       {"types",           no_argument,       nullptr, 't'       },
       {"symbols",         required_argument, nullptr, 'S'       },
       {"abi",             no_argument,       nullptr, 'a'       },
@@ -137,7 +135,6 @@ int main(int argc, char* argv[]) {
               << "  [-m|--metrics]\n"
               << "  [-i|--info]\n"
               << "  [-d|--keep-duplicates]\n"
-              << "  [-u|--unstable]\n"
               << "  [-t|--types]\n"
               << "  [-S|--symbols <filter>]\n"
               << "  [--skip-dwarf]\n"
@@ -149,7 +146,7 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    const int c = getopt_long(argc, argv, "-midutS:abeso:", opts, &ix);
+    const int c = getopt_long(argc, argv, "-midtS:abeso:", opts, &ix);
     if (c == -1) {
       break;
     }
@@ -163,9 +160,6 @@ int main(int argc, char* argv[]) {
         break;
       case 'd':
         opt_keep_duplicates = true;
-        break;
-      case 'u':
-        opt_unstable = true;
         break;
       case 't':
         opt_read_options.Set(stg::ReadOptions::TYPE_ROOTS);
@@ -220,7 +214,7 @@ int main(int argc, char* argv[]) {
       root = stg::Deduplicate(graph, root, hashes, stg::metrics);
     }
     for (auto output : outputs) {
-      stg::Write(graph, root, output, !opt_unstable);
+      stg::Write(graph, root, output);
     }
     if (opt_metrics) {
       stg::Report(stg::metrics, std::cerr);

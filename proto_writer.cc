@@ -478,14 +478,9 @@ void Print(const STG& stg, std::ostream& os) {
 
 void Writer::Write(const Id& root, std::ostream& os) {
   proto::STG stg;
-  if (stable) {
-    StableId stable_id(graph_);
-    stg.set_root_id(Transform<StableId>(graph_, stg, stable_id)(root));
-    SortNodes(stg);
-  } else {
-    auto get_id = [](Id id) { return id.ix_; };
-    stg.set_root_id(Transform<decltype(get_id)>(graph_, stg, get_id)(root));
-  }
+  StableId stable_id(graph_);
+  stg.set_root_id(Transform<StableId>(graph_, stg, stable_id)(root));
+  SortNodes(stg);
   stg.set_version(kWrittenFormatVersion);
   Print(stg, os);
 }

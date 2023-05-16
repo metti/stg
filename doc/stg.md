@@ -13,7 +13,6 @@ stg
   [-m|--metrics]
   [-i|--info]
   [-d|--keep-duplicates]
-  [-u|--unstable]
   [-t|--types]
   [-S|--symbols <filter>]
   [--skip-dwarf]
@@ -134,11 +133,6 @@ nodes that are recursively equal. By default, duplicate nodes are eliminated.
     The output will be an ABI representation in STG's native format.
 
     NOTE: The `.stg` format is still novel and subject to change.
-
-*   `-u|--unstable`: Use internal node ids in the ABI representation, instead of
-    stabilised external node ids.
-
-    This is intended for debugging purposes.
 
 ## Diagnostics
 
