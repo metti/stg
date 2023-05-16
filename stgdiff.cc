@@ -170,6 +170,7 @@ int main(int argc, char* argv[]) {
       {"elf",            no_argument,       nullptr, 'e'       },
       {"stg",            no_argument,       nullptr, 's'       },
       {"exact",          no_argument,       nullptr, 'x'       },
+      {"types",          no_argument,       nullptr, 't'       },
       {"ignore",         required_argument, nullptr, 'i'       },
       {"format",         required_argument, nullptr, 'f'       },
       {"output",         required_argument, nullptr, 'o'       },
@@ -183,6 +184,7 @@ int main(int argc, char* argv[]) {
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
               << "  [-x|--exact]\n"
+              << "  [-t|--types]\n"
               << "  [--skip-dwarf]\n"
               << "  [{-i|--ignore} <ignore-option>] ...\n"
               << "  [{-f|--format} <output-format>] ...\n"
@@ -196,7 +198,7 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-mabesxi:f:o:F:", opts, &ix);
+    const int c = getopt_long(argc, argv, "-mabesxti:f:o:F:", opts, &ix);
     if (c == -1) {
       break;
     }
@@ -219,6 +221,9 @@ int main(int argc, char* argv[]) {
         break;
       case 'x':
         opt_exact = true;
+        break;
+      case 't':
+        opt_read_options.Set(stg::ReadOptions::TYPE_ROOTS);
         break;
       case 1:
         inputs.emplace_back(opt_input_format, argument);

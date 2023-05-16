@@ -118,6 +118,7 @@ int main(int argc, char* argv[]) {
       {"info",            no_argument,       nullptr, 'i'       },
       {"keep-duplicates", no_argument,       nullptr, 'd'       },
       {"unstable",        no_argument,       nullptr, 'u'       },
+      {"types",           no_argument,       nullptr, 't'       },
       {"symbols",         required_argument, nullptr, 'S'       },
       {"abi",             no_argument,       nullptr, 'a'       },
       {"btf",             no_argument,       nullptr, 'b'       },
@@ -133,6 +134,7 @@ int main(int argc, char* argv[]) {
               << "  [-i|--info]\n"
               << "  [-d|--keep-duplicates]\n"
               << "  [-u|--unstable]\n"
+              << "  [-t|--types]\n"
               << "  [-S|--symbols <filter>]\n"
               << "  [--skip-dwarf]\n"
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...\n"
@@ -143,7 +145,7 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-miduS:abeso:", opts, &ix);
+    const int c = getopt_long(argc, argv, "-midutS:abeso:", opts, &ix);
     if (c == -1) {
       break;
     }
@@ -160,6 +162,9 @@ int main(int argc, char* argv[]) {
         break;
       case 'u':
         opt_unstable = true;
+        break;
+      case 't':
+        opt_read_options.Set(stg::ReadOptions::TYPE_ROOTS);
         break;
       case 'S':
         opt_symbols = stg::MakeSymbolFilter(argument);
