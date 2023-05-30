@@ -195,6 +195,7 @@ TEST_CASE("Tidy") {
     // Read inputs.
     stg::Graph graph;
     std::vector<stg::Id> ids;
+    ids.reserve(test.files.size());
     for (const char* file : test.files) {
       ids.push_back(Read(graph, file));
     }
