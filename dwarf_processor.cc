@@ -282,7 +282,7 @@ class Processor {
         ProcessStructUnion(entry, StructUnion::Kind::UNION);
         break;
       case DW_TAG_member:
-        ProcessMember(entry);
+        Die() << "DW_TAG_member outside of struct/class/union";
         break;
       case DW_TAG_pointer_type:
         ProcessReference<PointerReference>(
@@ -419,6 +419,7 @@ class Processor {
 
     auto byte_size = GetByteSize(entry);
     std::vector<Id> members;
+    std::vector<Id> methods;
 
     for (auto& child : entry.GetChildren()) {
       auto child_tag = child.GetTag();
@@ -426,9 +427,11 @@ class Processor {
       switch (child_tag) {
         case DW_TAG_member:
           members.push_back(GetIdForEntry(child));
+          ProcessMember(child);
           break;
         case DW_TAG_subprogram:
-          // TODO: process methods
+          methods.push_back(GetIdForEntry(child));
+          ProcessMethod(child);
           break;
         case DW_TAG_inheritance:
           // TODO: process base classes
@@ -439,21 +442,19 @@ class Processor {
         case DW_TAG_enumeration_type:
         case DW_TAG_typedef:
         case DW_TAG_variable:
+          Process(child);
           break;
         default:
           Die() << "Unexpected tag for child of struct/class/union: 0x"
                 << std::hex << child_tag;
       }
-      Process(child);
     }
 
     // TODO: support base classes
-    // TODO: support methods
     const Id id = AddProcessedNode<StructUnion>(
         entry, kind, name, byte_size,
         /* base_classes = */ std::vector<Id>{},
-        /* methods = */ std::vector<Id>{},
-        std::move(members));
+        std::move(methods), std::move(members));
     if (!name.empty()) {
       AddNamedTypeNode(id);
     }
@@ -472,6 +473,30 @@ class Processor {
     AddProcessedNode<Member>(
         entry, std::move(name), referred_type_id,
         GetDataBitOffset(entry, bit_size, is_little_endian_binary_), bit_size);
+  }
+
+  void ProcessMethod(Entry& entry) {
+    Subprogram subprogram = GetSubprogram(entry);
+    auto id = graph_.Add<Function>(std::move(subprogram.node));
+    if (subprogram.external && subprogram.address) {
+      // Only external functions with address are useful for ABI monitoring
+      // TODO: cover virtual methods
+      result_.symbols.push_back(Types::Symbol{
+          .name = subprogram.name,
+          .linkage_name = subprogram.linkage_name,
+          .address = *subprogram.address,
+          .id = id});
+    }
+
+    // TODO: support kind
+    const Method::Kind kind = Method::Kind::NON_VIRTUAL;
+    // TODO: support vtable_offset
+    if (!subprogram.linkage_name) {
+      Die() << "Method should have linkage name";
+    }
+    AddProcessedNode<Method>(entry, *subprogram.linkage_name, subprogram.name,
+                             kind, /* vtable_offset = */ std::nullopt,
+                             id);
   }
 
   void ProcessArray(Entry& entry) {
@@ -563,6 +588,27 @@ class Processor {
   }
 
   void ProcessFunction(Entry& entry) {
+    Subprogram subprogram = GetSubprogram(entry);
+    const Id id = AddProcessedNode<Function>(entry, std::move(subprogram.node));
+    if (subprogram.external && subprogram.address) {
+      // Only external functions with address are useful for ABI monitoring
+      result_.symbols.push_back(Types::Symbol{
+          .name = std::move(subprogram.name),
+          .linkage_name = std::move(subprogram.linkage_name),
+          .address = *subprogram.address,
+          .id = id});
+    }
+  }
+
+  struct Subprogram {
+    Function node;
+    std::string name;
+    std::optional<std::string> linkage_name;
+    std::optional<size_t> address;
+    bool external;
+  };
+
+  Subprogram GetSubprogram(Entry& entry) {
     auto return_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
 
     std::vector<Id> parameters;
@@ -595,19 +641,12 @@ class Processor {
               << EntryToString(child);
       }
     }
-    const Id id = AddProcessedNode<Function>(entry, return_type_id, parameters);
 
-    if (entry.GetFlag(DW_AT_external)) {
-      auto address = entry.MaybeGetAddress(DW_AT_low_pc);
-      if (address) {
-        // Only external functions with address are useful for ABI monitoring
-        result_.symbols.push_back(Types::Symbol{
-            .name = GetNameOrEmpty(entry),
-            .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
-            .address = *address,
-            .id = id});
-      }
-    }
+    return Subprogram{.node = Function(return_type_id, parameters),
+                      .name = GetNameOrEmpty(entry),
+                      .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
+                      .address = entry.MaybeGetAddress(DW_AT_low_pc),
+                      .external = entry.GetFlag(DW_AT_external)};
   }
 
   // Allocate or get already allocated STG Id for Entry.
