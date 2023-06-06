@@ -46,6 +46,7 @@
 #include "error.h"
 #include "file_descriptor.h"
 #include "graph.h"
+#include "scope.h"
 #include "type_normalisation.h"
 
 namespace stg {
@@ -677,24 +678,6 @@ std::optional<PointerReference::Kind> ParseReferenceKind(
   }
   return {};
 }
-
-class PushScopeName {
- public:
-  PushScopeName(std::string& scope_name, const std::string& name)
-      : scope_name_(scope_name), old_size_(scope_name.size()) {
-    scope_name_ += name;
-    scope_name_ += "::";
-  }
-  PushScopeName(const PushScopeName& other) = delete;
-  PushScopeName& operator=(const PushScopeName& other) = delete;
-  ~PushScopeName() {
-    scope_name_.resize(old_size_);
-  }
-
- private:
-  std::string& scope_name_;
-  const size_t old_size_;
-};
 
 }  // namespace
 
