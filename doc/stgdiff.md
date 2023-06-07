@@ -7,18 +7,20 @@ libabigail, BTF, or ELF/DWARF.
 
 ```
 stgdiff
- [-m|--metrics]
- [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1
- [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2
- [{-x|--exact}]
- [--skip-dwarf]
- [{-c|--compare-option} {ignore_symbol_type_presence_changes|ignore_type_declaration_status_changes}] ...
- [{-f|--format} {plain|flat|small|short|viz}]
- [{-o|--output} {filename|-}] ...
- [{-F|--fidelity} {filename|-}]
-   implicit defaults: --abi --format plain
-   format, output and compare-option may be repeated
-   --exact (node equality) cannot be combined with --output
+  [-m|--metrics]
+  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1
+  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2
+  [-x|--exact]
+  [--skip-dwarf]
+  [{-i|--ignore} <ignore-option>] ...
+  [{-c|--compare-option} ignore_<ignore-option>] ...
+  [{-f|--format} <output-format>] ...
+  [{-o|--output} {filename|-}] ...
+  [{-F|--fidelity} {filename|-}]
+implicit defaults: --abi --format plain
+--exact (node equality) cannot be combined with --output
+output formats: plain flat small short viz
+ignore options: type_declaration_status type_declaration_status_changes symbol_type_presence symbol_type_presence_changes primitive_type_encoding member_size enum_underlying_type qualifier
 ```
 
 ## Input
@@ -80,6 +82,28 @@ XML output from `abidw`.
 
     Ignore changes in declaration status of types, thus `stgdiff` does not
     report loss or gain of user-defined type definitions.
+
+These options are useful when comparing ABI representations that differ in how
+much (DWARF) information they preserve.
+
+*   `ignore_primitive_type_encoding`
+
+    Ignore primitve type encodings during comparison. BTF provides a subset of
+    encoding information. libabigail XML lacks encoding information.
+
+*   `ignore_member_size`
+
+    Ignore member sizes during comparison. libabigail XML does not model them.
+
+*   `ignore_enum_underlying_type`
+
+    Ignore enum-underlying types during comparison. BTF doesn't model them.
+    libabigail provides incomplete information.
+
+*   `ignore_qualifier`
+
+    Ignore qualifiers during comparison. Both libabigail and STG interpret and
+    adjust type qualifiers but sometimes do so differently.
 
 ### Fidelity Reporting
 

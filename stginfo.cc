@@ -26,14 +26,11 @@
 #include <utility>
 #include <vector>
 
-#include "abigail_reader.h"
-#include "btf_reader.h"
-#include "elf_reader.h"
+#include "input.h"
 #include "error.h"
 #include "metrics.h"
 
-enum class InputFormat { BTF, ELF };
-using Input = std::pair<InputFormat, std::string>;
+using Input = std::pair<stg::InputFormat, const char*>;
 
 int main(int argc, char* const argv[]) {
   enum LongOptions {
@@ -62,10 +59,10 @@ int main(int argc, char* const argv[]) {
     const char* argument = optarg;
     switch (c) {
       case 'b':
-        inputs.emplace_back(InputFormat::BTF, argument);
+        inputs.emplace_back(stg::InputFormat::BTF, argument);
         break;
       case 'e':
-        inputs.emplace_back(InputFormat::ELF, argument);
+        inputs.emplace_back(stg::InputFormat::ELF, argument);
         break;
       case kSkipDwarf:
         opt_skip_dwarf = true;
@@ -85,17 +82,8 @@ int main(int argc, char* const argv[]) {
   try {
     stg::Graph graph;
     stg::Metrics metrics;
-    switch (format) {
-      case InputFormat::BTF: {
-        (void)stg::btf::ReadFile(graph, filename, /* verbose = */ true);
-        break;
-      }
-      case InputFormat::ELF: {
-        (void)stg::elf::Read(graph, filename, !opt_skip_dwarf,
-                             /* verbose = */ true, metrics);
-        break;
-      }
-    }
+    (void)stg::Read(graph, format, filename, !opt_skip_dwarf, /* info = */ true,
+                    metrics);
   } catch (const stg::Exception& e) {
     std::cerr << e.what() << '\n';
     return 1;
