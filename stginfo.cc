@@ -55,9 +55,9 @@ int main(int argc, char* const argv[]) {
   std::vector<Input> inputs;
   while (true) {
     int c = getopt_long(argc, argv, "-b:e:", opts, nullptr);
-    if (c == -1)
+    if (c == -1) {
       break;
-
+    }
     const char* argument = optarg;
     switch (c) {
       case 'b':
@@ -75,8 +75,9 @@ int main(int argc, char* const argv[]) {
   }
 
   // allow only one input file
-  if (inputs.size() != 1)
+  if (inputs.size() != 1) {
     return usage();
+  }
 
   const auto& [format, filename] = inputs[0];
 

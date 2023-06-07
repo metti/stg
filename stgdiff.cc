@@ -29,7 +29,6 @@
 #include <memory>
 #include <optional>
 #include <ostream>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -162,8 +161,9 @@ int Run(const Inputs& inputs, const Outputs& outputs,
       Report(reporting, *comparison, output);
       output << std::flush;
     }
-    if (!output)
+    if (!output) {
       stg::Die() << "error writing to " << '\'' << filename << '\'';
+    }
   }
 
   // Compute fidelity diff if requested.
@@ -175,20 +175,6 @@ int Run(const Inputs& inputs, const Outputs& outputs,
 }
 
 }  // namespace
-
-bool ParseCompareOptions(const char* opts_arg, stg::CompareOptions& opts) {
-  std::stringstream opt_stream(opts_arg);
-  std::string opt;
-  while (std::getline(opt_stream, opt, ',')) {
-    if (opt == "ignore_symbol_type_presence_changes")
-      opts.ignore_symbol_type_presence_changes = true;
-    else if (opt == "ignore_type_declaration_status_changes")
-      opts.ignore_type_declaration_status_changes = true;
-    else
-      return false;
-  }
-  return true;
-}
 
 int main(int argc, char* argv[]) {
   enum LongOptions {
@@ -206,18 +192,18 @@ int main(int argc, char* argv[]) {
   Inputs inputs;
   Outputs outputs;
   static option opts[] = {
-      {"metrics",         no_argument,       nullptr, 'm'       },
-      {"abi",             no_argument,       nullptr, 'a'       },
-      {"btf",             no_argument,       nullptr, 'b'       },
-      {"elf",             no_argument,       nullptr, 'e'       },
-      {"stg",             no_argument,       nullptr, 's'       },
-      {"exact",           no_argument,       nullptr, 'x'       },
-      {"compare-options", required_argument, nullptr, 'c'       },
-      {"format",          required_argument, nullptr, 'f'       },
-      {"output",          required_argument, nullptr, 'o'       },
-      {"fidelity",        required_argument, nullptr, 'F'       },
-      {"skip-dwarf",      no_argument,       nullptr, kSkipDwarf},
-      {nullptr,           0,                 nullptr, 0         },
+      {"metrics",        no_argument,       nullptr, 'm'       },
+      {"abi",            no_argument,       nullptr, 'a'       },
+      {"btf",            no_argument,       nullptr, 'b'       },
+      {"elf",            no_argument,       nullptr, 'e'       },
+      {"stg",            no_argument,       nullptr, 's'       },
+      {"exact",          no_argument,       nullptr, 'x'       },
+      {"compare-option", required_argument, nullptr, 'c'       },
+      {"format",         required_argument, nullptr, 'f'       },
+      {"output",         required_argument, nullptr, 'o'       },
+      {"fidelity",       required_argument, nullptr, 'F'       },
+      {"skip-dwarf",     no_argument,       nullptr, kSkipDwarf},
+      {nullptr,          0,                 nullptr, 0         },
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
@@ -226,15 +212,14 @@ int main(int argc, char* argv[]) {
               << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
               << " [{-x|--exact}]\n"
               << " [--skip-dwarf]\n"
-              << " [{-c|--compare-options} "
+              << " [{-c|--compare-option} "
                  "{ignore_symbol_type_presence_changes|"
-                 "ignore_type_declaration_status_changes}]\n"
+                 "ignore_type_declaration_status_changes}] ...\n"
               << " [{-f|--format} {plain|flat|small|short|viz}]\n"
               << " [{-o|--output} {filename|-}] ...\n"
               << " [{-F|--fidelity} {filename|-}]\n"
               << "   implicit defaults: --abi --format plain\n"
-              << "   format and output can appear multiple times\n"
-              << "   multiple comma-separated compare-options can be passed\n"
+              << "   format, output and compare-option may be repeated\n"
               << "   --exact (node equality) cannot be combined with --output\n"
               << "\n";
     return 1;
@@ -242,8 +227,9 @@ int main(int argc, char* argv[]) {
   while (true) {
     int ix;
     int c = getopt_long(argc, argv, "-mabesxc:f:o:F:", opts, &ix);
-    if (c == -1)
+    if (c == -1) {
       break;
+    }
     const char* argument = optarg;
     switch (c) {
       case 'm':
@@ -268,30 +254,40 @@ int main(int argc, char* argv[]) {
         inputs.push_back({opt_input_format, argument});
         break;
       case 'c':
-        if (!ParseCompareOptions(argument, compare_options))
+        if (strcmp(argument, "ignore_symbol_type_presence_changes") == 0) {
+          compare_options.ignore_symbol_type_presence_changes = true;
+        } else if (strcmp(argument,
+                          "ignore_type_declaration_status_changes") == 0) {
+          compare_options.ignore_type_declaration_status_changes = true;
+        } else {
           return usage();
+        }
         break;
       case 'f':
-        if (strcmp(argument, "plain") == 0)
+        if (strcmp(argument, "plain") == 0) {
           opt_output_format = stg::reporting::OutputFormat::PLAIN;
-        else if (strcmp(argument, "flat") == 0)
+        } else if (strcmp(argument, "flat") == 0) {
           opt_output_format = stg::reporting::OutputFormat::FLAT;
-        else if (strcmp(argument, "small") == 0)
+        } else if (strcmp(argument, "small") == 0) {
           opt_output_format = stg::reporting::OutputFormat::SMALL;
-        else if (strcmp(argument, "short") == 0)
+        } else if (strcmp(argument, "short") == 0) {
           opt_output_format = stg::reporting::OutputFormat::SHORT;
-        else if (strcmp(argument, "viz") == 0)
+        } else if (strcmp(argument, "viz") == 0) {
           opt_output_format = stg::reporting::OutputFormat::VIZ;
-        else
+        } else {
           return usage();
+        }
         break;
       case 'o':
-        if (strcmp(argument, "-") == 0)
+        if (strcmp(argument, "-") == 0) {
           argument = "/dev/stdout";
+        }
         outputs.push_back({opt_output_format, argument});
         break;
       case 'F':
-        if (strcmp(argument, "-") == 0) argument = "/dev/stdout";
+        if (strcmp(argument, "-") == 0) {
+          argument = "/dev/stdout";
+        }
         opt_fidelity.emplace(argument);
         break;
       case kSkipDwarf:

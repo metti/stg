@@ -63,9 +63,10 @@ std::string GetElementName(xmlNodePtr element) {
 
 void CheckElementName(const char* name, xmlNodePtr element) {
   const auto element_name = FromLibxml(element->name);
-  if (strcmp(element_name, name) != 0)
+  if (strcmp(element_name, name) != 0) {
     Die() << "expected element '" << name
           << "' but got '" << element_name << "'";
+  }
 }
 
 xmlNodePtr GetOnlyChild(const std::string& name, xmlNodePtr element) {
@@ -87,9 +88,10 @@ std::optional<std::string> GetAttribute(xmlNodePtr node, const char* name) {
 
 std::string GetAttributeOrDie(xmlNodePtr node, const char* name) {
   xmlChar* attribute = xmlGetProp(node, ToLibxml(name));
-  if (!attribute)
+  if (!attribute) {
     Die() << "element '" << FromLibxml(node->name)
           << "' missing attribute '" << name << "'";
+  }
   std::string result = FromLibxml(attribute);
   xmlFree(attribute);
   return result;
@@ -100,60 +102,64 @@ std::optional<T> Parse(const std::string& value) {
   T result;
   std::istringstream is(value);
   is >> std::noskipws >> result;
-  if (!is || !is.eof())
-    return {};
-  else
+  if (is && is.eof()) {
     return {result};
+  }
+  return {};
 }
 
 template <>
 std::optional<bool> Parse<bool>(const std::string& value) {
-  if (value == "yes")
+  if (value == "yes") {
     return {true};
-  if (value == "no")
+  } else if (value == "no") {
     return {false};
+  }
   return {};
 }
 
 template <>
 std::optional<ElfSymbol::SymbolType> Parse<ElfSymbol::SymbolType>(
     const std::string& value) {
-  if (value == "object-type")
+  if (value == "object-type") {
     return {ElfSymbol::SymbolType::OBJECT};
-  if (value == "func-type")
+  } else if (value == "func-type") {
     return {ElfSymbol::SymbolType::FUNCTION};
-  if (value == "common-type")
+  } else if (value == "common-type") {
     return {ElfSymbol::SymbolType::COMMON};
-  if (value == "tls-type")
+  } else if (value == "tls-type") {
     return {ElfSymbol::SymbolType::TLS};
+  }
   return {};
 }
 
 template <>
 std::optional<ElfSymbol::Binding> Parse<ElfSymbol::Binding>(
     const std::string& value) {
-  if (value == "global-binding")
+  if (value == "global-binding") {
     return {ElfSymbol::Binding::GLOBAL};
-  if (value == "local-binding")
+  } else if (value == "local-binding") {
     return {ElfSymbol::Binding::LOCAL};
-  if (value == "weak-binding")
+  } else if (value == "weak-binding") {
     return {ElfSymbol::Binding::WEAK};
-  if (value == "gnu-unique-binding")
+  } else if (value == "gnu-unique-binding") {
     return {ElfSymbol::Binding::GNU_UNIQUE};
+  }
   return {};
 }
 
 template <>
 std::optional<ElfSymbol::Visibility> Parse<ElfSymbol::Visibility>(
     const std::string& value) {
-  if (value == "default-visibility")
+  if (value == "default-visibility") {
     return {ElfSymbol::Visibility::DEFAULT};
-  if (value == "protected-visibility")
+  } else if (value == "protected-visibility") {
     return {ElfSymbol::Visibility::PROTECTED};
-  if (value == "hidden-visibility")
+  } else if (value == "hidden-visibility") {
     return {ElfSymbol::Visibility::HIDDEN};
-  if (value == "internal-visibility")
+  } else if (value == "internal-visibility") {
     return {ElfSymbol::Visibility::INTERNAL};
+  }
   return {};
 }
 
@@ -162,20 +168,21 @@ std::optional<ElfSymbol::CRC> Parse<ElfSymbol::CRC>(const std::string& value) {
   uint32_t number;
   std::istringstream is(value);
   is >> std::noskipws >> std::hex >> number;
-  if (!is || !is.eof())
-    return std::nullopt;
-  else
+  if (is && is.eof()) {
     return std::make_optional<ElfSymbol::CRC>(number);
+  }
+  return std::nullopt;
 }
 
 template <typename T>
 T GetParsedValueOrDie(xmlNodePtr element, const char* name,
                       const std::string& value, const std::optional<T>& parse) {
-  if (!parse)
-    Die() << "element '" << FromLibxml(element->name)
-          << "' has attribute '" << name
-          << "' with bad value '" << value << "'";
-  return *parse;
+  if (parse) {
+    return *parse;
+  }
+  Die() << "element '" << FromLibxml(element->name)
+        << "' has attribute '" << name
+        << "' with bad value '" << value << "'";
 }
 
 template <typename T>
@@ -187,17 +194,19 @@ T ReadAttributeOrDie(xmlNodePtr element, const char* name) {
 template <typename T>
 std::optional<T> ReadAttribute(xmlNodePtr element, const char* name) {
   const auto value = GetAttribute(element, name);
-  if (!value)
-    return {};
-  return {GetParsedValueOrDie(element, name, *value, Parse<T>(*value))};
+  if (value) {
+    return {GetParsedValueOrDie(element, name, *value, Parse<T>(*value))};
+  }
+  return {};
 }
 
 template <typename T>
 T ReadAttribute(xmlNodePtr element, const char* name, const T& default_value) {
   const auto value = GetAttribute(element, name);
-  if (!value)
-    return default_value;
-  return GetParsedValueOrDie(element, name, *value, Parse<T>(*value));
+  if (value) {
+    return GetParsedValueOrDie(element, name, *value, Parse<T>(*value));
+  }
+  return default_value;
 }
 
 template <typename T>
@@ -208,17 +217,19 @@ T ReadAttribute(xmlNodePtr element, const char* name,
 }
 
 std::optional<uint64_t> ParseLength(const std::string& value) {
-  if (value == "infinite" || value == "unknown")
+  if (value == "infinite" || value == "unknown") {
     return {0};
+  }
   return Parse<uint64_t>(value);
 }
 
 std::optional<PointerReference::Kind> ParseReferenceKind(
     const std::string& value) {
-  if (value == "lvalue")
+  if (value == "lvalue") {
     return {PointerReference::Kind::LVALUE_REFERENCE};
-  if (value == "rvalue")
+  } else if (value == "rvalue") {
     return {PointerReference::Kind::RVALUE_REFERENCE};
+  }
   return {};
 }
 
@@ -231,7 +242,9 @@ class PushScopeName {
   }
   PushScopeName(const PushScopeName& other) = delete;
   PushScopeName& operator=(const PushScopeName& other) = delete;
-  ~PushScopeName() { scope_name_.resize(old_size_); }
+  ~PushScopeName() {
+    scope_name_.resize(old_size_);
+  }
 
  private:
   std::string& scope_name_;
@@ -244,8 +257,9 @@ Abigail::Abigail(Graph& graph) : graph_(graph) {}
 
 Id Abigail::GetNode(const std::string& type_id) {
   const auto [it, inserted] = type_ids_.insert({type_id, Id(0)});
-  if (inserted)
+  if (inserted) {
     it->second = graph_.Allocate();
+  }
   return it->second;
 }
 
@@ -266,8 +280,9 @@ Function Abigail::MakeFunctionType(xmlNodePtr function) {
   for (auto child = xmlFirstElementChild(function); child;
        child = xmlNextElementSibling(child)) {
     const auto child_name = GetElementName(child);
-    if (return_type)
+    if (return_type) {
       Die() << "unexpected element after return-type";
+    }
     if (child_name == "parameter") {
       const auto is_variadic = ReadAttribute<bool>(child, "is-variadic", false);
       parameters.push_back(is_variadic ? GetVariadic() : GetEdge(child));
@@ -355,9 +370,10 @@ void Abigail::ProcessSymbol(xmlNodePtr symbol) {
   if (alias) {
     std::istringstream is(*alias);
     std::string item;
-    while (std::getline(is, item, ','))
+    while (std::getline(is, item, ',')) {
       Check(alias_to_main_.insert({item, elf_symbol_id}).second)
           << "multiple aliases with id " << elf_symbol_id;
+    }
   }
 }
 
@@ -418,7 +434,9 @@ void Abigail::ProcessScope(xmlNodePtr scope) {
   }
 }
 
-void Abigail::ProcessInstr(xmlNodePtr instr) { ProcessScope(instr); }
+void Abigail::ProcessInstr(xmlNodePtr instr) {
+  ProcessScope(instr);
+}
 
 void Abigail::ProcessNamespace(xmlNodePtr scope) {
   const auto name = GetAttributeOrDie(scope, "name");
@@ -463,12 +481,15 @@ void Abigail::ProcessPointer(Id id, bool is_pointer, xmlNodePtr pointer) {
 void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
   std::vector<Qualifier> qualifiers;
   // Do these in reverse order so we get CVR ordering.
-  if (ReadAttribute<bool>(qualified, "restrict", false))
+  if (ReadAttribute<bool>(qualified, "restrict", false)) {
     qualifiers.push_back(Qualifier::RESTRICT);
-  if (ReadAttribute<bool>(qualified, "volatile", false))
+  }
+  if (ReadAttribute<bool>(qualified, "volatile", false)) {
     qualifiers.push_back(Qualifier::VOLATILE);
-  if (ReadAttribute<bool>(qualified, "const", false))
+  }
+  if (ReadAttribute<bool>(qualified, "const", false)) {
     qualifiers.push_back(Qualifier::CONST);
+  }
   Check(!qualifiers.empty()) << "qualified-type-def has no qualifiers";
   // Handle multiple qualifiers by unconditionally adding as new nodes all but
   // the last qualifier which is set into place.
@@ -510,10 +531,11 @@ void Abigail::ProcessArray(Id id, xmlNodePtr array) {
     --count;
     const auto size = *it;
     const Array node(size, type);
-    if (count)
+    if (count) {
       type = graph_.Add<Array>(node);
-    else
+    } else {
       graph_.Set<Array>(id, node);
+    }
   }
 }
 
@@ -571,8 +593,9 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
        child = xmlNextElementSibling(child)) {
     const auto child_name = GetElementName(child);
     if (child_name == "data-member") {
-      if (const auto member = ProcessDataMember(is_struct, child))
+      if (const auto member = ProcessDataMember(is_struct, child)) {
         members.push_back(*member);
+      }
     } else if (child_name == "member-type") {
       ProcessMemberType(child);
     } else if (child_name == "base-class") {
@@ -672,8 +695,9 @@ void Abigail::ProcessMemberType(xmlNodePtr member_type) {
     return;
   }
   const auto name = GetElementName(decl);
-  if (!ProcessUserDefinedType(name, id, decl))
+  if (!ProcessUserDefinedType(name, id, decl)) {
     Die() << "unrecognised member-type child element '" << name << "'";
+  }
 }
 
 Id Abigail::BuildSymbol(const SymbolInfo& info,
@@ -703,9 +727,10 @@ Id Abigail::BuildSymbols() {
   //
   //   symbol / alias -> type
   //
-  for (const auto& [alias, main] : alias_to_main_)
+  for (const auto& [alias, main] : alias_to_main_) {
     Check(!alias_to_main_.count(main))
         << "found main symbol and alias with id " << main;
+  }
   // Build final symbol table, tying symbols to their types.
   std::map<std::string, Id> symbols;
   for (const auto& [id, symbol_info] : symbol_info_map_) {

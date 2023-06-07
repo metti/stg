@@ -36,8 +36,9 @@ extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
   xmlFreeParserCtxt(ctxt);
 
   // Bail out if the doc XML is invalid.
-  if (!doc)
+  if (!doc) {
     return 0;
+  }
 
   xmlNodePtr root = xmlDocGetRootElement(doc);
   if (root) {
