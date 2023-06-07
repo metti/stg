@@ -701,13 +701,19 @@ Result StructUnion::Equals(const Type& other, State& state) const {
   const auto& o = other.as<StructUnion>();
 
   Result result;
+  // Compare two anonymous types recursively, not holding diffs.
+  // Compare two identically named types recursively, holding diffs.
+  // Everything else treated as distinct. No recursion.
   const auto kind1 = GetStructUnionKind();
   const auto kind2 = o.GetStructUnionKind();
   const auto& name1 = GetName();
   const auto& name2 = o.GetName();
-  result.diff_.holds_changes =
-      kind1 == kind2 && !name1.empty() && name1 == name2;
-  result.MaybeAddNodeDiff("kind", kind1, kind2);
+  if (kind1 != kind2 || name1 != name2) {
+    result.equals_ = false;
+    result.diff_.has_changes = true;
+    return result;
+  }
+  result.diff_.holds_changes = !name1.empty();
   result.MaybeAddNodeDiff("byte size", GetByteSize(), o.GetByteSize());
 
   const auto& members1 = GetMembers();
@@ -741,9 +747,17 @@ Result Enumeration::Equals(const Type& other, State& state) const {
   const auto& o = other.as<Enumeration>();
 
   Result result;
+  // Compare two anonymous types recursively, not holding diffs.
+  // Compare two identically named types recursively, holding diffs.
+  // Everything else treated as distinct. No recursion.
   const auto& name1 = GetName();
   const auto& name2 = o.GetName();
-  result.diff_.holds_changes = !name1.empty() && name1 == name2;
+  if (name1 != name2) {
+    result.equals_ = false;
+    result.diff_.has_changes = true;
+    return result;
+  }
+  result.diff_.holds_changes = !name1.empty();
   result.MaybeAddNodeDiff("byte size", GetByteSize(), o.GetByteSize());
 
   const auto enums1 = GetEnums();
@@ -785,8 +799,17 @@ Result ForwardDeclaration::Equals(const Type& other, State& state) const {
   const auto& o = other.as<ForwardDeclaration>();
 
   Result result;
-  result.diff_.holds_changes = true;
-  result.MaybeAddNodeDiff("kind", GetForwardKind(), o.GetForwardKind());
+  // Assume two identically named types are the same.
+  // Everything else treated as distinct.
+  const auto kind1 = GetForwardKind();
+  const auto kind2 = o.GetForwardKind();
+  const auto& name1 = GetName();
+  const auto& name2 = o.GetName();
+  if (kind1 != kind2 || name1 != name2) {
+    result.equals_ = false;
+    result.diff_.has_changes = true;
+    return result;
+  }
   return result;
 }
 
