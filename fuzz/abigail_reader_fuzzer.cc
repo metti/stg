@@ -31,8 +31,9 @@ extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
   xmlParserCtxtPtr ctxt = xmlNewParserCtxt();
   // Suppress libxml error messages.
   xmlSetGenericErrorFunc(ctxt, (xmlGenericErrorFunc) DoNothing);
-  xmlDocPtr doc = xmlCtxtReadMemory(ctxt, data, size, nullptr, nullptr,
-                                    XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+  xmlDocPtr doc = xmlCtxtReadMemory(
+      ctxt, data, size, nullptr, nullptr,
+      XML_PARSE_NOERROR | XML_PARSE_NONET | XML_PARSE_NOWARNING);
   xmlFreeParserCtxt(ctxt);
 
   // Bail out if the doc XML is invalid.

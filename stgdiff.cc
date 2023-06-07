@@ -23,14 +23,10 @@
 
 #include <cstddef>
 #include <cstring>
-#include <deque>
 #include <fstream>
 #include <iostream>
-#include <memory>
 #include <optional>
 #include <ostream>
-#include <string>
-#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -38,9 +34,10 @@
 #include "equality.h"
 #include "error.h"
 #include "fidelity.h"
-#include "input.h"
 #include "graph.h"
+#include "input.h"
 #include "metrics.h"
+#include "reader_options.h"
 #include "reporting.h"
 
 namespace {
@@ -56,11 +53,10 @@ using Outputs =
     std::vector<std::pair<stg::reporting::OutputFormat, const char*>>;
 
 std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
-                          bool process_dwarf, stg::Metrics& metrics) {
+                          stg::ReadOptions options, stg::Metrics& metrics) {
   std::vector<stg::Id> roots;
   for (const auto& [format, filename] : inputs) {
-    roots.push_back(stg::Read(graph, format, filename, process_dwarf,
-                              /* info = */ false, metrics));
+    roots.push_back(stg::Read(graph, format, filename, options, metrics));
   }
   return roots;
 }
@@ -79,9 +75,10 @@ int RunFidelity(const char* filename, const stg::Graph& graph,
              : 0;
 }
 
-int RunExact(const Inputs& inputs, bool process_dwarf, stg::Metrics& metrics) {
+int RunExact(const Inputs& inputs, stg::ReadOptions options,
+             stg::Metrics& metrics) {
   stg::Graph graph;
-  const auto roots = Read(inputs, graph, process_dwarf, metrics);
+  const auto roots = Read(inputs, graph, options, metrics);
 
   struct PairCache {
     std::optional<bool> Query(const stg::Pair& comparison) const {
@@ -106,11 +103,11 @@ int RunExact(const Inputs& inputs, bool process_dwarf, stg::Metrics& metrics) {
 }
 
 int Run(const Inputs& inputs, const Outputs& outputs, stg::Ignore ignore,
-        bool process_dwarf, std::optional<const char*> fidelity,
+        stg::ReadOptions options, std::optional<const char*> fidelity,
         stg::Metrics& metrics) {
   // Read inputs.
   stg::Graph graph;
-  const auto roots = Read(inputs, graph, process_dwarf, metrics);
+  const auto roots = Read(inputs, graph, options, metrics);
 
   // Compute differences.
   stg::Compare compare{graph, ignore, metrics};
@@ -158,7 +155,7 @@ int main(int argc, char* argv[]) {
   // Process arguments.
   bool opt_metrics = false;
   bool opt_exact = false;
-  bool opt_skip_dwarf = false;
+  stg::ReadOptions opt_read_options;
   std::optional<const char*> opt_fidelity = std::nullopt;
   stg::Ignore opt_ignore;
   stg::InputFormat opt_input_format = stg::InputFormat::ABI;
@@ -173,6 +170,7 @@ int main(int argc, char* argv[]) {
       {"elf",            no_argument,       nullptr, 'e'       },
       {"stg",            no_argument,       nullptr, 's'       },
       {"exact",          no_argument,       nullptr, 'x'       },
+      {"types",          no_argument,       nullptr, 't'       },
       {"ignore",         required_argument, nullptr, 'i'       },
       {"format",         required_argument, nullptr, 'f'       },
       {"output",         required_argument, nullptr, 'o'       },
@@ -186,6 +184,7 @@ int main(int argc, char* argv[]) {
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
               << "  [-x|--exact]\n"
+              << "  [-t|--types]\n"
               << "  [--skip-dwarf]\n"
               << "  [{-i|--ignore} <ignore-option>] ...\n"
               << "  [{-f|--format} <output-format>] ...\n"
@@ -199,7 +198,7 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-mabesxi:f:o:F:", opts, &ix);
+    const int c = getopt_long(argc, argv, "-mabesxti:f:o:F:", opts, &ix);
     if (c == -1) {
       break;
     }
@@ -222,6 +221,9 @@ int main(int argc, char* argv[]) {
         break;
       case 'x':
         opt_exact = true;
+        break;
+      case 't':
+        opt_read_options.Set(stg::ReadOptions::TYPE_ROOTS);
         break;
       case 1:
         inputs.emplace_back(opt_input_format, argument);
@@ -257,7 +259,7 @@ int main(int argc, char* argv[]) {
         opt_fidelity.emplace(argument);
         break;
       case kSkipDwarf:
-        opt_skip_dwarf = true;
+        opt_read_options.Set(stg::ReadOptions::SKIP_DWARF);
         break;
       default:
         return usage();
@@ -268,9 +270,9 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    const int status = opt_exact ? RunExact(inputs, !opt_skip_dwarf, metrics)
+    const int status = opt_exact ? RunExact(inputs, opt_read_options, metrics)
                                  : Run(inputs, outputs, opt_ignore,
-                                       !opt_skip_dwarf, opt_fidelity, metrics);
+                                       opt_read_options, opt_fidelity, metrics);
     if (opt_metrics) {
       stg::Report(metrics, std::cerr);
     }

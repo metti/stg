@@ -24,6 +24,7 @@
 #include "error.h"
 #include "graph.h"
 #include "metrics.h"
+#include "reader_options.h"
 
 extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
   try {
@@ -33,8 +34,7 @@ extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
     std::vector<char> data_copy(data, data + size);
     stg::Graph graph;
     stg::Metrics metrics;
-    stg::elf::Read(graph, data_copy.data(), size, /* process_dwarf= */ true,
-                   /* verbose= */ false, metrics);
+    stg::elf::Read(graph, data_copy.data(), size, stg::ReadOptions(), metrics);
   } catch (const stg::Exception&) {
     // Pass as this is us catching invalid ELF properly.
   }

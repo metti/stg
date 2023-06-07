@@ -22,7 +22,6 @@
 
 #include <map>
 #include <vector>
-#include <utility>
 
 #include "graph.h"
 #include "scc.h"
@@ -216,7 +215,8 @@ struct Equals {
   }
 
   bool operator()(const Interface& x1, const Interface& x2) {
-    return (*this)(x1.symbols, x2.symbols);
+    return (*this)(x1.symbols, x2.symbols)
+        && (*this)(x1.types, x2.types);
   }
 
   bool Mismatch() {

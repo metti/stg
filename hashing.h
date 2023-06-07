@@ -69,8 +69,8 @@ struct Hash {
 
   // Hash unsigned 64 bits by splitting, hashing and combining.
   constexpr HashValue operator()(uint64_t x) const {
-    uint32_t lo = x;
-    uint32_t hi = x >> 32;
+    const uint32_t lo = x;
+    const uint32_t hi = x >> 32;
     return (*this)(lo, hi);
   }
 
@@ -122,8 +122,8 @@ struct Hash {
   // Reverse order Boost hash_combine (must be used with good hashes).
   template <typename Arg, typename... Args>
   constexpr HashValue operator()(Arg arg, Args... args) const {
-    uint32_t seed = (*this)(args...).value;
-    uint32_t hash = (*this)(arg).value;
+    const uint32_t seed = (*this)(args...).value;
+    const uint32_t hash = (*this)(arg).value;
     return HashValue(seed ^ (hash + 0x9e3779b9 + (seed << 6) + (seed >> 2)));
   }
 };

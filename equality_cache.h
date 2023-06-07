@@ -77,8 +77,8 @@ struct EqualityCache {
       ++query_unequal_hashes;
       return std::make_optional(false);
     }
-    Id fid1 = Find(id1);
-    Id fid2 = Find(id2);
+    const Id fid1 = Find(id1);
+    const Id fid2 = Find(id2);
     if (fid1 == fid2) {
       ++query_equal_representatives;
       return std::make_optional(true);
@@ -192,8 +192,8 @@ struct EqualityCache {
       ++disunion_known_hash;
       return;
     }
-    Id fid1 = Find(id1);
-    Id fid2 = Find(id2);
+    const Id fid1 = Find(id1);
+    const Id fid2 = Find(id2);
     Check(fid1 != fid2) << "disunion of equal";
     if (inequalities[fid1].insert(fid2).second) {
       inequalities[fid2].insert(fid1);
