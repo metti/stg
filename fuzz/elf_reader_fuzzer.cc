@@ -20,7 +20,7 @@
 
 #include "elf_reader.h"
 #include "error.h"
-#include "stg.h"
+#include "graph.h"
 
 extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
   try {

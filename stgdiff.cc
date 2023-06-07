@@ -22,12 +22,9 @@
 #include <getopt.h>
 
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
-#include <ctime>
 #include <deque>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -41,85 +38,94 @@
 #include "abigail_reader.h"
 #include "btf_reader.h"
 #include "elf_reader.h"
+#include "equality.h"
 #include "error.h"
+#include "graph.h"
+#include "proto_reader.h"
 #include "reporting.h"
-#include "stg.h"
+#include "timing.h"
 
 namespace {
+
+stg::Times times;
 
 const int kAbiChange = 4;
 const size_t kMaxCrcOnlyChanges = 3;
 const stg::CompareOptions kAllCompareOptionsEnabled{true, true};
 
-class Time {
- public:
-  Time(const char* what) : what_(what) {
-    clock_gettime(CLOCK_MONOTONIC, &start_);
-  }
-
-  ~Time() {
-    struct timespec finish;
-    clock_gettime(CLOCK_MONOTONIC, &finish);
-    auto seconds = finish.tv_sec - start_.tv_sec;
-    auto nanos = finish.tv_nsec - start_.tv_nsec;
-    times_.emplace_back(what_, seconds * 1'000'000'000 + nanos);
-  }
-
-  static void report() {
-    for (const auto& [what, ns] : times_) {
-      auto millis = ns / 1'000'000;
-      auto nanos = ns % 1'000'000;
-      std::cerr << what << ": " << millis << '.' << std::setfill('0')
-                << std::setw(6) << nanos << std::setfill(' ') << " ms\n";
-    }
-  }
-
- private:
-  const char* what_;
-  struct timespec start_;
-  static std::vector<std::pair<const char*, uint64_t>> times_;
-};
-
-std::vector<std::pair<const char*, uint64_t>> Time::times_;
-
-enum class InputFormat { ABI, BTF, ELF };
+enum class InputFormat { ABI, BTF, ELF, STG };
 
 using Inputs = std::vector<std::pair<InputFormat, const char*>>;
-using Outputs = std::vector<std::pair<stg::OutputFormat, const char*>>;
+using Outputs =
+    std::vector<std::pair<stg::reporting::OutputFormat, const char*>>;
+
+std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph) {
+  std::vector<stg::Id> roots;
+  for (const auto& [format, filename] : inputs) {
+    switch (format) {
+      case InputFormat::ABI: {
+        stg::Time read(times, "read ABI");
+        roots.push_back(stg::abixml::Read(graph, filename));
+        break;
+      }
+      case InputFormat::BTF: {
+        stg::Time read(times, "read BTF");
+        roots.push_back(stg::btf::ReadFile(graph, filename));
+        break;
+      }
+      case InputFormat::ELF: {
+        stg::Time read(times, "read ELF");
+        roots.push_back(stg::elf::Read(graph, filename));
+        break;
+      }
+      case InputFormat::STG: {
+        stg::Time read(times, "read STG");
+        roots.push_back(stg::proto::Read(graph, filename));
+        break;
+      }
+    }
+  }
+  return roots;
+}
+
+bool RunExact(const Inputs& inputs) {
+  stg::Graph graph;
+  const auto roots = Read(inputs, graph);
+
+  struct PairCache {
+    std::optional<bool> Query(const stg::Pair& comparison) const {
+      return equalities.find(comparison) != equalities.end()
+          ? std::make_optional(true)
+          : std::nullopt;
+    }
+    void AllSame(const std::vector<stg::Pair>& comparisons) {
+      for (const auto& comparison : comparisons) {
+        equalities.insert(comparison);
+      }
+    }
+    void AllDifferent(const std::vector<stg::Pair>&) {}
+    std::unordered_set<stg::Pair, stg::HashPair> equalities;
+  };
+
+  stg::Time compute(times, "equality check");
+  PairCache equalities;
+  return stg::Equals<PairCache>(graph, equalities)(roots[0], roots[1]);
+}
 
 bool Run(const Inputs& inputs, const Outputs& outputs,
          const stg::CompareOptions& compare_options) {
   // Read inputs.
   stg::Graph graph;
-  std::vector<stg::Id> roots;
-  for (const auto& [format, filename] : inputs) {
-    switch (format) {
-      case InputFormat::ABI: {
-        Time read("read ABI");
-        roots.push_back(stg::abixml::Read(graph, filename));
-        break;
-      }
-      case InputFormat::BTF: {
-        Time read("read BTF");
-        roots.push_back(stg::btf::ReadFile(graph, filename));
-        break;
-      }
-      case InputFormat::ELF: {
-        Time read("read ELF");
-        roots.push_back(stg::elf::Read(graph, filename));
-        break;
-      }
-    }
-  }
+  const auto roots = Read(inputs, graph);
 
   // Compute differences.
-  stg::State state{graph, compare_options};
+  stg::Compare compare{graph, compare_options};
   std::pair<bool, std::optional<stg::Comparison>> result;
   {
-    Time compute("compute diffs");
-    result = stg::Compare(state, roots[0], roots[1]);
+    stg::Time compute(times, "compute diffs");
+    result = compare(roots[0], roots[1]);
   }
-  stg::Check(state.scc.Empty()) << "internal error: SCC state broken";
+  stg::Check(compare.scc.Empty()) << "internal error: SCC state broken";
   const auto& [equals, comparison] = result;
 
   // Write reports.
@@ -127,9 +133,10 @@ bool Run(const Inputs& inputs, const Outputs& outputs,
   for (const auto& [format, filename] : outputs) {
     std::ofstream output(filename);
     if (comparison) {
-      Time report("report diffs");
-      stg::ReportingOptions options{format, kMaxCrcOnlyChanges};
-      stg::Reporting reporting{graph, state.outcomes, options, names};
+      stg::Time report(times, "report diffs");
+      stg::reporting::Options options{format, kMaxCrcOnlyChanges};
+      stg::reporting::Reporting reporting{graph, compare.outcomes, options,
+        names};
       Report(reporting, *comparison, output);
       output << std::flush;
     }
@@ -160,9 +167,11 @@ bool ParseCompareOptions(const char* opts_arg, stg::CompareOptions& opts) {
 int main(int argc, char* argv[]) {
   // Process arguments.
   bool opt_times = false;
+  bool opt_exact = false;
   stg::CompareOptions compare_options;
   InputFormat opt_input_format = InputFormat::ABI;
-  stg::OutputFormat opt_output_format = stg::OutputFormat::PLAIN;
+  stg::reporting::OutputFormat opt_output_format =
+      stg::reporting::OutputFormat::PLAIN;
   Inputs inputs;
   Outputs outputs;
   static option opts[] = {
@@ -170,6 +179,8 @@ int main(int argc, char* argv[]) {
       {"abi",             no_argument,       nullptr, 'a'},
       {"btf",             no_argument,       nullptr, 'b'},
       {"elf",             no_argument,       nullptr, 'e'},
+      {"stg",             no_argument,       nullptr, 's'},
+      {"exact",           no_argument,       nullptr, 'x'},
       {"compare-options", required_argument, nullptr, 'c'},
       {"format",          required_argument, nullptr, 'f'},
       {"output",          required_argument, nullptr, 'o'},
@@ -178,8 +189,9 @@ int main(int argc, char* argv[]) {
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
               << " [-t|--times]\n"
-              << " [-a|--abi|-b|--btf|-e|--elf] file1\n"
-              << " [-a|--abi|-b|--btf|-e|--elf] file2\n"
+              << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
+              << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
+              << " [{-x|--exact}]\n"
               << " [{-c|--compare-options} "
                  "{ignore_symbol_type_presence_changes|"
                  "ignore_type_declaration_status_changes|all}]\n"
@@ -187,13 +199,14 @@ int main(int argc, char* argv[]) {
               << " [{-o|--output} {filename|-}] ...\n"
               << "   implicit defaults: --abi --format plain\n"
               << "   format and output can appear multiple times\n"
-              << "   multiple comma separated compare-options can be passed\n"
+              << "   multiple comma-separated compare-options can be passed\n"
+              << "   --exact (node equality) cannot be combined with --output\n"
               << "\n";
     return 1;
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-tabec:f:o:", opts, &ix);
+    int c = getopt_long(argc, argv, "-tabesxc:f:o:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
@@ -210,6 +223,12 @@ int main(int argc, char* argv[]) {
       case 'e':
         opt_input_format = InputFormat::ELF;
         break;
+      case 's':
+        opt_input_format = InputFormat::STG;
+        break;
+      case 'x':
+        opt_exact = true;
+        break;
       case 1:
         inputs.push_back({opt_input_format, argument});
         break;
@@ -219,15 +238,15 @@ int main(int argc, char* argv[]) {
         break;
       case 'f':
         if (strcmp(argument, "plain") == 0)
-          opt_output_format = stg::OutputFormat::PLAIN;
+          opt_output_format = stg::reporting::OutputFormat::PLAIN;
         else if (strcmp(argument, "flat") == 0)
-          opt_output_format = stg::OutputFormat::FLAT;
+          opt_output_format = stg::reporting::OutputFormat::FLAT;
         else if (strcmp(argument, "small") == 0)
-          opt_output_format = stg::OutputFormat::SMALL;
+          opt_output_format = stg::reporting::OutputFormat::SMALL;
         else if (strcmp(argument, "short") == 0)
-          opt_output_format = stg::OutputFormat::SHORT;
+          opt_output_format = stg::reporting::OutputFormat::SHORT;
         else if (strcmp(argument, "viz") == 0)
-          opt_output_format = stg::OutputFormat::VIZ;
+          opt_output_format = stg::reporting::OutputFormat::VIZ;
         else
           return usage();
         break;
@@ -240,13 +259,17 @@ int main(int argc, char* argv[]) {
         return usage();
     }
   }
-  if (inputs.size() != 2)
+  if (inputs.size() != 2 || opt_exact > outputs.empty()) {
     return usage();
+  }
 
   try {
-    const bool equals = Run(inputs, outputs, compare_options);
-    if (opt_times)
-      Time::report();
+    const bool equals = opt_exact
+                        ? RunExact(inputs)
+                        : Run(inputs, outputs, compare_options);
+    if (opt_times) {
+      stg::Time::report(times, std::cerr);
+    }
     return equals ? 0 : kAbiChange;
   } catch (const stg::Exception& e) {
     std::cerr << e.what() << '\n';
