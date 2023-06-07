@@ -67,13 +67,13 @@ void Report(const Metrics& metrics, std::ostream& os) {
 
 Time::Time(Metrics& metrics, const char* name)
     : metrics_(metrics), index_(metrics.size()) {
-  clock_gettime(CLOCK_MONOTONIC, &start_);
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start_);
   metrics_.push_back(Metric{name, std::monostate()});
 }
 
 Time::~Time() {
   struct timespec finish;
-  clock_gettime(CLOCK_MONOTONIC, &finish);
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &finish);
   const auto seconds = finish.tv_sec - start_.tv_sec;
   const auto nanos = finish.tv_nsec - start_.tv_nsec;
   metrics_[index_].value.emplace<1>(seconds * 1'000'000'000 + nanos);
