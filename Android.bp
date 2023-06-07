@@ -83,6 +83,12 @@ cc_library_host_static {
 }
 
 cc_library_host_static {
+    name: "elf_reader",
+    defaults: ["defaults"],
+    srcs: ["elf_reader.cc"],
+}
+
+cc_library_host_static {
     name: "reporting",
     defaults: ["defaults"],
     srcs: ["reporting.cc"],
@@ -95,6 +101,7 @@ cc_binary_host {
     static_libs: [
         "abigail_reader",
         "btf_reader",
+        "elf_reader",
         "reporting",
         "stg",
     ],
