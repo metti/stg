@@ -76,6 +76,10 @@ class Die {
   std::ostringstream os_;
 };
 
+inline std::string ErrnoToString(int error) {
+  return std::system_error(error, std::generic_category()).what();
+}
+
 }  // namespace stg
 
 #endif  // STG_ERROR_H_

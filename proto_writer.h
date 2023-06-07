@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2021-2022 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -15,38 +15,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Giuliano Procida
+// Author: Siddharth Nayyar
 
-#ifndef STG_ID_H_
-#define STG_ID_H_
+#ifndef STG_PROTO_WRITER_H_
+#define STG_PROTO_WRITER_H_
 
-#include <cstddef>
-#include <functional>
 #include <ostream>
 
-namespace stg {
+#include "graph.h"
+#include "stg.pb.h"
 
-// A wrapped (for type safety) array index.
-struct Id {
-  explicit Id(size_t ix) : ix_(ix) {}
-  size_t ix_;
-  bool operator==(const Id& other) const { return ix_ == other.ix_; }
-  bool operator!=(const Id& other) const { return !operator==(other); }
+namespace stg {
+namespace proto {
+
+class Writer {
+ public:
+  Writer(const stg::Graph& graph) : graph_(graph) {}
+  void Write(const Id&, std::ostream&);
+
+ private:
+  const stg::Graph& graph_;
 };
 
-inline std::ostream& operator<<(std::ostream& os, Id id) {
-  return os << '<' << id.ix_ << '>';
-}
-
+}  // namespace proto
 }  // namespace stg
 
-namespace std {
-
-template<>
-struct hash<stg::Id> {
-  size_t operator()(const stg::Id& id) const noexcept { return id.ix_; }
-};
-
-}  // namespace std
-
-#endif  // STG_ID_H_
+#endif  // STG_PROTO_WRITER_H_
