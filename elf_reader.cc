@@ -283,8 +283,8 @@ ElfSymbol Reader::SymbolTableEntryToElfSymbol(
       /* ns = */ std::nullopt,  // TODO: Linux namespace
       /* type_id = */ std::nullopt,
       /* full_name = */ std::nullopt);
-    typing_.MaybeAddTypeInfo(elf_.GetAbsoluteAddress(symbol), result);
-    return result;
+  typing_.MaybeAddTypeInfo(elf_.GetAbsoluteAddress(symbol), result);
+  return result;
 }
 
 }  // namespace
