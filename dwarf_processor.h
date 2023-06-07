@@ -20,6 +20,8 @@
 #ifndef STG_DWARF_PROCESSOR_H_
 #define STG_DWARF_PROCESSOR_H_
 
+#include <optional>
+#include <string>
 #include <vector>
 
 #include "dwarf_wrappers.h"
@@ -29,9 +31,17 @@ namespace stg {
 namespace dwarf {
 
 struct Types {
+  struct Symbol {
+    std::string name;
+    std::optional<std::string> linkage_name;
+    size_t address;
+    Id id;
+  };
+
   size_t processed_entries = 0;
   // Container for all Ids allocated during DWARF processing.
   std::vector<Id> all_ids;
+  std::vector<Symbol> symbols;
 };
 
 // Process every compilation unit from DWARF and returns processed STG along

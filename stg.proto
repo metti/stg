@@ -149,9 +149,8 @@ message Member {
 message StructUnion {
   enum Kind {
     KIND_UNSPECIFIED = 0;
-    CLASS = 1;
-    STRUCT = 2;
-    UNION = 3;
+    STRUCT = 1;
+    UNION = 2;
   }
 
   message Definition {
