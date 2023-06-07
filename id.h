@@ -15,27 +15,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Maria Teguiani
 // Author: Giuliano Procida
 
-#include <iostream>
+#ifndef STG_ID_H_
+#define STG_ID_H_
 
-#include "btf_reader.h"
-#include "error.h"
+#include <cstddef>
+#include <functional>
+#include <ostream>
 
-int main(int argc, const char* argv[]) {
-  if (argc != 2) {
-    std::cerr << "Please specify the path to a BTF file.";
-    return 1;
-  }
+namespace stg {
 
-  try {
-    stg::Graph graph;
-    (void)stg::btf::ReadFile(graph, argv[1], /* verbose = */ true);
-  } catch (const stg::Exception& e) {
-    std::cerr << e.what() << '\n';
-    return 1;
-  }
+// A wrapped (for type safety) array index.
+struct Id {
+  explicit Id(size_t ix) : ix_(ix) {}
+  size_t ix_;
+  bool operator==(const Id& other) const { return ix_ == other.ix_; }
+  bool operator!=(const Id& other) const { return !operator==(other); }
+};
 
-  return 0;
+inline std::ostream& operator<<(std::ostream& os, Id id) {
+  return os << '<' << id.ix_ << '>';
 }
+
+}  // namespace stg
+
+namespace std {
+
+template<>
+struct hash<stg::Id> {
+  size_t operator()(const stg::Id& id) const noexcept { return id.ix_; }
+};
+
+}  // namespace std
+
+#endif  // STG_ID_H_

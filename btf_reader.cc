@@ -67,22 +67,60 @@ const T* Structs::MemoryRange::Pull(size_t count) {
   return reinterpret_cast<const T*>(saved);
 }
 
-Structs::Structs(const char* start, size_t size,
+Structs::Structs(Graph& graph,
                  std::unique_ptr<abigail::ir::environment> env,
                  const abigail::symtab_reader::symtab_sptr tab,
                  const bool verbose)
-    : env_(std::move(env)), tab_(tab), verbose_(verbose) {
+    : graph_(graph), env_(std::move(env)), tab_(tab), verbose_(verbose) { }
+
+// Get the index of the void type, creating one if needed.
+Id Structs::GetVoid() {
+  if (!void_)
+    void_ = {graph_.Add(Make<Void>())};
+  return *void_;
+}
+
+// Get the index of the variadic parameter type, creating one if needed.
+Id Structs::GetVariadic() {
+  if (!variadic_)
+    variadic_ = {graph_.Add(Make<Variadic>())};
+  return *variadic_;
+}
+
+// Map BTF type index to own index.
+//
+// If there is no existing mapping for a BTF type, create one pointing to a new
+// slot at the end of the array.
+Id Structs::GetIdRaw(uint32_t btf_index) {
+  auto [it, inserted] = btf_type_ids_.insert({btf_index, Id(0)});
+  if (inserted)
+    it->second = graph_.Allocate();
+  return it->second;
+}
+
+// Translate BTF type id to own type id, for non-parameters.
+Id Structs::GetId(uint32_t btf_index) {
+  return btf_index ? GetIdRaw(btf_index) : GetVoid();
+}
+
+// Translate BTF type id to own type id, for parameters.
+Id Structs::GetParameterId(uint32_t btf_index) {
+  return btf_index ? GetIdRaw(btf_index) : GetVariadic();
+}
+
+// The verbose output format closely follows bpftool dump format raw.
+static constexpr std::string_view ANON{"(anon)"};
+
+Id Structs::Process(const char* start, size_t size) {
   Check(sizeof(btf_header) <= size) << "BTF section too small for header";
   const btf_header* header = reinterpret_cast<const btf_header*>(start);
-  if (verbose_) {
+  if (verbose_)
     PrintHeader(header);
-  }
   Check(header->magic == 0xEB9F) << "Magic field must be 0xEB9F for BTF";
 
   const char* header_limit = start + header->hdr_len;
   const char* type_start = header_limit + header->type_off;
   const char* type_limit = type_start + header->type_len;
-
   const char* string_start = header_limit + header->str_off;
   const char* string_limit = string_start + header->str_len;
 
@@ -99,53 +137,11 @@ Structs::Structs(const char* start, size_t size,
 
   const MemoryRange type_section{type_start, type_limit};
   string_section_ = MemoryRange{string_start, string_limit};
-  BuildTypes(type_section);
-  if (verbose_) {
+  const Id root = BuildTypes(type_section);
+  if (verbose_)
     PrintStrings(string_section_);
-  }
+  return root;
 }
-
-// Get the index of the void type, creating one if needed.
-size_t Structs::GetVoidIndex() {
-  if (!void_type_id_) {
-    void_type_id_ = {types_.size()};
-    types_.push_back(std::make_unique<Void>(types_));
-  }
-  return *void_type_id_;
-}
-
-// Get the index of the variadic parameter type, creating one if needed.
-size_t Structs::GetVariadicIndex() {
-  if (!variadic_type_id_) {
-    variadic_type_id_ = {types_.size()};
-    types_.push_back(std::make_unique<Variadic>(types_));
-  }
-  return *variadic_type_id_;
-}
-
-// Map BTF type index to own index.
-//
-// If there is no existing mapping for a BTF type, create one pointing to a new
-// slot at the end of the array.
-size_t Structs::GetIndex(uint32_t btf_index) {
-  auto [it, inserted] = type_ids_.insert({btf_index, types_.size()});
-  if (inserted)
-    types_.push_back(nullptr);
-  return it->second;
-}
-
-// Translate BTF type id to own type id, for non-parameters.
-Id Structs::GetId(uint32_t btf_index) {
-  return Id(btf_index ? GetIndex(btf_index) : GetVoidIndex());
-}
-
-// Translate BTF type id to own type id, for parameters.
-Id Structs::GetParameterId(uint32_t btf_index) {
-  return Id(btf_index ? GetIndex(btf_index) : GetVariadicIndex());
-}
-
-// The verbose output format closely follows bpftool dump format raw.
-static constexpr std::string_view ANON{"(anon)"};
 
 void Structs::PrintHeader(const btf_header* header) const {
   std::cout << "BTF header:\n"
@@ -177,12 +173,9 @@ std::vector<Id> Structs::BuildMembers(
         std::cout << " bitfield_size=" << bitfield_size;
       std::cout << '\n';
     }
-    auto member =
-        std::make_unique<Member>(types_, name, GetId(raw_member.type),
-                                 static_cast<uint64_t>(offset), bitfield_size);
-    auto id = types_.size();
-    types_.push_back(std::move(member));
-    result.push_back(Id(id));
+    auto member = Make<Member>(name, GetId(raw_member.type),
+                               static_cast<uint64_t>(offset), bitfield_size);
+    result.push_back(graph_.Add(std::move(member)));
   }
   return result;
 }
@@ -220,7 +213,7 @@ std::vector<Parameter> Structs::BuildParams(const struct btf_param* params,
   return result;
 }
 
-void Structs::BuildTypes(MemoryRange memory) {
+Id Structs::BuildTypes(MemoryRange memory) {
   if (verbose_) {
     std::cout << "Type section:\n";
   }
@@ -237,10 +230,7 @@ void Structs::BuildTypes(MemoryRange memory) {
     ++btf_index;
   }
 
-  BuildSymbols();
-
-  for (const auto& type : types_)
-    Check(type != nullptr) << "Undefined type";
+  return BuildSymbols();
 }
 
 void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
@@ -251,8 +241,9 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
 
   if (verbose_)
     std::cout << '[' << btf_index << "] ";
-  auto node = [&]() -> std::unique_ptr<Type>& {
-    return types_[GetIndex(btf_index)];
+  // delay allocation of type id as some BTF nodes are skipped
+  auto define = [&](std::unique_ptr<Type> type) {
+    graph_.Set(GetIdRaw(btf_index), std::move(type));
   };
 
   switch (kind) {
@@ -284,14 +275,14 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                                         : Integer::Encoding::UNSIGNED_INTEGER;
       if (offset)
         std::cerr << "ignoring BTF INT non-zero offset " << offset << '\n';
-      node() = std::make_unique<Integer>(types_, name, encoding, bits, t->size);
+      define(Make<Integer>(name, encoding, bits, t->size));
       break;
     }
     case BTF_KIND_PTR: {
       if (verbose_) {
         std::cout << "PTR '" << ANON << "' type_id=" << t->type << '\n';
       }
-      node() = std::make_unique<Ptr>(types_, GetId(t->type));
+      define(Make<Ptr>(GetId(t->type)));
       break;
     }
     case BTF_KIND_TYPEDEF: {
@@ -299,7 +290,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       if (verbose_) {
         std::cout << "TYPEDEF '" << name << "' type_id=" << t->type << '\n';
       }
-      node() = std::make_unique<Typedef>(types_, name, GetId(t->type));
+      define(Make<Typedef>(name, GetId(t->type)));
       break;
     }
     case BTF_KIND_VOLATILE:
@@ -316,7 +307,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                       : "RESTRICT")
                   << " '" << ANON << "' type_id=" << t->type << '\n';
       }
-      node() = std::make_unique<Qualifier>(types_, qualifier, GetId(t->type));
+      define(Make<Qualifier>(qualifier, GetId(t->type)));
       break;
     }
     case BTF_KIND_ARRAY: {
@@ -328,8 +319,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << " nr_elems=" << array->nelems
                   << '\n';
       }
-      node() =
-          std::make_unique<Array>(types_, GetId(array->type), array->nelems);
+      define(Make<Array>(GetId(array->type), array->nelems));
       break;
     }
     case BTF_KIND_STRUCT:
@@ -347,8 +337,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       }
       const auto* btf_members = memory.Pull<struct btf_member>(vlen);
       const auto members = BuildMembers(kflag, btf_members, vlen);
-      node() = std::make_unique<StructUnion>(types_, name, structUnionKind,
-                                             t->size, members);
+      define(Make<StructUnion>(name, structUnionKind, t->size, members));
       break;
     }
     case BTF_KIND_ENUM: {
@@ -365,11 +354,10 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       // does not include forward-declared enums. They are treated as
       // BTF_KIND_ENUMs with vlen set to zero.
       if (vlen) {
-        node() =
-            std::make_unique<Enumeration>(types_, name, t->size, enumerators);
+        define(Make<Enumeration>(name, t->size, enumerators));
       } else {
         // BTF actually provides size (4), but it's meaningless.
-        node() = std::make_unique<Enumeration>(types_, name);
+        define(Make<Enumeration>(name));
       }
       break;
     }
@@ -382,7 +370,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
         std::cout << "FWD '" << name << "' fwd_kind=" << structUnionKind
                   << '\n';
       }
-      node() = std::make_unique<StructUnion>(types_, name, structUnionKind);
+      define(Make<StructUnion>(name, structUnionKind));
       break;
     }
     case BTF_KIND_FUNC: {
@@ -408,7 +396,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << '\n';
       }
       const auto parameters = BuildParams(params, vlen);
-      node() = std::make_unique<Function>(types_, GetId(t->type), parameters);
+      define(Make<Function>(GetId(t->type), parameters));
       break;
     }
     case BTF_KIND_VAR: {
@@ -463,7 +451,7 @@ void Structs::PrintStrings(MemoryRange memory) {
   std::cout << '\n';
 }
 
-void Structs::BuildSymbols() {
+Id Structs::BuildSymbols() {
   const auto filter = [&]() {
     auto filter = tab_->make_filter();
     filter.set_public_symbols();
@@ -486,13 +474,11 @@ void Structs::BuildSymbols() {
     } else {
       type_id = {it->second};
     }
-    auto elf_symbol_id = types_.size();
-    types_.push_back(std::make_unique<ElfSymbol>(types_, symbol, type_id));
-    auto key = symbol_name + '@' + symbol->get_version().str();
-    elf_symbols.emplace(std::move(key), elf_symbol_id);
+
+    elf_symbols.emplace(symbol_name + '@' + symbol->get_version().str(),
+                        graph_.Add(Make<ElfSymbol>(symbol, type_id)));
   }
-  symbols_index_ = types_.size();
-  types_.push_back(std::make_unique<Symbols>(types_, elf_symbols));
+  return graph_.Add(Make<Symbols>(elf_symbols));
 }
 
 class ElfHandle {
@@ -524,7 +510,7 @@ class ElfHandle {
   Dwfl_Callbacks offline_callbacks_;
 };
 
-std::unique_ptr<Structs> ReadFile(const std::string& path, bool verbose) {
+Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
   using abigail::symtab_reader::symtab;
 
   ElfHandle elf(path);
@@ -541,8 +527,8 @@ std::unique_ptr<Structs> ReadFile(const std::string& path, bool verbose) {
   auto env = std::make_unique<abigail::ir::environment>();
   auto tab = symtab::load(elf, env.get());
 
-  return std::make_unique<Structs>(
-      btf_start, btf_size, std::move(env), std::move(tab), verbose);
+  Structs structs(graph, std::move(env), std::move(tab), verbose);
+  return structs.Process(btf_start, btf_size);
 }
 
 }  // namespace btf

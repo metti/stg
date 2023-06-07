@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020-2021 Google LLC
+// Copyright 2020-2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -15,27 +15,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Maria Teguiani
 // Author: Giuliano Procida
 
-#include <iostream>
+#ifndef STG_REPORTING_H_
+#define STG_REPORTING_H_
 
-#include "btf_reader.h"
-#include "error.h"
+#include <ostream>
 
-int main(int argc, const char* argv[]) {
-  if (argc != 2) {
-    std::cerr << "Please specify the path to a BTF file.";
-    return 1;
-  }
+#include "stg.h"
 
-  try {
-    stg::Graph graph;
-    (void)stg::btf::ReadFile(graph, argv[1], /* verbose = */ true);
-  } catch (const stg::Exception& e) {
-    std::cerr << e.what() << '\n';
-    return 1;
-  }
+namespace stg {
 
-  return 0;
-}
+struct Reporting {
+  const Graph& graph;
+  const Outcomes& outcomes;
+  NameCache& names;
+};
+
+enum class OutputFormat { PLAIN, FLAT, SMALL, VIZ };
+
+void Report(Reporting& reporting, const Comparison& comparison,
+            OutputFormat format, std::ostream& output);
+
+}  // namespace stg
+
+#endif  // STG_REPORTING_H_
