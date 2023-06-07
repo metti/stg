@@ -264,6 +264,8 @@ void Abigail::ProcessCorpus(xmlNodePtr corpus) {
     const auto name = GetElementName(element);
     if (name == "elf-function-symbols" || name == "elf-variable-symbols") {
       ProcessSymbols(element);
+    } else if (name == "elf-needed") {
+      // ignore this
     } else if (name == "abi-instr") {
       ProcessInstr(element);
     } else {
