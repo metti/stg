@@ -51,7 +51,9 @@ The tool can be passed any number of inputs to combine into a unified ABI.
 
 *   `-e|--elf`
 
-    Read ABI information, stored inside ELF in DWARF format.
+    Read ABI information from ELF symbols and DWARF types.
+
+    NOTE: C++ DWARF type support is a work in progress.
 
 *   `-s|--stg`
 

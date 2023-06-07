@@ -41,15 +41,13 @@ struct IgnoreDescriptor {
   Ignore::Value value;
 };
 
-static constexpr std::array<IgnoreDescriptor, 8> kIgnores{{
-  {"type_declaration_status",         Ignore::TYPE_DECLARATION_STATUS},
-  {"type_declaration_status_changes", Ignore::TYPE_DECLARATION_STATUS},
-  {"symbol_type_presence"        ,    Ignore::SYMBOL_TYPE_PRESENCE   },
-  {"symbol_type_presence_changes",    Ignore::SYMBOL_TYPE_PRESENCE   },
-  {"primitive_type_encoding",         Ignore::PRIMITIVE_TYPE_ENCODING},
-  {"member_size",                     Ignore::MEMBER_SIZE            },
-  {"enum_underlying_type",            Ignore::ENUM_UNDERLYING_TYPE   },
-  {"qualifier",                       Ignore::QUALIFIER              },
+static constexpr std::array<IgnoreDescriptor, 6> kIgnores{{
+  {"type_declaration_status", Ignore::TYPE_DECLARATION_STATUS},
+  {"symbol_type_presence",    Ignore::SYMBOL_TYPE_PRESENCE   },
+  {"primitive_type_encoding", Ignore::PRIMITIVE_TYPE_ENCODING},
+  {"member_size",             Ignore::MEMBER_SIZE            },
+  {"enum_underlying_type",    Ignore::ENUM_UNDERLYING_TYPE   },
+  {"qualifier",               Ignore::QUALIFIER              },
 }};
 
 std::optional<Ignore::Value> ParseIgnore(std::string_view ignore) {

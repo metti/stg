@@ -25,7 +25,6 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -70,7 +69,8 @@ const std::unordered_map<TypeFidelityTransition, FidelityDiffSeverity>
 
 struct Fidelity {
   Fidelity(const Graph& graph, NameCache& name_cache)
-      : graph(graph), describe(graph, name_cache) {}
+      : graph(graph), describe(graph, name_cache), seen(graph.MakeDenseIdSet())
+  {}
 
   void operator()(Id);
   void operator()(const std::vector<Id>&);
@@ -92,13 +92,13 @@ struct Fidelity {
 
   const Graph& graph;
   Describe describe;
-  std::unordered_set<Id> seen;
+  Graph::DenseIdSet seen;
   std::unordered_map<std::string, SymbolFidelity> symbols;
   std::unordered_map<std::string, TypeFidelity> types;
 };
 
 void Fidelity::operator()(Id id) {
-  if (seen.insert(id).second) {
+  if (seen.Insert(id)) {
     graph.Apply<void>(*this, id, id);
   }
 }
