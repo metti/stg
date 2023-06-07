@@ -60,40 +60,18 @@ cc_defaults {
     },
 }
 
-cc_library_host_static {
-    name: "stg",
-    defaults: ["defaults"],
-    srcs: ["stg.cc"],
-}
-
-cc_library_host_static {
-    name: "input",
+cc_binary_host {
+    name: "stgdiff",
     defaults: ["defaults"],
     srcs: [
         "abigail_reader.cc",
         "btf_reader.cc",
         "elf_loader.cc",
         "elf_reader.cc",
-    ],
-}
-
-cc_library_host_static {
-    name: "output",
-    defaults: ["defaults"],
-    srcs: [
         "post_processing.cc",
         "reporting.cc",
-    ],
-}
-
-cc_binary_host {
-    name: "stgdiff",
-    defaults: ["defaults"],
-    srcs: ["stgdiff.cc"],
-    static_libs: [
-        "input",
-        "output",
-        "stg",
+        "stg.cc",
+        "stgdiff.cc"
     ],
 }
 
@@ -101,10 +79,11 @@ cc_binary_host {
     name: "stginfo",
     defaults: ["defaults"],
     srcs: [
+        "abigail_reader.cc",
+        "btf_reader.cc",
+        "elf_loader.cc",
+        "elf_reader.cc",
+        "stg.cc",
         "stginfo.cc",
-    ],
-    static_libs: [
-        "input",
-        "stg",
     ],
 }
