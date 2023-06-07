@@ -112,7 +112,7 @@ class Abigail {
   Id GetNode(const std::string& type_id);
   Id GetEdge(xmlNodePtr element);
   Id GetVariadic();
-  std::unique_ptr<Type> MakeFunctionType(xmlNodePtr function);
+  std::unique_ptr<Node> MakeFunctionType(xmlNodePtr function);
 
   void ProcessCorpusGroup(xmlNodePtr group);
   void ProcessCorpus(xmlNodePtr corpus);
@@ -129,14 +129,16 @@ class Abigail {
 
   void ProcessFunctionType(Id id, xmlNodePtr function);
   void ProcessTypedef(Id id, xmlNodePtr type_definition);
-  void ProcessPointer(Id id, bool isPointer, xmlNodePtr pointer);
+  void ProcessPointer(Id id, bool is_pointer, xmlNodePtr pointer);
   void ProcessQualified(Id id, xmlNodePtr qualified);
   void ProcessArray(Id id, xmlNodePtr array);
   void ProcessTypeDecl(Id id, xmlNodePtr type_decl);
   void ProcessStructUnion(Id id, bool is_struct, xmlNodePtr struct_union);
   void ProcessEnum(Id id, xmlNodePtr enumeration);
 
+  Id ProcessBaseClass(xmlNodePtr base_class);
   Id ProcessDataMember(bool is_struct, xmlNodePtr data_member);
+  void ProcessMemberType(xmlNodePtr member_type);
 
   Id BuildSymbol(const SymbolInfo& info,
                  std::optional<Id> type_id,
