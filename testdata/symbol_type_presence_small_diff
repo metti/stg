@@ -1,6 +1,6 @@
-symbol changed from 'struct A * a' to 'a'
+variable symbol changed from 'struct A * a' to 'a'
   type 'struct A *' was removed
 
-symbol changed from 'b' to 'struct B * b'
+variable symbol changed from 'b' to 'struct B * b'
   type 'struct B *' was added
 
