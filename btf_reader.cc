@@ -282,7 +282,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       if (verbose_) {
         std::cout << "PTR '" << ANON << "' type_id=" << t->type << '\n';
       }
-      define(Make<Ptr>(GetId(t->type)));
+      define(Make<Ptr>(Ptr::Kind::POINTER, GetId(t->type)));
       break;
     }
     case BTF_KIND_TYPEDEF: {
@@ -476,7 +476,8 @@ Id Structs::BuildSymbols() {
     }
 
     elf_symbols.emplace(symbol_name + '@' + symbol->get_version().str(),
-                        graph_.Add(Make<ElfSymbol>(symbol, type_id)));
+                        graph_.Add(Make<ElfSymbol>(
+                            symbol, type_id, /*full_name_=*/std::nullopt)));
   }
   return graph_.Add(Make<Symbols>(elf_symbols));
 }
