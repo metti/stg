@@ -30,8 +30,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include <libabigail/include/abg-fwd.h>  // for symtab_sptr
-#include <libabigail/include/abg-ir.h>  // for environment
+#include <abg-fwd.h>  // for symtab_sptr
+#include <abg-ir.h>  // for environment
 #include "stg.h"
 #include <linux/btf.h>
 

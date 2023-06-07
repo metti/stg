@@ -28,7 +28,7 @@
 #include <utility>
 #include <vector>
 
-#include <libabigail/tests/lib/catch.hpp>
+#include <catch/catch.hpp>
 
 namespace Test {
 
