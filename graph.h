@@ -39,6 +39,8 @@ namespace stg {
 
 // A wrapped (for type safety) array index.
 struct Id {
+  // defined in graph.cc as maximum value for index type
+  static const Id kInvalid;
   explicit Id(size_t ix) : ix_(ix) {}
   // TODO: auto operator<=>(const Id&) const = default;
   bool operator==(const Id& other) const {

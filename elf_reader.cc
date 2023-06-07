@@ -28,7 +28,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -36,7 +35,12 @@
 #include "dwarf_processor.h"
 #include "dwarf_wrappers.h"
 #include "elf_loader.h"
+#include "equality.h"
+#include "equality_cache.h"
 #include "graph.h"
+#include "metrics.h"
+#include "type_normalisation.h"
+#include "type_resolution.h"
 
 namespace stg {
 namespace elf {
@@ -172,60 +176,131 @@ namespace {
 
 class Typing {
  public:
-  Typing(Graph& graph) : graph_(graph) {}
+  Typing(Graph& graph, Metrics& metrics)
+      : graph_(graph),
+        metrics_(metrics),
+        equality_cache_(metrics),
+        equals_(graph, equality_cache_) {}
 
   void GetTypesFromDwarf(dwarf::Handler& dwarf, bool is_little_endian_binary) {
     types_ = dwarf::Process(dwarf, is_little_endian_binary, graph_);
+    ResolveTypes();
     FillAddressToId();
   }
+
+  void ResolveTypes() {
+    std::vector<std::reference_wrapper<Id>> ids;
+    ids.reserve(types_.all_ids.size() + types_.symbols.size());
+    for (auto& id : types_.all_ids) {
+      ids.push_back(std::ref(id));
+    }
+    for (auto& symbol : types_.symbols) {
+      ids.push_back(std::ref(symbol.id));
+    }
+    stg::ResolveTypes(graph_, ids, metrics_);
+  }
+
+  bool IsEqual(const dwarf::Types::Symbol& lhs,
+               const dwarf::Types::Symbol& rhs) {
+    return lhs.name == rhs.name && lhs.linkage_name == rhs.linkage_name &&
+           lhs.address == rhs.address && equals_(lhs.id, rhs.id);
+  }
+
+  // In general, we want to handle as many of the following cases as possible.
+  // In practice, determining the correct ELF-DWARF match may be impossible.
+  //
+  // * compiler-driven aliasing - mutliple symbols with same address
+  // * zero-size symbol false aliasing - multiple symbols and types with same
+  //   address
+  // * weak/strong linkage symbols - multiple symbols and types with same
+  //   address
+  // * assembly symbols - multiple declarations but no definition and no address
+  //   in DWARF.
 
   void FillAddressToId() {
     for (size_t i = 0; i < types_.symbols.size(); ++i) {
       const auto& symbol = types_.symbols[i];
-      // TODO: replace with Check when duplicates are removed
-      if (!address_to_index_.emplace(symbol.address, i).second) {
-        std::cerr << "Duplicate DWARF symbol: address=0x" << std::hex
-                  << symbol.address << std::dec << ", name=" << symbol.name
-                  << '\n';
+
+      // TODO: support linkage_name to support C++
+      auto [it, emplaced] = address_name_to_index_.emplace(
+          std::make_pair(symbol.address, symbol.name), i);
+      if (!emplaced) {
+        const auto& other = types_.symbols[it->second];
+        // TODO: allow "compatible" duplicates, for example
+        // "void foo(int bar)" vs "void foo(const int bar)"
+        if (!IsEqual(symbol, other)) {
+          Die() << "Duplicate DWARF symbol: address=0x" << std::hex
+                << symbol.address << std::dec << ", name=" << symbol.name;
+        }
       }
     }
   }
 
   void MaybeAddTypeInfo(const size_t address, ElfSymbol& node) const {
-    const auto it = address_to_index_.find(address);
-    if (it == address_to_index_.end()) {
-      return;
+    // try to find the first symbol with given address
+    const auto start_it = address_name_to_index_.lower_bound(
+        std::make_pair(address, std::string()));
+    const dwarf::Types::Symbol* best_symbol = nullptr;
+    bool matched_by_name = false;
+    size_t candidates = 0;
+    for (auto it = start_it;
+         it != address_name_to_index_.end() && it->first.first == address;
+         ++it) {
+      ++candidates;
+      // We have at least matching addresses.
+      const auto& candidate = types_.symbols[it->second];
+      if (it->first.second == node.symbol_name) {
+        // If we have also matching names we can stop looking further.
+        matched_by_name = true;
+        best_symbol = &candidate;
+        break;
+      }
+      if (best_symbol == nullptr) {
+        // Otherwise keep the first match.
+        best_symbol = &candidate;
+      }
     }
-    const auto& symbol = types_.symbols[it->second];
-    node.type_id = symbol.id;
-    node.full_name = symbol.name;
+    if (best_symbol != nullptr) {
+      // There may be multiple DWARF symbols with same address (zero-length
+      // arrays), or ELF symbol has different name from DWARF symbol (aliases).
+      // But if we have both situations at once, we can't match ELF to DWARF and
+      // it should be fixed in analysed binary source code.
+      Check(matched_by_name || candidates == 1)
+          << "multiple candidates without matching names, best_symbol.name="
+          << best_symbol->name;
+      node.type_id = best_symbol->id;
+      node.full_name = best_symbol->name;
+    }
   }
 
  private:
   Graph& graph_;
+  Metrics& metrics_;
   dwarf::Types types_;
-  std::unordered_map<size_t, size_t> address_to_index_;
+  SimpleEqualityCache equality_cache_;
+  Equals<SimpleEqualityCache> equals_;
+  std::map<std::pair<size_t, std::string>, size_t> address_name_to_index_;
 };
 
 class Reader {
  public:
   Reader(Graph& graph, const std::string& path, bool process_dwarf,
-         bool verbose)
+         bool verbose, Metrics& metrics)
       : graph_(graph),
         dwarf_(path),
         elf_(dwarf_.GetElf(), verbose),
         process_dwarf_(process_dwarf),
         verbose_(verbose),
-        typing_(graph_) {}
+        typing_(graph_, metrics) {}
 
   Reader(Graph& graph, char* data, size_t size, bool process_dwarf,
-         bool verbose)
+         bool verbose, Metrics& metrics)
       : graph_(graph),
         dwarf_(data, size),
         elf_(dwarf_.GetElf(), verbose),
         process_dwarf_(process_dwarf),
         verbose_(verbose),
-        typing_(graph_) {}
+        typing_(graph_, metrics) {}
 
   Id Read();
   ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) const;
@@ -294,7 +369,11 @@ Id Reader::Read() {
         std::string(symbol.name),
         graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
   }
-  return graph_.Add<Symbols>(std::move(symbols_map));
+  auto root = graph_.Add<Symbols>(std::move(symbols_map));
+  // Types produced by ELF/DWARF readers may require removing useless
+  // qualifiers.
+  RemoveUselessQualifiers(graph_, root);
+  return root;
 }
 
 ElfSymbol Reader::SymbolTableEntryToElfSymbol(
@@ -319,13 +398,14 @@ ElfSymbol Reader::SymbolTableEntryToElfSymbol(
 }  // namespace internal
 
 Id Read(Graph& graph, const std::string& path, bool process_dwarf,
-        bool verbose) {
-  return internal::Reader(graph, path, process_dwarf, verbose).Read();
+        bool verbose, Metrics& metrics) {
+  return internal::Reader(graph, path, process_dwarf, verbose, metrics).Read();
 }
 
 Id Read(Graph& graph, char* data, size_t size, bool process_dwarf,
-        bool verbose) {
-  return internal::Reader(graph, data, size, process_dwarf, verbose).Read();
+        bool verbose, Metrics& metrics) {
+  return internal::Reader(graph, data, size, process_dwarf, verbose, metrics)
+      .Read();
 }
 
 }  // namespace elf

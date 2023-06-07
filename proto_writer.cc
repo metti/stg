@@ -44,7 +44,7 @@ namespace {
 
 class StableId {
  public:
-  StableId(const Graph& graph) : stable_hash_(graph) {}
+  explicit StableId(const Graph& graph) : stable_hash_(graph) {}
 
   uint32_t operator()(Id id) {
     return stable_hash_(id).value;
@@ -409,30 +409,37 @@ ElfSymbol::Visibility Transform<MapId>::operator()(
 }
 
 template <typename ProtoNode>
-void SortNodes(google::protobuf::RepeatedPtrField<ProtoNode>& nodes) {
+void SortNodesById(google::protobuf::RepeatedPtrField<ProtoNode>& nodes) {
   std::sort(
       nodes.pointer_begin(), nodes.pointer_end(),
       [](const auto* lhs, const auto* rhs) { return lhs->id() < rhs->id(); });
 }
 
-void SortNodes(STG& stg) {
-  SortNodes(*stg.mutable_void_());
-  SortNodes(*stg.mutable_variadic());
-  SortNodes(*stg.mutable_pointer_reference());
-  SortNodes(*stg.mutable_typedef_());
-  SortNodes(*stg.mutable_qualified());
-  SortNodes(*stg.mutable_primitive());
-  SortNodes(*stg.mutable_array());
-  SortNodes(*stg.mutable_base_class());
-  SortNodes(*stg.mutable_method());
-  SortNodes(*stg.mutable_member());
-  SortNodes(*stg.mutable_struct_union());
-  SortNodes(*stg.mutable_enumeration());
-  SortNodes(*stg.mutable_function());
-  SortNodes(*stg.mutable_elf_symbol());
+template <typename ProtoNode>
+void SortNodesByName(google::protobuf::RepeatedPtrField<ProtoNode>& nodes) {
+  const auto compare = [](const auto* lhs, const auto* rhs) {
+    const int comparison = lhs->name().compare(rhs->name());
+    return comparison < 0 || (comparison == 0 && lhs->id() < rhs->id());
+  };
+  std::sort(nodes.pointer_begin(), nodes.pointer_end(), compare);
 }
 
-}  // namespace
+void SortNodes(STG& stg) {
+  SortNodesById(*stg.mutable_void_());
+  SortNodesById(*stg.mutable_variadic());
+  SortNodesById(*stg.mutable_pointer_reference());
+  SortNodesByName(*stg.mutable_typedef_());
+  SortNodesById(*stg.mutable_qualified());
+  SortNodesById(*stg.mutable_primitive());
+  SortNodesById(*stg.mutable_array());
+  SortNodesById(*stg.mutable_base_class());
+  SortNodesById(*stg.mutable_method());
+  SortNodesByName(*stg.mutable_member());
+  SortNodesByName(*stg.mutable_struct_union());
+  SortNodesByName(*stg.mutable_enumeration());
+  SortNodesById(*stg.mutable_function());
+  SortNodesById(*stg.mutable_elf_symbol());
+}
 
 class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
   void PrintUInt32(
@@ -443,6 +450,8 @@ class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
     generator->PrintString(os.str());
   }
 };
+
+}  // namespace
 
 void Print(const STG& stg, std::ostream& os) {
   google::protobuf::TextFormat::Printer printer;
