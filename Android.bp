@@ -43,7 +43,6 @@ cc_defaults {
         "-Wno-error=unused-parameter",
     ],
     static_libs: [
-        "libabigail",
         "libbpf",
         "libbuildversion",
         "libdw",
@@ -76,9 +75,6 @@ cc_library_host_static {
 cc_library_host_static {
     name: "btf_reader",
     defaults: ["defaults"],
-    header_libs: [
-        "libabigail_src_headers",
-    ],
     srcs: ["btf_reader.cc"],
 }
 
