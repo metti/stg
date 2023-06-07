@@ -161,7 +161,7 @@ Id Abigail::Add(std::unique_ptr<Type> type) {
 }
 
 size_t Abigail::GetIndex(const std::string& type_id) {
-  const auto [it, inserted] = type_ids_.insert({type_id, types_.size()});
+  const auto [it, inserted] = type_indexes_.insert({type_id, types_.size()});
   if (inserted)
     types_.push_back(nullptr);
   return it->second;
@@ -204,8 +204,8 @@ std::unique_ptr<Function> Abigail::MakeFunctionType(xmlNodePtr function) {
     } else if (child_name == "return") {
       return_type = {GetTypeId(child)};
     } else {
-      std::cerr << "unrecognised function-decl child element '" << child_name
-                << "'\n";
+      Die() << "unrecognised " << FromLibxml(function->name)
+            << " child element '" << child_name << "'";
     }
   }
   if (!return_type)
@@ -444,7 +444,8 @@ void Abigail::ProcessArray(size_t ix, xmlNodePtr array) {
   if (verbose_)
     std::cerr << Id(ix) << " array";
   auto type = GetTypeId(array);
-  for (auto size : dimensions) {
+  for (auto it = dimensions.crbegin(); it != dimensions.crend(); ++it) {
+    const auto size = *it;
     type = Add(std::make_unique<Array>(types_, type, size));
     if (verbose_)
       std::cerr << ' ' << size;
