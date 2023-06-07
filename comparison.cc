@@ -22,10 +22,12 @@
 #include "comparison.h"
 
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -33,6 +35,39 @@
 #include "order.h"
 
 namespace stg {
+
+struct IgnoreDescriptor {
+  std::string_view name;
+  Ignore::Value value;
+};
+
+static constexpr std::array<IgnoreDescriptor, 8> kIgnores{{
+  {"type_declaration_status",         Ignore::TYPE_DECLARATION_STATUS},
+  {"type_declaration_status_changes", Ignore::TYPE_DECLARATION_STATUS},
+  {"symbol_type_presence"        ,    Ignore::SYMBOL_TYPE_PRESENCE   },
+  {"symbol_type_presence_changes",    Ignore::SYMBOL_TYPE_PRESENCE   },
+  {"primitive_type_encoding",         Ignore::PRIMITIVE_TYPE_ENCODING},
+  {"member_size",                     Ignore::MEMBER_SIZE            },
+  {"enum_underlying_type",            Ignore::ENUM_UNDERLYING_TYPE   },
+  {"qualifier",                       Ignore::QUALIFIER              },
+}};
+
+std::optional<Ignore::Value> ParseIgnore(std::string_view ignore) {
+  for (const auto& [name, value] : kIgnores) {
+    if (name == ignore) {
+      return {value};
+    }
+  }
+  return {};
+}
+
+std::ostream& operator<<(std::ostream& os, IgnoreUsage) {
+  os << "ignore options:";
+  for (const auto& [name, _] : kIgnores) {
+    os << ' ' << name;
+  }
+  return os << '\n';
+}
 
 std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
   std::ostringstream os;
@@ -108,10 +143,14 @@ std::pair<bool, std::optional<Comparison>> Compare::operator()(Id id1, Id id2) {
     const auto end2 = qualifiers2.end();
     while (it1 != end1 || it2 != end2) {
       if (it2 == end2 || (it1 != end1 && *it1 < *it2)) {
-        result.AddNodeDiff(QualifiersMessage(*it1, "removed"));
+        if (!ignore.Test(Ignore::QUALIFIER)) {
+          result.AddNodeDiff(QualifiersMessage(*it1, "removed"));
+        }
         ++it1;
       } else if (it1 == end1 || (it2 != end2 && *it1 > *it2)) {
-        result.AddNodeDiff(QualifiersMessage(*it2, "added"));
+        if (!ignore.Test(Ignore::QUALIFIER)) {
+          result.AddNodeDiff(QualifiersMessage(*it2, "added"));
+        }
         ++it2;
       } else {
         ++it1;
@@ -222,7 +261,9 @@ Result Compare::operator()(const Primitive& x1, const Primitive& x2) {
     return result.MarkIncomparable();
   }
   result.diff_.holds_changes = !x1.name.empty();
-  result.MaybeAddNodeDiff("encoding", x1.encoding, x2.encoding);
+  if (!ignore.Test(Ignore::PRIMITIVE_TYPE_ENCODING)) {
+    result.MaybeAddNodeDiff("encoding", x1.encoding, x2.encoding);
+  }
   result.MaybeAddNodeDiff("byte size", x1.bytesize, x2.bytesize);
   return result;
 }
@@ -236,11 +277,11 @@ Result Compare::operator()(const Array& x1, const Array& x2) {
   return result;
 }
 
-static bool CompareDefined(bool defined1, bool defined2, Result& result,
-                           bool ignore_diff) {
+bool Compare::CompareDefined(bool defined1, bool defined2, Result& result) {
   if (defined1 && defined2) {
     return true;
   }
+  const bool ignore_diff = ignore.Test(Ignore::TYPE_DECLARATION_STATUS);
   if (!ignore_diff && defined1 != defined2) {
     std::ostringstream os;
     os << "was " << (defined1 ? "fully defined" : "only declared")
@@ -336,7 +377,9 @@ Result Compare::operator()(const BaseClass& x1, const BaseClass& x2) {
 Result Compare::operator()(const Member& x1, const Member& x2) {
   Result result;
   result.MaybeAddNodeDiff("offset", x1.offset, x2.offset);
-  result.MaybeAddNodeDiff("size", x1.bitsize, x2.bitsize);
+  if (!ignore.Test(Ignore::MEMBER_SIZE)) {
+    result.MaybeAddNodeDiff("size", x1.bitsize, x2.bitsize);
+  }
   result.MaybeAddEdgeDiff("", (*this)(x1.type_id, x2.type_id));
   return result;
 }
@@ -361,8 +404,8 @@ Result Compare::operator()(const StructUnion& x1, const StructUnion& x2) {
 
   const auto& definition1 = x1.definition;
   const auto& definition2 = x2.definition;
-  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
-                      options.ignore_type_declaration_status_changes)) {
+  if (!CompareDefined(definition1.has_value(), definition2.has_value(),
+                      result)) {
     return result;
   }
 
@@ -401,13 +444,15 @@ Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
 
   const auto& definition1 = x1.definition;
   const auto& definition2 = x2.definition;
-  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
-                      options.ignore_type_declaration_status_changes)) {
+  if (!CompareDefined(definition1.has_value(), definition2.has_value(),
+                      result)) {
     return result;
   }
-  const auto type_diff = (*this)(definition1->underlying_type_id,
-                                 definition2->underlying_type_id);
-  result.MaybeAddEdgeDiff("underlying", type_diff);
+  if (!ignore.Test(Ignore::ENUM_UNDERLYING_TYPE)) {
+    const auto type_diff = (*this)(definition1->underlying_type_id,
+                                   definition2->underlying_type_id);
+    result.MaybeAddEdgeDiff("underlying", type_diff);
+  }
 
   const auto enums1 = definition1->enumerators;
   const auto enums2 = definition2->enumerators;
@@ -549,11 +594,11 @@ Result Compare::operator()(const ElfSymbol& x1, const ElfSymbol& x2) {
   if (x1.type_id && x2.type_id) {
     result.MaybeAddEdgeDiff("", (*this)(*x1.type_id, *x2.type_id));
   } else if (x1.type_id) {
-    if (!options.ignore_symbol_type_presence_changes) {
+    if (!ignore.Test(Ignore::SYMBOL_TYPE_PRESENCE)) {
       result.AddEdgeDiff("", Removed(*x1.type_id));
     }
   } else if (x2.type_id) {
-    if (!options.ignore_symbol_type_presence_changes) {
+    if (!ignore.Test(Ignore::SYMBOL_TYPE_PRESENCE)) {
       result.AddEdgeDiff("", Added(*x2.type_id));
     }
   } else {

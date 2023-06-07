@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020-2022 Google LLC
+// Copyright 2020-2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -35,15 +35,12 @@
 #include <utility>
 #include <vector>
 
-#include "abigail_reader.h"
-#include "btf_reader.h"
-#include "elf_reader.h"
 #include "equality.h"
 #include "error.h"
 #include "fidelity.h"
+#include "input.h"
 #include "graph.h"
 #include "metrics.h"
-#include "proto_reader.h"
 #include "reporting.h"
 
 namespace {
@@ -54,9 +51,7 @@ const int kAbiChange = 4;
 const int kFidelityChange = 8;
 const size_t kMaxCrcOnlyChanges = 3;
 
-enum class InputFormat { ABI, BTF, ELF, STG };
-
-using Inputs = std::vector<std::pair<InputFormat, const char*>>;
+using Inputs = std::vector<std::pair<stg::InputFormat, const char*>>;
 using Outputs =
     std::vector<std::pair<stg::reporting::OutputFormat, const char*>>;
 
@@ -64,29 +59,8 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
                           bool process_dwarf, stg::Metrics& metrics) {
   std::vector<stg::Id> roots;
   for (const auto& [format, filename] : inputs) {
-    switch (format) {
-      case InputFormat::ABI: {
-        stg::Time read(metrics, "read ABI");
-        roots.push_back(stg::abixml::Read(graph, filename, metrics));
-        break;
-      }
-      case InputFormat::BTF: {
-        stg::Time read(metrics, "read BTF");
-        roots.push_back(stg::btf::ReadFile(graph, filename));
-        break;
-      }
-      case InputFormat::ELF: {
-        stg::Time read(metrics, "read ELF");
-        roots.push_back(stg::elf::Read(graph, filename, process_dwarf,
-                                       /* verbose = */ false, metrics));
-        break;
-      }
-      case InputFormat::STG: {
-        stg::Time read(metrics, "read STG");
-        roots.push_back(stg::proto::Read(graph, filename));
-        break;
-      }
-    }
+    roots.push_back(stg::Read(graph, format, filename, process_dwarf,
+                              /* info = */ false, metrics));
   }
   return roots;
 }
@@ -131,15 +105,15 @@ int RunExact(const Inputs& inputs, bool process_dwarf, stg::Metrics& metrics) {
              : kAbiChange;
 }
 
-int Run(const Inputs& inputs, const Outputs& outputs,
-        const stg::CompareOptions& compare_options, bool process_dwarf,
-        std::optional<const char*> fidelity, stg::Metrics& metrics) {
+int Run(const Inputs& inputs, const Outputs& outputs, stg::Ignore ignore,
+        bool process_dwarf, std::optional<const char*> fidelity,
+        stg::Metrics& metrics) {
   // Read inputs.
   stg::Graph graph;
   const auto roots = Read(inputs, graph, process_dwarf, metrics);
 
   // Compute differences.
-  stg::Compare compare{graph, compare_options, metrics};
+  stg::Compare compare{graph, ignore, metrics};
   std::pair<bool, std::optional<stg::Comparison>> result;
   {
     stg::Time compute(metrics, "compute diffs");
@@ -185,8 +159,8 @@ int main(int argc, char* argv[]) {
   bool opt_exact = false;
   bool opt_skip_dwarf = false;
   std::optional<const char*> opt_fidelity = std::nullopt;
-  stg::CompareOptions compare_options;
-  InputFormat opt_input_format = InputFormat::ABI;
+  stg::Ignore opt_ignore;
+  stg::InputFormat opt_input_format = stg::InputFormat::ABI;
   stg::reporting::OutputFormat opt_output_format =
       stg::reporting::OutputFormat::PLAIN;
   Inputs inputs;
@@ -198,6 +172,7 @@ int main(int argc, char* argv[]) {
       {"elf",            no_argument,       nullptr, 'e'       },
       {"stg",            no_argument,       nullptr, 's'       },
       {"exact",          no_argument,       nullptr, 'x'       },
+      {"ignore",         required_argument, nullptr, 'i'       },
       {"compare-option", required_argument, nullptr, 'c'       },
       {"format",         required_argument, nullptr, 'f'       },
       {"output",         required_argument, nullptr, 'o'       },
@@ -207,26 +182,25 @@ int main(int argc, char* argv[]) {
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
-              << " [-m|--metrics]\n"
-              << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
-              << " [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
-              << " [{-x|--exact}]\n"
-              << " [--skip-dwarf]\n"
-              << " [{-c|--compare-option} "
-                 "{ignore_symbol_type_presence_changes|"
-                 "ignore_type_declaration_status_changes}] ...\n"
-              << " [{-f|--format} {plain|flat|small|short|viz}]\n"
-              << " [{-o|--output} {filename|-}] ...\n"
-              << " [{-F|--fidelity} {filename|-}]\n"
-              << "   implicit defaults: --abi --format plain\n"
-              << "   format, output and compare-option may be repeated\n"
-              << "   --exact (node equality) cannot be combined with --output\n"
-              << "\n";
+              << "  [-m|--metrics]\n"
+              << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file1\n"
+              << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] file2\n"
+              << "  [-x|--exact]\n"
+              << "  [--skip-dwarf]\n"
+              << "  [{-i|--ignore} <ignore-option>] ...\n"
+              << "  [{-c|--compare-option} ignore_<ignore-option>] ...\n"
+              << "  [{-f|--format} <output-format>] ...\n"
+              << "  [{-o|--output} {filename|-}] ...\n"
+              << "  [{-F|--fidelity} {filename|-}]\n"
+              << "implicit defaults: --abi --format plain\n"
+              << "--exact (node equality) cannot be combined with --output\n"
+              << stg::reporting::OutputFormatUsage()
+              << stg::IgnoreUsage();
     return 1;
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-mabesxc:f:o:F:", opts, &ix);
+    int c = getopt_long(argc, argv, "-mabesxi:c:f:o:F:", opts, &ix);
     if (c == -1) {
       break;
     }
@@ -236,16 +210,16 @@ int main(int argc, char* argv[]) {
         opt_metrics = true;
         break;
       case 'a':
-        opt_input_format = InputFormat::ABI;
+        opt_input_format = stg::InputFormat::ABI;
         break;
       case 'b':
-        opt_input_format = InputFormat::BTF;
+        opt_input_format = stg::InputFormat::BTF;
         break;
       case 'e':
-        opt_input_format = InputFormat::ELF;
+        opt_input_format = stg::InputFormat::ELF;
         break;
       case 's':
-        opt_input_format = InputFormat::STG;
+        opt_input_format = stg::InputFormat::STG;
         break;
       case 'x':
         opt_exact = true;
@@ -253,29 +227,36 @@ int main(int argc, char* argv[]) {
       case 1:
         inputs.emplace_back(opt_input_format, argument);
         break;
+      case 'i':
+        if (const auto ignore = stg::ParseIgnore(argument)) {
+          opt_ignore.Set(ignore.value());
+        } else {
+          std::cerr << "unknown ignore option: " << argument << '\n'
+                    << stg::IgnoreUsage();
+          return 1;
+        }
+        break;
       case 'c':
-        if (strcmp(argument, "ignore_symbol_type_presence_changes") == 0) {
-          compare_options.ignore_symbol_type_presence_changes = true;
-        } else if (strcmp(argument,
-                          "ignore_type_declaration_status_changes") == 0) {
-          compare_options.ignore_type_declaration_status_changes = true;
+        if (strncmp(argument, "ignore_", 7) == 0) {
+          const auto ignore_argument = argument + 7;
+          if (const auto ignore = stg::ParseIgnore(ignore_argument)) {
+            opt_ignore.Set(ignore.value());
+          } else {
+            std::cerr << "unknown ignore option: " << ignore_argument << '\n'
+                      << stg::IgnoreUsage();
+            return 1;
+          }
         } else {
           return usage();
         }
         break;
       case 'f':
-        if (strcmp(argument, "plain") == 0) {
-          opt_output_format = stg::reporting::OutputFormat::PLAIN;
-        } else if (strcmp(argument, "flat") == 0) {
-          opt_output_format = stg::reporting::OutputFormat::FLAT;
-        } else if (strcmp(argument, "small") == 0) {
-          opt_output_format = stg::reporting::OutputFormat::SMALL;
-        } else if (strcmp(argument, "short") == 0) {
-          opt_output_format = stg::reporting::OutputFormat::SHORT;
-        } else if (strcmp(argument, "viz") == 0) {
-          opt_output_format = stg::reporting::OutputFormat::VIZ;
+        if (const auto format = stg::reporting::ParseOutputFormat(argument)) {
+          opt_output_format = format.value();
         } else {
-          return usage();
+          std::cerr << "unknown output format: " << argument << '\n'
+                    << stg::reporting::OutputFormatUsage();
+          return 1;
         }
         break;
       case 'o':
@@ -303,7 +284,7 @@ int main(int argc, char* argv[]) {
 
   try {
     const int status = opt_exact ? RunExact(inputs, !opt_skip_dwarf, metrics)
-                                 : Run(inputs, outputs, compare_options,
+                                 : Run(inputs, outputs, opt_ignore,
                                        !opt_skip_dwarf, opt_fidelity, metrics);
     if (opt_metrics) {
       stg::Report(metrics, std::cerr);

@@ -1,0 +1,36 @@
+root_id: 0x25a8b173
+primitive {
+  id: 0x6720d32f
+  name: "int"
+  encoding: SIGNED_INTEGER
+  bytesize: 0x00000004
+}
+member {
+  id: 0x5a03caec
+  name: "member"
+  type_id: 0x6720d32f
+  bitsize: 2
+}
+struct_union {
+  id: 0x0eecb660
+  kind: STRUCT
+  definition {
+    bytesize: 4
+    member_id: 0x5a03caec
+  }
+}
+elf_symbol {
+  id: 0x7709bd40
+  name: "x"
+  is_defined: true
+  symbol_type: OBJECT
+  type_id: 0x0eecb660
+  full_name: "x"
+}
+symbols {
+  id: 0x25a8b173
+  symbol {
+    key: "x"
+    value: 0x7709bd40
+  }
+}

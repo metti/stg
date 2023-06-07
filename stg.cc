@@ -29,15 +29,12 @@
 #include <string>
 #include <vector>
 
-#include "abigail_reader.h"
-#include "btf_reader.h"
 #include "deduplication.h"
-#include "elf_reader.h"
 #include "error.h"
 #include "fingerprint.h"
 #include "graph.h"
+#include "input.h"
 #include "metrics.h"
-#include "proto_reader.h"
 #include "proto_writer.h"
 #include "symbol_filter.h"
 #include "type_resolution.h"
@@ -46,30 +43,6 @@ namespace stg {
 namespace {
 
 Metrics metrics;
-
-enum class InputFormat { ABI, BTF, ELF, STG };
-
-Id Read(Graph& graph, InputFormat format, const char* input, bool process_dwarf,
-        bool info, Metrics& metrics) {
-  switch (format) {
-    case InputFormat::ABI: {
-      Time read(metrics, "read ABI");
-      return abixml::Read(graph, input, metrics);
-    }
-    case InputFormat::BTF: {
-      Time read(metrics, "read BTF");
-      return btf::ReadFile(graph, input, info);
-    }
-    case InputFormat::ELF: {
-      Time read(metrics, "read ELF");
-      return elf::Read(graph, input, process_dwarf, info, metrics);
-    }
-    case InputFormat::STG: {
-      Time read(metrics, "read STG");
-      return proto::Read(graph, input);
-    }
-  }
-}
 
 struct GetSymbols {
   const Symbols& operator()(const Symbols& x) {
