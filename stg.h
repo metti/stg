@@ -37,7 +37,7 @@
 #include <utility>
 #include <vector>
 
-#include <libabigail/include/abg-ir.h>  // for ELF symbol bits
+#include <abg-ir.h>  // for ELF symbol bits
 #include "scc.h"
 
 namespace stg {
