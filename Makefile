@@ -1,6 +1,6 @@
 LDLIBS := -lelf -lxml2
 LDFLAGS :=
-CXXFLAGS := -Wall -Wextra -I/usr/include -I/usr/include/libxml2 -std=c++17
+CXXFLAGS := -fstrict-enums -Wall -Wextra -I/usr/include -I/usr/include/libxml2 -std=c++17
 
 SRCS := abigail_reader.cc btf_reader.cc elf_loader.cc elf_reader.cc \
 	post_processing.cc reporting.cc stg.cc stgdiff.cc
