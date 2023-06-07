@@ -21,6 +21,7 @@
 
 #include <iostream>
 #include <ostream>
+#include <map>
 #include <regex>  // NOLINT
 #include <sstream>
 #include <string>
@@ -32,11 +33,11 @@ namespace stg {
 
 std::vector<std::string> SummariseCRCChanges(
     const std::vector<std::string>& report, size_t limit) {
-  const std::regex symbol_changed_re("^symbol '[^']*'.* changed$");
+  const std::regex symbol_changed_re("^.* symbol .* changed$");
   const std::regex crc_re("^  CRC changed from [^ ]* to [^ ]*$");
   const std::regex empty_re("^$");
   const std::regex section_re("^[^ \\n].*$");
-  const std::regex symbol_re("^symbol .*$");
+  const std::regex symbol_re("^.* symbol .*$");
 
   std::vector<std::string> new_report;
   std::vector<std::pair<std::string, std::string>> pending;
@@ -142,22 +143,25 @@ std::vector<std::string> SummariseOffsetChanges(
 
 std::vector<std::string> GroupRemovedAddedSymbols(
     const std::vector<std::string>& report) {
-  const std::regex symbol_re("^symbol ('.*'.*) was (added|removed)$");
+  const std::regex symbol_re("^(.*) symbol (.*) was (added|removed)$");
   const std::regex empty_re("^$");
 
   std::vector<std::string> new_report;
-  std::unordered_map<std::string, std::vector<std::string>> pending;
+  std::unordered_map<std::string,
+      std::map<std::string, std::vector<std::string>>> pending;
 
   auto emit_pending = [&]() {
     for (const auto& which : {"removed", "added"}) {
-      auto& pending_symbols = pending[which];
-      if (!pending_symbols.empty()) {
-        std::ostringstream os;
-        os << pending_symbols.size() << " symbol(s) " << which;
-        new_report.push_back(os.str());
-        for (const auto& symbol : std::exchange(pending_symbols, {}))
-          new_report.push_back("  " + symbol);
-        new_report.push_back({});
+      auto& pending_kinds = pending[which];
+      for (auto& [kind, pending_symbols] : pending_kinds) {
+        if (!pending_symbols.empty()) {
+          std::ostringstream os;
+          os << pending_symbols.size() << ' ' << kind << " symbol(s) " << which;
+          new_report.push_back(os.str());
+          for (const auto& symbol : std::exchange(pending_symbols, {}))
+            new_report.push_back("  " + symbol);
+          new_report.push_back({});
+        }
       }
     }
   };
@@ -167,7 +171,7 @@ std::vector<std::string> GroupRemovedAddedSymbols(
     if (ix + 1 < report.size() &&
         std::regex_match(report[ix], match, symbol_re) &&
         std::regex_match(report[ix + 1], empty_re)) {
-      pending[match[2].str()].push_back(match[1].str());
+      pending[match[3].str()][match[1].str()].push_back(match[2].str());
       // consumed 2 lines in total => 1 extra line (there is always an empty
       // line after symbol added/removed line)
       ++ix;

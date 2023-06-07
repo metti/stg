@@ -30,6 +30,7 @@
 #include <functional>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -37,6 +38,7 @@
 #include <libxml/parser.h>
 #include "crc.h"
 #include "error.h"
+#include "stg.h"
 
 namespace stg {
 namespace abixml {
@@ -342,14 +344,13 @@ void Corpus::ProcessSymbol(xmlNodePtr symbol) {
   const auto alias = GetAttribute(symbol, "alias");
 
   std::string elf_symbol_id = name;
+  std::optional<ElfSymbol::VersionInfo> version_info;
   if (!version.empty()) {
-    elf_symbol_id += '@';
-    if (is_default_version)
-      elf_symbol_id += '@';
-    elf_symbol_id += version;
+    version_info = ElfSymbol::VersionInfo{is_default_version, version};
+    elf_symbol_id += VersionInfoToString(*version_info);
   }
 
-  const SymbolInfo info{name, version, is_default_version, symbol};
+  const SymbolInfo info{name, version_info, symbol};
   Check(symbol_info_map_.emplace(elf_symbol_id, std::move(info)).second)
       << "multiple symbols with id " << elf_symbol_id;
 
@@ -727,7 +728,7 @@ Id Corpus::BuildSymbol(const SymbolInfo& info,
       ReadAttributeOrDie<ElfSymbol::Visibility>(symbol, "visibility");
 
   return graph_.Add(Make<ElfSymbol>(
-      info.name, info.version, info.is_default_version,
+      info.name, info.version_info,
       is_defined, type, binding, visibility, crc, type_id, name));
 }
 
