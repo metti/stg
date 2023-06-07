@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2022 Google LLC
+// Copyright 2021-2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -15,20 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+// Author: Matthias Maennich
 // Author: Aleksei Vetrov
 
-#ifndef STG_ELF_READER_H_
-#define STG_ELF_READER_H_
-
+#include "elf_reader.h"
+#include "error.h"
 #include "stg.h"
 
-namespace stg {
-namespace elf {
-
-Id Read(Graph& graph, const std::string& path, bool verbose = false);
-Id Read(Graph& graph, char* data, size_t size, bool verbose = false);
-
-}  // namespace elf
-}  // namespace stg
-
-#endif  // STG_ELF_READER_H_
+extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
+  try {
+    stg::Graph graph;
+    stg::elf::Read(graph, data, size, /* verbose= */ false);
+  } catch (const stg::Exception&) {
+    // Pass as this is us catching invalid ELF properly.
+  }
+  return 0;
+}
