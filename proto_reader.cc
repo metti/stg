@@ -149,8 +149,7 @@ void Transformer::AddNode(const Qualified& x) {
 void Transformer::AddNode(const Primitive& x) {
   const auto& encoding =
       Transform<stg::Primitive::Encoding>(x.has_encoding(), x.encoding());
-  AddNode<stg::Primitive>(GetId(x.id()), x.name(), encoding, x.bitsize(),
-                          x.bytesize());
+  AddNode<stg::Primitive>(GetId(x.id()), x.name(), encoding, x.bytesize());
 }
 
 void Transformer::AddNode(const Array& x) {
@@ -189,7 +188,7 @@ void Transformer::AddNode(const StructUnion& x) {
 void Transformer::AddNode(const Enumeration& x) {
   if (x.has_definition()) {
     AddNode<stg::Enumeration>(GetId(x.id()), x.name(),
-                              x.definition().bytesize(),
+                              GetId(x.definition().underlying_type_id()),
                               x.definition().enumerator());
     return;
   } else {

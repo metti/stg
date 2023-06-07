@@ -43,11 +43,14 @@ namespace internal {
 using SymbolTable = std::vector<SymbolTableEntry>;
 using SymbolNameList = std::unordered_set<std::string_view>;
 using CRCValuesMap = std::unordered_map<std::string, ElfSymbol::CRC>;
+using NamespacesMap = std::unordered_map<std::string, std::string>;
 
 ElfSymbol::SymbolType ConvertSymbolType(
     SymbolTableEntry::SymbolType symbol_type);
 SymbolNameList GetKsymtabSymbols(const SymbolTable& symbols);
 CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols, const ElfLoader& elf);
+NamespacesMap GetNamespacesMap(const SymbolTable& symbols,
+                               const ElfLoader& elf);
 bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol);
 
 }  // namespace internal

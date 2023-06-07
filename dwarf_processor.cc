@@ -121,7 +121,7 @@ Entry GetReferredType(Entry& entry) {
   if (!result.has_value()) {
     Die() << "Type reference was not found in " << EntryToString(entry);
   }
-  return std::move(*result);
+  return *result;
 }
 
 size_t GetNumberOfElements(Entry& entry) {
@@ -151,15 +151,112 @@ size_t GetNumberOfElements(Entry& entry) {
   }
 }
 
+// Calculate number of bits from the "beginning" of the containing entity to
+// the "beginning" of the data member using DW_AT_bit_offset.
+//
+// "Number of bits from the beginning", depends on the definition of the
+// "beginning", which is different for big- and little-endian architectures.
+// However, DW_AT_bit_offset is defined from the high order bit of the storage
+// unit to the high order bit of a field and is the same for both architectures.
+
+// So this function converts DW_AT_bit_offset to the "number of bits from the
+// beginning".
+size_t CalculateBitfieldAdjustment(Entry& entry, size_t bit_size,
+                             bool is_little_endian_binary) {
+  if (bit_size == 0) {
+    // bit_size == 0 marks that it is not a bit field. No adjustment needed.
+    return 0;
+  }
+  auto container_byte_size = entry.MaybeGetUnsignedConstant(DW_AT_byte_size);
+  auto bit_offset = entry.MaybeGetUnsignedConstant(DW_AT_bit_offset);
+  Check(container_byte_size.has_value() && bit_offset.has_value())
+      << "If member offset is defined as DW_AT_data_member_location, bit field "
+         "should have DW_AT_byte_size and DW_AT_bit_offset";
+  // The following structure will be used as an example in the explanations:
+  // struct foo {
+  //   uint16_t rest_of_the_struct;
+  //   uint16_t x : 5;
+  //   uint16_t y : 6;
+  //   uint16_t z : 5;
+  // };
+  if (is_little_endian_binary) {
+    // Compiler usualy packs bit fields starting with the least significant
+    // bits, but DW_AT_bit_offset is counted from high to low bits:
+    //
+    // rest of the struct|<    container   >
+    //    Container bits: 01234|56789A|BCDEF
+    //  Bit-fields' bits: 01234|012345|01234
+    //        bit_offset: <<<<B<<<<<<5<<<<<0
+    //   bits from start: 0>>>>>5>>>>>>B>>>>
+    //                    <x:5>|< y:6>|<z:5>
+    //
+    //   x.bit_offset: 11 (0xB) bits
+    //   y.bit_offset: 5 bits
+    //   z.bit_offset: 0 bits
+    //
+    // So we need to subtract bit_offset from the container bit size
+    // (container_byte_size * 8) to inverse direction. Also we need to convert
+    // from high- to low-order bit, because the field "begins" with low-order
+    // bit. To do so we need to subtract field's bit size. Resulting formula is:
+    //
+    //   container_byte_size * 8 - bit_offset - bit_size
+    //
+    // If we try it on example, we get correct values:
+    //   x: 2 * 8 - 11 - 5 = 0
+    //   y: 2 * 8 - 5 - 6 = 5
+    //   z: 2 * 8 - 0 - 5 = 11 (0xB)
+    return *container_byte_size * 8 - *bit_offset - bit_size;
+  }
+  // Big-endian orders begins with high-order bit and the bit_offset is from the
+  // high order bit:
+  //
+  // rest of the struct|<    container   >
+  //    Container bits: FEDCB|A98765|43210
+  //  Bit-fields' bits: 43210|543210|43210
+  //        bit_offset: 0>>>>>5>>>>>>B>>>>
+  //   bits from start: 0>>>>>5>>>>>>B>>>>
+  //                    <x:5>|< y:6>|<z:5>
+  //
+  // So we just return bit_offset.
+  return *bit_offset;
+}
+
+// Calculate the number of bits from the beginning of the structure to the
+// beginning of the data member.
+size_t GetDataBitOffset(Entry& entry, size_t bit_size,
+                        bool is_little_endian_binary) {
+  // Offset may be represented either by DW_AT_data_bit_offset (in bits) or by
+  // DW_AT_data_member_location (in bytes).
+  if (auto data_bit_offset =
+          entry.MaybeGetUnsignedConstant(DW_AT_data_bit_offset)) {
+    // DW_AT_data_bit_offset contains what this function needs for any type
+    // of member (bitfield or not) on architecture of any endianness.
+    return *data_bit_offset;
+  } else if (auto byte_offset = entry.MaybeGetMemberByteOffset()) {
+    // DW_AT_data_member_location contains offset in bytes.
+    const size_t bit_offset = *byte_offset * 8;
+    // But there can be offset part, coming from DW_AT_bit_offset. DWARF 5
+    // standard requires to use DW_AT_data_bit_offset in this case, but a lot
+    // of binaries still use combination of DW_AT_data_member_location and
+    // DW_AT_bit_offset.
+    const size_t bitfield_adjusment =
+        CalculateBitfieldAdjustment(entry, bit_size, is_little_endian_binary);
+    return bit_offset + bitfield_adjusment;
+  }
+  Die() << "Member has no DW_AT_data_bit_offset or DW_AT_data_member_location";
+}
+
 }  // namespace
 
 // Transforms DWARF entries to STG.
 class Processor {
  public:
-  Processor(Graph& graph, Id void_id, Id variadic_id, Types& result)
+  Processor(Graph& graph, Id void_id, Id variadic_id,
+            bool is_little_endian_binary, Types& result)
       : graph_(graph),
         void_id_(void_id),
         variadic_id_(variadic_id),
+        is_little_endian_binary_(is_little_endian_binary),
         result_(result) {}
 
   void Process(Entry& entry) {
@@ -262,11 +359,13 @@ class Processor {
 
   void ProcessBaseType(Entry& entry) {
     CheckNoChildren(entry);
-    auto type_name = GetName(entry);
-    size_t bit_size = GetBitSize(entry);
-    // Round up bit_size / 8 to get minimal needed storage size in bytes.
-    size_t byte_size = (bit_size + 7) / 8;
-    AddProcessedNode<Primitive>(entry, type_name, GetEncoding(entry), bit_size,
+    const auto type_name = GetName(entry);
+    const size_t bit_size = GetBitSize(entry);
+    if (bit_size % 8) {
+      Die() << "type '" << type_name << "' size is not a multiple of 8";
+    }
+    const size_t byte_size = bit_size / 8;
+    AddProcessedNode<Primitive>(entry, type_name, GetEncoding(entry),
                                 byte_size);
   }
 
@@ -337,10 +436,15 @@ class Processor {
     std::string name = GetNameOrEmpty(entry);
     auto referred_type = GetReferredType(entry);
     auto referred_type_id = GetIdForEntry(referred_type);
-    // TODO: support offset and bitsize from DWARF
-    AddProcessedNode<Member>(entry, std::move(name), referred_type_id,
-                             /* offset = */ 0,
-                             /* bitsize = */ 0);
+    auto optional_bit_size = entry.MaybeGetUnsignedConstant(DW_AT_bit_size);
+    // Member has DW_AT_bit_size if and only if it is bit field.
+    // STG uses bit_size == 0 to mark that the member is not a bit field.
+    Check(!optional_bit_size || *optional_bit_size > 0)
+        << "DW_AT_bit_size should be a positive number";
+    auto bit_size = optional_bit_size ? *optional_bit_size : 0;
+    AddProcessedNode<Member>(
+        entry, std::move(name), referred_type_id,
+        GetDataBitOffset(entry, bit_size, is_little_endian_binary_), bit_size);
   }
 
   void ProcessArray(Entry& entry) {
@@ -378,7 +482,7 @@ class Processor {
       AddProcessedNode<Enumeration>(entry, name);
       return;
     }
-    size_t byte_size = GetByteSize(entry);
+    auto underlying_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
     auto children = entry.GetChildren();
     Enumeration::Enumerators enumerators;
     enumerators.reserve(children.size());
@@ -396,7 +500,7 @@ class Processor {
       enumerators.emplace_back(enumerator_name,
                                static_cast<int64_t>(*value_optional));
     }
-    AddProcessedNode<Enumeration>(entry, std::move(name), byte_size,
+    AddProcessedNode<Enumeration>(entry, std::move(name), underlying_type_id,
                                   std::move(enumerators));
   }
 
@@ -501,28 +605,29 @@ class Processor {
   Graph& graph_;
   Id void_id_;
   Id variadic_id_;
+  bool is_little_endian_binary_;
   Types& result_;
   std::unordered_map<Dwarf_Off, Id> id_map_;
 };
 
-Types ProcessEntries(std::vector<Entry> entries, Graph& graph) {
+Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
+                     Graph& graph) {
   Types result;
   Id void_id = graph.Add<Void>();
   Id variadic_id = graph.Add<Variadic>();
-  Processor processor(graph, void_id, variadic_id, result);
+  Processor processor(graph, void_id, variadic_id, is_little_endian_binary,
+                      result);
   for (auto& entry : entries) {
     processor.Process(entry);
   }
-  for (const auto& id : processor.GetUnresolvedIds()) {
-    // TODO: replace with "Die"
-    graph.Set<Variadic>(id);
-  }
+  Check(processor.GetUnresolvedIds().empty()) << "unresolved ids";
 
   return result;
 }
 
-Types Process(Handler& dwarf, Graph& graph) {
-  return ProcessEntries(dwarf.GetCompilationUnits(), graph);
+Types Process(Handler& dwarf, bool is_little_endian_binary, Graph& graph) {
+  return ProcessEntries(dwarf.GetCompilationUnits(), is_little_endian_binary,
+                        graph);
 }
 
 }  // namespace dwarf
