@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020-2022 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -15,27 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Maria Teguiani
-// Author: Giuliano Procida
+// Author: Siddharth Nayyar
 
-#include <iostream>
+#ifndef STG_POST_PROCESSING_H_
+#define STG_POST_PROCESSING_H_
 
-#include "btf_reader.h"
-#include "error.h"
+#include <string>
+#include <vector>
 
-int main(int argc, const char* argv[]) {
-  if (argc != 2) {
-    std::cerr << "Please specify the path to a BTF file.";
-    return 1;
-  }
+namespace stg {
 
-  try {
-    stg::Graph graph;
-    (void)stg::btf::ReadFile(graph, argv[1], /* verbose = */ true);
-  } catch (const stg::Exception& e) {
-    std::cerr << e.what() << '\n';
-    return 1;
-  }
+std::vector<std::string> PostProcess(const std::vector<std::string>& report,
+                                     size_t max_crc_only_changes);
 
-  return 0;
-}
+}  // namespace stg
+
+#endif  // STG_POST_PROCESSING_H_

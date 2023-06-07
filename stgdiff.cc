@@ -17,6 +17,7 @@
 //
 // Author: Maria Teguiani
 // Author: Giuliano Procida
+// Author: Siddharth Nayyar
 
 #include <getopt.h>
 
@@ -30,6 +31,8 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <sstream>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -40,10 +43,13 @@
 #include "elf_reader.h"
 #include "error.h"
 #include "reporting.h"
+#include "stg.h"
 
 namespace {
 
 const int kAbiChange = 4;
+const size_t kMaxCrcOnlyChanges = 3;
+const stg::CompareOptions kAllCompareOptionsEnabled{true, true};
 
 class Time {
  public:
@@ -81,7 +87,8 @@ enum class InputFormat { ABI, BTF, ELF };
 using Inputs = std::vector<std::pair<InputFormat, const char*>>;
 using Outputs = std::vector<std::pair<stg::OutputFormat, const char*>>;
 
-bool Run(const Inputs& inputs, const Outputs& outputs) {
+bool Run(const Inputs& inputs, const Outputs& outputs,
+         const stg::CompareOptions& compare_options) {
   // Read inputs.
   stg::Graph graph;
   std::vector<stg::Id> roots;
@@ -106,7 +113,7 @@ bool Run(const Inputs& inputs, const Outputs& outputs) {
   }
 
   // Compute differences.
-  stg::State state{graph};
+  stg::State state{graph, compare_options};
   std::pair<bool, std::optional<stg::Comparison>> result;
   {
     Time compute("compute diffs");
@@ -117,12 +124,13 @@ bool Run(const Inputs& inputs, const Outputs& outputs) {
 
   // Write reports.
   stg::NameCache names;
-  stg::Reporting reporting{graph, state.outcomes, names};
   for (const auto& [format, filename] : outputs) {
     std::ofstream output(filename);
     if (comparison) {
       Time report("report diffs");
-      Report(reporting, *comparison, format, output);
+      stg::ReportingOptions options{format, kMaxCrcOnlyChanges};
+      stg::Reporting reporting{graph, state.outcomes, options, names};
+      Report(reporting, *comparison, output);
       output << std::flush;
     }
     if (!output)
@@ -133,37 +141,59 @@ bool Run(const Inputs& inputs, const Outputs& outputs) {
 
 }  // namespace
 
+bool ParseCompareOptions(const char* opts_arg, stg::CompareOptions& opts) {
+  std::stringstream opt_stream(opts_arg);
+  std::string opt;
+  while (std::getline(opt_stream, opt, ',')) {
+    if (opt == "ignore_symbol_type_presence_changes")
+      opts.ignore_symbol_type_presence_changes = true;
+    else if (opt == "ignore_type_declaration_status_changes")
+      opts.ignore_type_declaration_status_changes = true;
+    else if (opt == "all")
+      opts = kAllCompareOptionsEnabled;
+    else
+      return false;
+  }
+  return true;
+}
+
 int main(int argc, char* argv[]) {
   // Process arguments.
   bool opt_times = false;
+  stg::CompareOptions compare_options;
   InputFormat opt_input_format = InputFormat::ABI;
   stg::OutputFormat opt_output_format = stg::OutputFormat::PLAIN;
   Inputs inputs;
   Outputs outputs;
   static option opts[] = {
-      {"times",  no_argument,       nullptr, 't'},
-      {"abi",    no_argument,       nullptr, 'a'},
-      {"btf",    no_argument,       nullptr, 'b'},
-      {"elf",    no_argument,       nullptr, 'e'},
-      {"format", required_argument, nullptr, 'f'},
-      {"output", required_argument, nullptr, 'o'},
-      {nullptr,  0,                 nullptr, 0  },
+      {"times",           no_argument,       nullptr, 't'},
+      {"abi",             no_argument,       nullptr, 'a'},
+      {"btf",             no_argument,       nullptr, 'b'},
+      {"elf",             no_argument,       nullptr, 'e'},
+      {"compare-options", required_argument, nullptr, 'c'},
+      {"format",          required_argument, nullptr, 'f'},
+      {"output",          required_argument, nullptr, 'o'},
+      {nullptr,           0,                 nullptr, 0  },
   };
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
               << " [-t|--times]\n"
               << " [-a|--abi|-b|--btf|-e|--elf] file1\n"
               << " [-a|--abi|-b|--btf|-e|--elf] file2\n"
-              << " [{-f|--format} {plain|flat|small|viz}]\n"
+              << " [{-c|--compare-options} "
+                 "{ignore_symbol_type_presence_changes|"
+                 "ignore_type_declaration_status_changes|all}]\n"
+              << " [{-f|--format} {plain|flat|small|short|viz}]\n"
               << " [{-o|--output} {filename|-}] ...\n"
               << "   implicit defaults: --abi --format plain\n"
               << "   format and output can appear multiple times\n"
+              << "   multiple comma separated compare-options can be passed\n"
               << "\n";
     return 1;
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-tabef:o:", opts, &ix);
+    int c = getopt_long(argc, argv, "-tabec:f:o:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
@@ -183,6 +213,10 @@ int main(int argc, char* argv[]) {
       case 1:
         inputs.push_back({opt_input_format, argument});
         break;
+      case 'c':
+        if (!ParseCompareOptions(argument, compare_options))
+          return usage();
+        break;
       case 'f':
         if (strcmp(argument, "plain") == 0)
           opt_output_format = stg::OutputFormat::PLAIN;
@@ -190,6 +224,8 @@ int main(int argc, char* argv[]) {
           opt_output_format = stg::OutputFormat::FLAT;
         else if (strcmp(argument, "small") == 0)
           opt_output_format = stg::OutputFormat::SMALL;
+        else if (strcmp(argument, "short") == 0)
+          opt_output_format = stg::OutputFormat::SHORT;
         else if (strcmp(argument, "viz") == 0)
           opt_output_format = stg::OutputFormat::VIZ;
         else
@@ -208,7 +244,7 @@ int main(int argc, char* argv[]) {
     return usage();
 
   try {
-    const bool equals = Run(inputs, outputs);
+    const bool equals = Run(inputs, outputs, compare_options);
     if (opt_times)
       Time::report();
     return equals ? 0 : kAbiChange;
