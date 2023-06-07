@@ -37,6 +37,7 @@
 
 #include "abigail_reader.h"
 #include "btf_reader.h"
+#include "elf_reader.h"
 #include "error.h"
 #include "reporting.h"
 
@@ -75,7 +76,7 @@ class Time {
 
 std::vector<std::pair<const char*, uint64_t>> Time::times_;
 
-enum class InputFormat { ABI, BTF };
+enum class InputFormat { ABI, BTF, ELF };
 
 using Inputs = std::vector<std::pair<InputFormat, const char*>>;
 using Outputs = std::vector<std::pair<stg::OutputFormat, const char*>>;
@@ -94,6 +95,11 @@ bool Run(const Inputs& inputs, const Outputs& outputs) {
       case InputFormat::BTF: {
         Time read("read BTF");
         roots.push_back(stg::btf::ReadFile(graph, filename));
+        break;
+      }
+      case InputFormat::ELF: {
+        Time read("read ELF");
+        roots.push_back(stg::elf::Read(graph, filename));
         break;
       }
     }
@@ -138,6 +144,7 @@ int main(int argc, char* argv[]) {
       {"times",  no_argument,       nullptr, 't'},
       {"abi",    no_argument,       nullptr, 'a'},
       {"btf",    no_argument,       nullptr, 'b'},
+      {"elf",    no_argument,       nullptr, 'e'},
       {"format", required_argument, nullptr, 'f'},
       {"output", required_argument, nullptr, 'o'},
       {nullptr,  0,                 nullptr, 0  },
@@ -145,8 +152,8 @@ int main(int argc, char* argv[]) {
   auto usage = [&]() {
     std::cerr << "usage: " << argv[0] << '\n'
               << " [-t|--times]\n"
-              << " [-a|--abi|-b|--btf] file1\n"
-              << " [-a|--abi|-b|--btf] file2\n"
+              << " [-a|--abi|-b|--btf|-e|--elf] file1\n"
+              << " [-a|--abi|-b|--btf|-e|--elf] file2\n"
               << " [{-f|--format} {plain|flat|small|viz}]\n"
               << " [{-o|--output} {filename|-}] ...\n"
               << "   implicit defaults: --abi --format plain\n"
@@ -156,7 +163,7 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-tabf:o:", opts, &ix);
+    int c = getopt_long(argc, argv, "-tabef:o:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
@@ -169,6 +176,9 @@ int main(int argc, char* argv[]) {
         break;
       case 'b':
         opt_input_format = InputFormat::BTF;
+        break;
+      case 'e':
+        opt_input_format = InputFormat::ELF;
         break;
       case 1:
         inputs.push_back({opt_input_format, argument});

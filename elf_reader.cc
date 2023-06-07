@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2021 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -15,21 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Giuliano Procida
+// Author: Aleksei Vetrov
 
-#include "error.h"
+#include "elf_reader.h"
 
-#include <catch2/catch.hpp>
+#include <iostream>
+#include <map>
+#include <string>
 
-namespace Test {
+#include "stg.h"
 
-TEST_CASE("Check") {
-  CHECK_NOTHROW(stg::Check(true) << "phew");
-  CHECK_THROWS(stg::Check(false) << "oh dear");
+namespace stg {
+namespace elf {
+
+Id Read(Graph& graph, const std::string& path, bool verbose) {
+  if (verbose)
+    std::cerr << "Parsing ELF: " << path << "\n";
+  std::map<SymbolKey, Id> symbols;
+  return graph.Add(Make<Symbols>(symbols));
 }
 
-TEST_CASE("Die") {
-  CHECK_THROWS(stg::Die() << "Mr Bond");
-}
-
-}  // namespace Test
+}  // namespace elf
+}  // namespace stg
