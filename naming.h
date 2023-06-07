@@ -78,7 +78,7 @@ struct Describe {
 };
 
 struct DescribeKind {
-  DescribeKind(const Graph& graph) : graph(graph) {}
+  explicit DescribeKind(const Graph& graph) : graph(graph) {}
   std::string operator()(Id id);
   std::string operator()(const BaseClass&);
   std::string operator()(const Member&);
@@ -91,7 +91,7 @@ struct DescribeKind {
 };
 
 struct DescribeExtra {
-  DescribeExtra(const Graph& graph) : graph(graph) {}
+  explicit DescribeExtra(const Graph& graph) : graph(graph) {}
   std::string operator()(Id id);
   std::string operator()(const ElfSymbol&);
   template <typename Node>

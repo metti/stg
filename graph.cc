@@ -21,7 +21,9 @@
 
 #include "graph.h"
 
+#include <ios>
 #include <ostream>
+#include <string>
 
 namespace stg {
 
@@ -51,8 +53,6 @@ std::ostream& operator<<(std::ostream& os, Method::Kind kind) {
 
 std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind) {
   switch (kind) {
-    case StructUnion::Kind::CLASS:
-      return os << "class";
     case StructUnion::Kind::STRUCT:
       return os << "struct";
     case StructUnion::Kind::UNION:
@@ -113,6 +113,12 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility visibility) {
 std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info) {
   return '@' + std::string(version_info.is_default ? "@" : "") +
          version_info.name;
+}
+
+std::string VersionedSymbolName(const ElfSymbol& symbol) {
+  return symbol.symbol_name + (symbol.version_info
+                                   ? VersionInfoToString(*symbol.version_info)
+                                   : std::string());
 }
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc) {

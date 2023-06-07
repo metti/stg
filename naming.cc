@@ -20,7 +20,9 @@
 
 #include "naming.h"
 
+#include <ostream>
 #include <sstream>
+#include <string>
 
 namespace stg {
 
@@ -259,10 +261,7 @@ std::string DescribeExtra::operator()(Id id) {
 
 std::string DescribeExtra::operator()(const ElfSymbol& x) {
   const auto& name = x.full_name ? *x.full_name : x.symbol_name;
-  std::string versioned = x.symbol_name;
-  if (x.version_info) {
-    versioned += VersionInfoToString(*x.version_info);
-  }
+  auto versioned = VersionedSymbolName(x);
   return name == versioned ? std::string() : " {" + versioned + '}';
 }
 

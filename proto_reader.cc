@@ -23,9 +23,11 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include <google/protobuf/io/zero_copy_stream_impl.h>
@@ -322,8 +324,6 @@ stg::Method::Kind Transformer::Transform(Method::Kind x) {
 
 stg::StructUnion::Kind Transformer::Transform(StructUnion::Kind x) {
   switch (x) {
-    case StructUnion::CLASS:
-      return stg::StructUnion::Kind::CLASS;
     case StructUnion::STRUCT:
       return stg::StructUnion::Kind::STRUCT;
     case StructUnion::UNION:
@@ -407,6 +407,8 @@ Type Transformer::Transform(const Type& x) {
 
 Id Read(Graph& graph, const std::string& path) {
   std::ifstream ifs(path);
+  Check(ifs.good()) << "error opening file '" << path
+                    << "' for reading: " << ErrnoToString(errno);
   google::protobuf::io::IstreamInputStream is(&ifs);
   proto::STG stg;
   google::protobuf::TextFormat::Parse(&is, &stg);

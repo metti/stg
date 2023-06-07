@@ -20,6 +20,8 @@
 #ifndef STG_ELF_READER_H_
 #define STG_ELF_READER_H_
 
+#include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>

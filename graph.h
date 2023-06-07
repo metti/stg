@@ -28,6 +28,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -52,6 +53,8 @@ struct Id {
 
 std::ostream& operator<<(std::ostream& os, Id id);
 
+using Pair = std::pair<Id, Id>;
+
 }  // namespace stg
 
 namespace std {
@@ -59,7 +62,18 @@ namespace std {
 template <>
 struct hash<stg::Id> {
   size_t operator()(const stg::Id& id) const {
-    return id.ix_;
+    return hash<decltype(id.ix_)>()(id.ix_);
+  }
+};
+
+template <>
+struct hash<stg::Pair> {
+  size_t operator()(const stg::Pair& comparison) const {
+    const hash<stg::Id> h;
+    auto h1 = h(comparison.first);
+    auto h2 = h(comparison.second);
+    // assumes 64-bit size_t, would be better if std::hash_combine existed
+    return h1 ^ (h2 + 0x9e3779b97f4a7c15 + (h1 << 12) + (h1 >> 4));
   }
 };
 
@@ -186,7 +200,7 @@ struct Member : Node {
 };
 
 struct StructUnion : Node {
-  enum class Kind { CLASS, STRUCT, UNION };
+  enum class Kind { STRUCT, UNION };
   struct Definition {
     uint64_t bytesize;
     std::vector<Id> base_classes;
@@ -213,7 +227,7 @@ struct Enumeration : Node {
     uint32_t bytesize;
     Enumerators enumerators;
   };
-  Enumeration(const std::string& name) : name(name) {}
+  explicit Enumeration(const std::string& name) : name(name) {}
   Enumeration(const std::string& name, uint32_t bytesize,
               const Enumerators& enumerators)
       : name(name), definition({bytesize, enumerators}) {}
@@ -291,11 +305,13 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding);
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility);
 
 std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info);
+std::string VersionedSymbolName(const ElfSymbol&);
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc);
 
 struct Symbols : Node {
-  Symbols(const std::map<std::string, Id>& symbols) : symbols(symbols) {}
+  explicit Symbols(const std::map<std::string, Id>& symbols)
+      : symbols(symbols) {}
 
   std::map<std::string, Id> symbols;
 };
@@ -518,7 +534,7 @@ Result Graph::Apply2(
 
 template <typename Result, typename FunctionObject, typename... Args>
 struct ConstAdapter {
-  ConstAdapter(FunctionObject& function) : function(function) {}
+  explicit ConstAdapter(FunctionObject& function) : function(function) {}
   template <typename Node>
   Result operator()(const Node& node, Args&&... args) {
     return function(const_cast<Node&>(node), std::forward<Args>(args)...);

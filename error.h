@@ -29,7 +29,7 @@ namespace stg {
 
 class Exception : public std::exception {
  public:
-  Exception(const std::string& message) : message_(message) {}
+  explicit Exception(const std::string& message) : message_(message) {}
 
   const char* what() const noexcept(true) final {
     return message_.c_str();

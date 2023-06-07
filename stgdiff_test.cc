@@ -28,6 +28,7 @@
 #include "abigail_reader.h"
 #include "graph.h"
 #include "metrics.h"
+#include "proto_reader.h"
 #include "reporting.h"
 
 struct CompareOptionsTestCase {
@@ -159,4 +160,26 @@ TEST_CASE("short report") {
     expected_output << expected_output_file.rdbuf();
     CHECK(output.str() == expected_output.str());
   }
+}
+
+TEST_CASE("fidelity diff") {
+  // Read inputs.
+  stg::Graph graph;
+  const auto id0 =
+      stg::proto::Read(graph, filename_to_path("fidelity_diff_0.stg"));
+  const auto id1 =
+      stg::proto::Read(graph, filename_to_path("fidelity_diff_1.stg"));
+
+  // Compute fidelity diff.
+  auto fidelity_diff = stg::GetFidelityTransitions(graph, id0, id1);
+
+  // Write fidelity diff report.
+  std::ostringstream report;
+  stg::reporting::FidelityDiff(fidelity_diff, report);
+
+  // Check report.
+  std::ifstream expected_report_file(filename_to_path("fidelity_diff_report"));
+  std::ostringstream expected_report;
+  expected_report << expected_report_file.rdbuf();
+  CHECK(report.str() == expected_report.str());
 }
