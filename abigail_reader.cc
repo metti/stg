@@ -17,7 +17,7 @@
 //
 // Author: Giuliano Procida
 
-#include "abigail-reader.h"
+#include "abigail_reader.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -32,6 +32,7 @@
 #include <type_traits>
 
 #include <libxml/parser.h>
+#include "crc.h"
 
 namespace stg {
 namespace abixml {
@@ -104,10 +105,6 @@ std::optional<bool> Parse<bool>(const std::string& value) {
     return {false};
   return {};
 }
-
-struct CRC {
-  uint64_t number;
-};
 
 template <>
 std::optional<CRC> Parse<CRC>(const std::string& value) {
@@ -617,6 +614,12 @@ void Abigail::BuildSymbols() {
         std::cerr << "multiple aliases with id " << alias << '\n';
         exit(1);
       }
+    }
+  }
+  for (const auto& [alias, main] : alias_to_main) {
+    if (alias_to_main.count(main)) {
+      std::cerr << "found main symbol and alias with id " << main << '\n';
+      exit(1);
     }
   }
   // Tie aliases to their main symbol.
