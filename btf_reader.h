@@ -32,6 +32,7 @@
 
 #include <abg-fwd.h>  // for symtab_sptr
 #include <abg-ir.h>  // for environment
+#include "id.h"
 #include "stg.h"
 #include <linux/btf.h>
 
@@ -39,13 +40,13 @@ namespace stg {
 namespace btf {
 
 // BTF Specification: https://www.kernel.org/doc/html/latest/bpf/btf.html
-class Structs : public Graph {
+class Structs {
  public:
-  Structs(const char* start, size_t size,
+  Structs(Graph& graph,
           std::unique_ptr<abigail::ir::environment> env,
           const abigail::symtab_reader::symtab_sptr tab,
           const bool verbose = false);
-  const Type& GetSymbols() const { return *types_[symbols_index_].get(); }
+  Id Process(const char* start, size_t size);
 
  private:
   struct MemoryRange {
@@ -55,30 +56,29 @@ class Structs : public Graph {
     template <typename T> const T* Pull(size_t count = 1);
   };
 
+  Graph& graph_;
+
   MemoryRange string_section_;
   const std::unique_ptr<abigail::ir::environment> env_;
   const abigail::symtab_reader::symtab_sptr tab_;
   const bool verbose_;
 
-  std::vector<std::unique_ptr<Type>> types_;
-  std::optional<size_t> void_type_id_;
-  std::optional<size_t> variadic_type_id_;
-  std::unordered_map<uint32_t, size_t> type_ids_;
-
-  size_t symbols_index_;
+  std::optional<Id> void_;
+  std::optional<Id> variadic_;
+  std::unordered_map<uint32_t, Id> btf_type_ids_;
   std::map<std::string, Id> btf_symbol_types_;
 
-  size_t GetVoidIndex();
-  size_t GetVariadicIndex();
-  size_t GetIndex(uint32_t btf_index);
+  Id GetVoid();
+  Id GetVariadic();
+  Id GetIdRaw(uint32_t btf_index);
   Id GetId(uint32_t btf_index);
   Id GetParameterId(uint32_t btf_index);
 
   void PrintHeader(const btf_header* header) const;
-  void BuildTypes(MemoryRange memory);
+  Id BuildTypes(MemoryRange memory);
   void BuildOneType(const btf_type* t, uint32_t btf_index,
                     MemoryRange& memory);
-  void BuildSymbols();
+  Id BuildSymbols();
   std::vector<Id> BuildMembers(
       bool kflag, const btf_member* members, size_t vlen);
   Enumeration::Enumerators BuildEnums(
@@ -90,8 +90,7 @@ class Structs : public Graph {
   static void PrintStrings(MemoryRange memory);
 };
 
-std::unique_ptr<Structs> ReadFile(
-    const std::string& path, bool verbose = false);
+Id ReadFile(Graph& graph, const std::string& path, bool verbose = false);
 
 }  // namespace btf
 }  // namespace stg
