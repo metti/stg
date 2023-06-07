@@ -33,6 +33,58 @@
 #include "error.h"
 
 namespace stg {
+
+namespace {
+
+// abigail::elfsymbol -> ElfSymbol translation functions
+
+ElfSymbol::SymbolType FromAbigail(abigail::elf_symbol::type from) {
+  switch (from) {
+    case abigail::elf_symbol::OBJECT_TYPE:
+      return ElfSymbol::SymbolType::OBJECT;
+    case abigail::elf_symbol::FUNC_TYPE:
+      return ElfSymbol::SymbolType::FUNCTION;
+    case abigail::elf_symbol::COMMON_TYPE:
+      return ElfSymbol::SymbolType::COMMON;
+    case abigail::elf_symbol::TLS_TYPE:
+      return ElfSymbol::SymbolType::TLS;
+    default:
+      Die() << "unhandled libabigail symbol type " << from;
+  }
+}
+
+ElfSymbol::Binding FromAbigail(abigail::elf_symbol::binding from) {
+  switch (from) {
+    case abigail::elf_symbol::LOCAL_BINDING:
+      return ElfSymbol::Binding::LOCAL;
+    case abigail::elf_symbol::GLOBAL_BINDING:
+      return ElfSymbol::Binding::GLOBAL;
+    case abigail::elf_symbol::WEAK_BINDING:
+      return ElfSymbol::Binding::WEAK;
+    case abigail::elf_symbol::GNU_UNIQUE_BINDING:
+      return ElfSymbol::Binding::GNU_UNIQUE;
+    default:
+      Die() << "unhandled libabigail binding " << from;
+  }
+}
+
+ElfSymbol::Visibility FromAbigail(abigail::elf_symbol::visibility from) {
+  switch (from) {
+    case abigail::elf_symbol::DEFAULT_VISIBILITY:
+      return ElfSymbol::Visibility::DEFAULT;
+    case abigail::elf_symbol::PROTECTED_VISIBILITY:
+      return ElfSymbol::Visibility::PROTECTED;
+    case abigail::elf_symbol::HIDDEN_VISIBILITY:
+      return ElfSymbol::Visibility::HIDDEN;
+    case abigail::elf_symbol::INTERNAL_VISIBILITY:
+      return ElfSymbol::Visibility::INTERNAL;
+    default:
+      Die() << "unhandled libabigail visibility " << from;
+  }
+}
+
+}  // namespace
+
 namespace btf {
 
 static constexpr std::array<std::string_view, 3> kVarLinkage = {
@@ -237,7 +289,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                            MemoryRange& memory) {
   const auto kind = BTF_INFO_KIND(t->info);
   const auto vlen = BTF_INFO_VLEN(t->info);
-  Check(kind >= 0 && kind < NR_BTF_KINDS) << "Unknown BTF kind";
+  Check(kind < NR_BTF_KINDS) << "Unknown BTF kind";
 
   if (verbose_)
     std::cout << '[' << btf_index << "] ";
@@ -282,7 +334,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       if (verbose_) {
         std::cout << "PTR '" << ANON << "' type_id=" << t->type << '\n';
       }
-      define(Make<Ptr>(Ptr::Kind::POINTER, GetId(t->type)));
+      define(Make<PointerReference>(PointerReference::Kind::POINTER,
+                                    GetId(t->type)));
       break;
     }
     case BTF_KIND_TYPEDEF: {
@@ -297,17 +350,17 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     case BTF_KIND_CONST:
     case BTF_KIND_RESTRICT: {
       const auto qualifier = kind == BTF_KIND_CONST
-                             ? QualifierKind::CONST
+                             ? Qualifier::CONST
                              : kind == BTF_KIND_VOLATILE
-                             ? QualifierKind::VOLATILE
-                             : QualifierKind::RESTRICT;
+                             ? Qualifier::VOLATILE
+                             : Qualifier::RESTRICT;
       if (verbose_) {
         std::cout << (kind == BTF_KIND_CONST ? "CONST"
                       : kind == BTF_KIND_VOLATILE ? "VOLATILE"
                       : "RESTRICT")
                   << " '" << ANON << "' type_id=" << t->type << '\n';
       }
-      define(Make<Qualifier>(qualifier, GetId(t->type)));
+      define(Make<Qualified>(qualifier, GetId(t->type)));
       break;
     }
     case BTF_KIND_ARRAY: {
@@ -325,8 +378,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     case BTF_KIND_STRUCT:
     case BTF_KIND_UNION: {
       const auto structUnionKind = kind == BTF_KIND_STRUCT
-                                   ? StructUnionKind::STRUCT
-                                   : StructUnionKind::UNION;
+                                   ? StructUnion::Kind::STRUCT
+                                   : StructUnion::Kind::UNION;
       const auto name = GetName(t->name_off);
       const bool kflag = BTF_INFO_KFLAG(t->info);
       if (verbose_) {
@@ -337,7 +390,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       }
       const auto* btf_members = memory.Pull<struct btf_member>(vlen);
       const auto members = BuildMembers(kflag, btf_members, vlen);
-      define(Make<StructUnion>(name, structUnionKind, t->size, members));
+      define(Make<StructUnion>(structUnionKind, name, t->size, members));
       break;
     }
     case BTF_KIND_ENUM: {
@@ -364,13 +417,13 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
     case BTF_KIND_FWD: {
       const auto name = GetName(t->name_off);
       const auto structUnionKind = BTF_INFO_KFLAG(t->info)
-                                   ? StructUnionKind::UNION
-                                   : StructUnionKind::STRUCT;
+                                   ? StructUnion::Kind::UNION
+                                   : StructUnion::Kind::STRUCT;
       if (verbose_) {
         std::cout << "FWD '" << name << "' fwd_kind=" << structUnionKind
                   << '\n';
       }
-      define(Make<StructUnion>(name, structUnionKind));
+      define(Make<StructUnion>(structUnionKind, name));
       break;
     }
     case BTF_KIND_FUNC: {
@@ -475,9 +528,25 @@ Id Structs::BuildSymbols() {
       type_id = {it->second};
     }
 
-    elf_symbols.emplace(symbol_name + '@' + symbol->get_version().str(),
+    const auto abigail_version = symbol->get_version();
+    const auto abigail_symbol_type = symbol->get_type();
+    const auto abigail_binding = symbol->get_binding();
+    const auto abigail_visibility = symbol->get_visibility();
+    const auto abigail_crc = symbol->get_crc();
+
+    elf_symbols.emplace(symbol->get_id_string(),
                         graph_.Add(Make<ElfSymbol>(
-                            symbol, type_id, /*full_name_=*/std::nullopt)));
+                            symbol_name,
+                            abigail_version.str(),
+                            abigail_version.is_default(),
+                            symbol->is_defined(),
+                            FromAbigail(abigail_symbol_type),
+                            FromAbigail(abigail_binding),
+                            FromAbigail(abigail_visibility),
+                            abigail_crc
+                              ? std::make_optional(CRC{abigail_crc})
+                              : std::nullopt,
+                            type_id, /*full_name_=*/std::nullopt)));
   }
   return graph_.Add(Make<Symbols>(elf_symbols));
 }
@@ -533,4 +602,5 @@ Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
 }
 
 }  // namespace btf
+
 }  // namespace stg

@@ -58,8 +58,7 @@ Id Graph::Add(std::unique_ptr<Type> node) {
 
 const Type& Graph::Get(Id id) const { return *types_[id.ix_].get(); }
 
-Id ResolveQualifiers(
-    const Graph& graph, Id id, std::set<QualifierKind>& qualifiers) {
+Id ResolveQualifiers(const Graph& graph, Id id, Qualifiers& qualifiers) {
   while (const auto maybe = graph.Get(id).ResolveQualifier(qualifiers))
     id = *maybe;
   return id;
@@ -104,7 +103,7 @@ Name Name::Add(Side side, Precedence precedence,
   return Name{left.str(), precedence, right.str()};
 }
 
-Name Name::Qualify(const std::set<QualifierKind>& qualifiers) const {
+Name Name::Qualify(const Qualifiers& qualifiers) const {
   // this covers the case when bad qualifiers have been dropped
   if (qualifiers.empty())
     return *this;
@@ -155,8 +154,7 @@ std::string GetResolvedDescription(
   return os.str();
 }
 
-std::string QualifiersMessage(
-    QualifierKind qualifier, const std::string& action) {
+std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
   std::ostringstream os;
   os << "qualifier " << qualifier << ' ' << action;
   return os.str();
@@ -229,8 +227,8 @@ std::pair<bool, std::optional<Comparison>> Compare(
   const Graph& graph = state.graph;
   Result result;
 
-  std::set<QualifierKind> qualifiers1;
-  std::set<QualifierKind> qualifiers2;
+  Qualifiers qualifiers1;
+  Qualifiers qualifiers2;
   const Id unqualified1 = ResolveQualifiers(graph, node1, qualifiers1);
   const Id unqualified2 = ResolveQualifiers(graph, node2, qualifiers2);
   if (!qualifiers1.empty() || !qualifiers2.empty()) {
@@ -314,16 +312,17 @@ Name Variadic::MakeDescription(const Graph&, NameCache&) const {
   return Name{"..."};
 }
 
-Name Ptr::MakeDescription(const Graph& graph, NameCache& names) const {
+Name PointerReference::MakeDescription(const Graph& graph,
+                                       NameCache& names) const {
   std::string sign;
   switch (GetKind()) {
-    case Ptr::Kind::POINTER:
+    case PointerReference::Kind::POINTER:
       sign = "*";
       break;
-    case Ptr::Kind::LVALUE_REFERENCE:
+    case PointerReference::Kind::LVALUE_REFERENCE:
       sign = "&";
       break;
-    case Ptr::Kind::RVALUE_REFERENCE:
+    case PointerReference::Kind::RVALUE_REFERENCE:
       sign = "&&";
       break;
   }
@@ -335,9 +334,9 @@ Name Typedef::MakeDescription(const Graph&, NameCache&) const {
   return Name{GetName()};
 }
 
-Name Qualifier::MakeDescription(const Graph& graph, NameCache& names) const {
-  std::set<QualifierKind> qualifiers;
-  qualifiers.insert(GetQualifierKind());
+Name Qualified::MakeDescription(const Graph& graph, NameCache& names) const {
+  Qualifiers qualifiers;
+  qualifiers.insert(GetQualifier());
   Id under = GetQualifiedTypeId();
   while (const auto maybe = graph.Get(under).ResolveQualifier(qualifiers))
     under = *maybe;
@@ -368,7 +367,7 @@ Name Member::MakeDescription(const Graph& graph, NameCache& names) const {
 Name StructUnion::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
   const auto& name = GetName();
-  os << GetStructUnionKind() << ' ';
+  os << GetKind() << ' ';
   if (!name.empty()) {
     os << GetName();
   } else if (const auto& definition = GetDefinition()) {
@@ -413,10 +412,9 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
 }
 
 Name ElfSymbol::MakeDescription(const Graph&, NameCache&) const {
-  const auto& symbol_name = symbol_->get_name();
-  if (!full_name_ || *full_name_ == symbol_name)
-    return Name{symbol_name};
-  return Name{*full_name_ + " {" + symbol_name + "}"};
+  if (!full_name_ || *full_name_ == symbol_name_)
+    return Name{symbol_name_};
+  return Name{*full_name_ + " {" + symbol_name_ + "}"};
 }
 
 Name Symbols::MakeDescription(const Graph&, NameCache&) const {
@@ -435,8 +433,8 @@ Result Void::Equals(State&, const Type&) const { return {}; }
 
 Result Variadic::Equals(State&, const Type&) const { return {}; }
 
-Result Ptr::Equals(State& state, const Type& other) const {
-  const auto& o = other.as<Ptr>();
+Result PointerReference::Equals(State& state, const Type& other) const {
+  const auto& o = other.as<PointerReference>();
 
   Result result;
   const auto kind1 = GetKind();
@@ -446,7 +444,7 @@ Result Ptr::Equals(State& state, const Type& other) const {
   const auto ref_diff =
       Compare(state, GetPointeeTypeId(), o.GetPointeeTypeId());
   const auto text =
-      kind1 == Ptr::Kind::POINTER ? "pointed-to" : "referred-to";
+      kind1 == PointerReference::Kind::POINTER ? "pointed-to" : "referred-to";
   result.MaybeAddEdgeDiff(text, ref_diff);
   return result;
 }
@@ -457,9 +455,9 @@ Result Typedef::Equals(State&, const Type&) const {
   __builtin_unreachable();
 }
 
-Result Qualifier::Equals(State&, const Type&) const {
+Result Qualified::Equals(State&, const Type&) const {
   // Compare will never attempt to directly compare Qualifiers.
-  Die() << "internal error: Qualifier::Equals";
+  Die() << "internal error: Qualified::Equals";
   __builtin_unreachable();
 }
 
@@ -546,13 +544,12 @@ Result StructUnion::Equals(State& state, const Type& other) const {
   // Compare two anonymous types recursively, not holding diffs.
   // Compare two identically named types recursively, holding diffs.
   // Everything else treated as distinct. No recursion.
-  const auto kind1 = GetStructUnionKind();
-  const auto kind2 = o.GetStructUnionKind();
+  const auto kind1 = GetKind();
+  const auto kind2 = o.GetKind();
   const auto& name1 = GetName();
   const auto& name2 = o.GetName();
   if (kind1 != kind2 || name1 != name2)
     return result.MarkIncomparable();
-
 
   result.diff_.holds_changes = !name1.empty();
   const auto& definition1 = GetDefinition();
@@ -748,29 +745,18 @@ Result ElfSymbol::Equals(State& state, const Type& other) const {
   //
   // Symbol namespaces - not yet supported by symtab_reader
 
-  const auto& s1 = *symbol_;
-  const auto& s2 = *o.symbol_;
-
   Result result;
-  result.MaybeAddNodeDiff("name", s1.get_name(), s2.get_name());
+  result.MaybeAddNodeDiff("name", symbol_name_, o.symbol_name_);
 
-  // Abigail ELF symbol version encapsulates both a version string and a default
-  // flag but only the former is used in its equality operator! Abigail also
-  // conflates no version with an empty version (though the latter may be
-  // illegal).
-  const auto version1 = s1.get_version();
-  const auto version2 = s2.get_version();
-  result.MaybeAddNodeDiff("version", version1.str(), version2.str());
+  result.MaybeAddNodeDiff("version", version_, o.version_);
   result.MaybeAddNodeDiff(
-      "default version", version1.is_default(), version2.is_default());
+      "default version", is_default_version_, o.is_default_version_);
 
-  result.MaybeAddNodeDiff("defined", s1.is_defined(), s2.is_defined());
-  result.MaybeAddNodeDiff("symbol type", s1.get_type(), s2.get_type());
-  result.MaybeAddNodeDiff("binding", s1.get_binding(), s2.get_binding());
-  result.MaybeAddNodeDiff(
-      "visibility", s1.get_visibility(), s2.get_visibility());
-
-  result.MaybeAddNodeDiff("CRC", CRC{s1.get_crc()}, CRC{s2.get_crc()});
+  result.MaybeAddNodeDiff("defined", is_defined_, o.is_defined_);
+  result.MaybeAddNodeDiff("symbol type", symbol_type_, o.symbol_type_);
+  result.MaybeAddNodeDiff("binding", binding_, o.binding_);
+  result.MaybeAddNodeDiff("visibility", visibility_, o.visibility_);
+  result.MaybeAddNodeDiff("CRC", crc_, o.crc_);
 
   if (type_id_ && o.type_id_) {
     const auto type_diff = Compare(state, *type_id_, *o.type_id_);
@@ -830,27 +816,24 @@ Result Symbols::Equals(State& state, const Type& other) const {
   return result;
 }
 
-std::optional<Id> Type::ResolveQualifier(std::set<QualifierKind>&) const {
+std::optional<Id> Type::ResolveQualifier(Qualifiers&) const {
   return {};
 }
 
-std::optional<Id> Array::ResolveQualifier(
-    std::set<QualifierKind>& qualifiers) const {
+std::optional<Id> Array::ResolveQualifier(Qualifiers& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
   return {};
 }
 
-std::optional<Id> Function::ResolveQualifier(
-    std::set<QualifierKind>& qualifiers) const {
+std::optional<Id> Function::ResolveQualifier(Qualifiers& qualifiers) const {
   // There should be no qualifiers here.
   qualifiers.clear();
   return {};
 }
 
-std::optional<Id> Qualifier::ResolveQualifier(
-    std::set<QualifierKind>& qualifiers) const {
-  qualifiers.insert(GetQualifierKind());
+std::optional<Id> Qualified::ResolveQualifier(Qualifiers& qualifiers) const {
+  qualifiers.insert(GetQualifier());
   return {GetQualifiedTypeId()};
 }
 
@@ -921,28 +904,82 @@ std::vector<std::pair<std::string, size_t>> Enumeration::GetEnumNames() const {
   return names;
 }
 
-std::ostream& operator<<(std::ostream& os, StructUnionKind kind) {
+std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind) {
   switch (kind) {
-    case StructUnionKind::STRUCT:
+    case StructUnion::Kind::STRUCT:
       os << "struct";
       break;
-    case StructUnionKind::UNION:
+    case StructUnion::Kind::UNION:
       os << "union";
       break;
   }
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, QualifierKind kind) {
-  switch (kind) {
-    case QualifierKind::CONST:
+std::ostream& operator<<(std::ostream& os, Qualifier qualifier) {
+  switch (qualifier) {
+    case Qualifier::CONST:
       os << "const";
       break;
-    case QualifierKind::VOLATILE:
+    case Qualifier::VOLATILE:
       os << "volatile";
       break;
-    case QualifierKind::RESTRICT:
+    case Qualifier::RESTRICT:
       os << "restrict";
+      break;
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType type) {
+  switch (type) {
+    case ElfSymbol::SymbolType::OBJECT:
+      os << "object";
+      break;
+    case ElfSymbol::SymbolType::FUNCTION:
+      os << "function";
+      break;
+    case ElfSymbol::SymbolType::COMMON:
+      os << "common";
+      break;
+    case ElfSymbol::SymbolType::TLS:
+      os << "TLS";
+      break;
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding binding) {
+  switch (binding) {
+    case ElfSymbol::Binding::GLOBAL:
+      os << "global";
+      break;
+    case ElfSymbol::Binding::LOCAL:
+      os << "local";
+      break;
+    case ElfSymbol::Binding::WEAK:
+      os << "weak";
+      break;
+    case ElfSymbol::Binding::GNU_UNIQUE:
+      os << "GNU unique";
+      break;
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility visibility) {
+  switch (visibility) {
+    case ElfSymbol::Visibility::DEFAULT:
+      os << "default";
+      break;
+    case ElfSymbol::Visibility::PROTECTED:
+      os << "protected";
+      break;
+    case ElfSymbol::Visibility::HIDDEN:
+      os << "hidden";
+      break;
+    case ElfSymbol::Visibility::INTERNAL:
+      os << "internal";
       break;
   }
   return os;
@@ -953,15 +990,15 @@ std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {
   return os << (ix < kIntEncoding.size() ? kIntEncoding[ix] : "(unknown)");
 }
 
-std::ostream& operator<<(std::ostream& os, Ptr::Kind kind) {
+std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind) {
   switch (kind) {
-    case Ptr::Kind::POINTER:
+    case PointerReference::Kind::POINTER:
       os << "pointer";
       break;
-    case Ptr::Kind::LVALUE_REFERENCE:
+    case PointerReference::Kind::LVALUE_REFERENCE:
       os << "lvalue reference";
       break;
-    case Ptr::Kind::RVALUE_REFERENCE:
+    case PointerReference::Kind::RVALUE_REFERENCE:
       os << "rvalue reference";
       break;
   }
