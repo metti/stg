@@ -22,10 +22,13 @@
 #include "graph.h"
 
 #include <ios>
+#include <limits>
 #include <ostream>
 #include <string>
 
 namespace stg {
+
+const Id Id::kInvalid(std::numeric_limits<decltype(Id::ix_)>::max());
 
 std::ostream& operator<<(std::ostream& os, Id id) {
   return os << '<' << id.ix_ << '>';

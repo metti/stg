@@ -30,6 +30,7 @@
 #include "btf_reader.h"
 #include "elf_reader.h"
 #include "error.h"
+#include "metrics.h"
 
 enum class InputFormat { BTF, ELF };
 using Input = std::pair<InputFormat, std::string>;
@@ -83,6 +84,7 @@ int main(int argc, char* const argv[]) {
 
   try {
     stg::Graph graph;
+    stg::Metrics metrics;
     switch (format) {
       case InputFormat::BTF: {
         (void)stg::btf::ReadFile(graph, filename, /* verbose = */ true);
@@ -90,7 +92,7 @@ int main(int argc, char* const argv[]) {
       }
       case InputFormat::ELF: {
         (void)stg::elf::Read(graph, filename, !opt_skip_dwarf,
-                             /* verbose = */ true);
+                             /* verbose = */ true, metrics);
         break;
       }
     }

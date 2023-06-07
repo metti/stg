@@ -19,6 +19,7 @@
 
 #include "type_resolution.h"
 
+#include <functional>
 #include <map>
 #include <sstream>
 #include <string>
@@ -447,12 +448,16 @@ struct Unify {
 
 }  // namespace
 
-Id ResolveTypes(Graph& graph, Id root, Metrics& metrics) {
+void ResolveTypes(Graph& graph,
+                  const std::vector<std::reference_wrapper<Id>>& roots,
+                  Metrics& metrics) {
   // collect named types
   NamedTypes named_types(graph, metrics);
   {
     const Time time(metrics, "resolve.collection");
-    named_types(root);
+    for (const Id& root : roots) {
+      named_types(root);
+    }
   }
 
   UnificationCache cache(named_types.incomplete, metrics);
@@ -519,11 +524,11 @@ Id ResolveTypes(Graph& graph, Id root, Metrics& metrics) {
       }
     }
 
-    // In case the root node was remapped.
-    substitute.Update(root);
+    // Update roots
+    for (Id& root : roots) {
+      substitute.Update(root);
+    }
   }
-
-  return root;
 }
 
 }  // namespace stg
