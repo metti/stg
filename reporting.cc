@@ -31,26 +31,46 @@
 #include "post_processing.h"
 
 namespace stg {
+namespace reporting {
 
+std::string GetResolvedDescription(
+    const Graph& graph, NameCache& names, Id id) {
+  std::ostringstream os;
+  const auto [resolved, typedefs] = ResolveTypedefs(graph, id);
+  for (const auto& td : typedefs)
+    os << '\'' << td << "' = ";
+  os << '\'' << Describe(graph, names)(resolved) << '\''
+     << DescribeExtra(graph)(resolved);
+  return os.str();
+}
+
+// Prints a comparison to the given output stream. The comparison is printed
+// with the given indentation and prefixed with the given prefix if it is not
+// empty.
+//
+// It returns true if the comparison denotes addition or removal of a node.
 bool PrintComparison(Reporting& reporting, const Comparison& comparison,
-                     std::ostream& os) {
+                     std::ostream& os, size_t indent,
+                     const std::string& prefix) {
+  os << std::string(indent, ' ');
+  if (!prefix.empty()) {
+    os << prefix << ' ';
+  }
   const auto id1 = comparison.first;
   const auto id2 = comparison.second;
-  const auto* node1 = id1 ? &reporting.graph.Get(*id1) : nullptr;
-  const auto* node2 = id2 ? &reporting.graph.Get(*id2) : nullptr;
   if (!id2) {
-    os << node1->GetKindDescription() << " '"
-       << GetDescription(reporting.graph, reporting.names, *id1)
+    os << DescribeKind(reporting.graph)(*id1) << " '"
+       << Describe(reporting.graph, reporting.names)(*id1)
        << "'"
-       << node1->ExtraDescription()
+       << DescribeExtra(reporting.graph)(*id1)
        << " was removed\n";
     return true;
   }
   if (!id1) {
-    os << node2->GetKindDescription() << " '"
-       << GetDescription(reporting.graph, reporting.names, *id2)
+    os << DescribeKind(reporting.graph)(*id2) << " '"
+       << Describe(reporting.graph, reporting.names)(*id2)
        << "'"
-       << node2->ExtraDescription()
+       << DescribeExtra(reporting.graph)(*id2)
        << " was added\n";
     return true;
   }
@@ -59,11 +79,11 @@ bool PrintComparison(Reporting& reporting, const Comparison& comparison,
       GetResolvedDescription(reporting.graph, reporting.names, *id1);
   const auto description2 =
       GetResolvedDescription(reporting.graph, reporting.names, *id2);
-  os << node1->GetKindDescription() << ' ';
+  os << DescribeKind(reporting.graph)(*id1) << ' ';
   if (description1 == description2)
-    os << description1 << " changed";
+    os << description1 << " changed\n";
   else
-    os << "changed from " << description1 << " to " << description2;
+    os << "changed from " << description1 << " to " << description2 << '\n';
   return false;
 }
 
@@ -72,14 +92,13 @@ static constexpr size_t INDENT_INCREMENT = 2;
 // unvisited (absent) -> started (false) -> finished (true)
 using Seen = std::unordered_map<Comparison, bool, HashComparison>;
 
-void Print(Reporting& reporting, const std::vector<DiffDetail>& details,
-           Seen& seen, std::ostream& os, size_t indent);
-
-void Print(Reporting& reporting, const Comparison& comparison, Seen& seen,
-           std::ostream& os, size_t indent) {
-  if (PrintComparison(reporting, comparison, os))
+void PlainPrint(Reporting& reporting, const Comparison& comparison, Seen& seen,
+                std::ostream& os, size_t indent, const std::string& prefix) {
+  if (PrintComparison(reporting, comparison, os, indent, prefix)) {
     return;
+  }
 
+  indent += INDENT_INCREMENT;
   const auto it = reporting.outcomes.find(comparison);
   Check(it != reporting.outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
@@ -92,34 +111,22 @@ void Print(Reporting& reporting, const Comparison& comparison, Seen& seen,
 
   if (holds_changes && !insertion.second) {
     if (!insertion.first->second)
-      os << " (being reported)\n";
+      os << std::string(indent, ' ') << "(being reported)\n";
     else if (!diff.details.empty())
-      os << " (already reported)\n";
+      os << std::string(indent, ' ') << "(already reported)\n";
     return;
   }
 
-  os << '\n';
-  Print(reporting, diff.details, seen, os, indent + INDENT_INCREMENT);
+  for (const auto& detail : diff.details) {
+    if (!detail.edge_) {
+      os << std::string(indent, ' ') << detail.text_ << '\n';
+    } else {
+      PlainPrint(reporting, *detail.edge_, seen, os, indent, detail.text_);
+    }
+  }
 
   if (holds_changes)
     insertion.first->second = true;
-}
-
-void Print(Reporting& reporting, const std::vector<DiffDetail>& details,
-           Seen& seen, std::ostream& os, size_t indent) {
-  for (const auto& detail : details) {
-    os << std::string(indent, ' ') << detail.text_;
-    if (!detail.edge_) {
-      os << '\n';
-    } else {
-      if (!detail.text_.empty())
-        os << ' ';
-      Print(reporting, *detail.edge_, seen, os, indent);
-    }
-    // paragraph spacing
-    if (!indent)
-      os << '\n';
-  }
 }
 
 void ReportPlain(Reporting& reporting, const Comparison& comparison,
@@ -127,7 +134,11 @@ void ReportPlain(Reporting& reporting, const Comparison& comparison,
   // unpack then print - want symbol diff forest rather than symbols diff tree
   const auto& diff = reporting.outcomes.at(comparison);
   Seen seen;
-  Print(reporting, diff.details, seen, output, 0);
+  for (const auto& detail : diff.details) {
+    PlainPrint(reporting, *detail.edge_, seen, output, 0, {});
+    // paragraph spacing
+    output << '\n';
+  }
 }
 
 // Print the subtree of a diff graph starting at a given node and stopping at
@@ -138,18 +149,17 @@ void ReportPlain(Reporting& reporting, const Comparison& comparison,
 bool FlatPrint(Reporting& reporting, const Comparison& comparison,
                std::unordered_set<Comparison, HashComparison>& seen,
                std::deque<Comparison>& todo, bool full, bool stop,
-               std::ostream& os, size_t indent) {
+               std::ostream& os, size_t indent, const std::string& prefix) {
   // Nodes that represent additions or removal are always interesting and no
   // recursion is possible.
-  if (PrintComparison(reporting, comparison, os))
+  if (PrintComparison(reporting, comparison, os, indent, prefix)) {
     return true;
+  }
 
   // Look up the diff (including node and edge changes).
   const auto it = reporting.outcomes.find(comparison);
   Check(it != reporting.outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
-
-  os << '\n';
 
   // Check the stopping condition.
   if (diff.holds_changes && stop) {
@@ -174,12 +184,10 @@ bool FlatPrint(Reporting& reporting, const Comparison& comparison,
     } else {
       // Edge changes are interesting if the target diff node is.
       std::ostringstream sub_os;
-      sub_os << std::string(indent, ' ') << detail.text_;
-      if (!detail.text_.empty())
-        sub_os << ' ';
       // Set the stop flag to prevent recursion past diff-holding nodes.
-      bool sub_interesting = FlatPrint(reporting, *detail.edge_, seen, todo,
-                                       full, true, sub_os, indent);
+      bool sub_interesting =
+          FlatPrint(reporting, *detail.edge_, seen, todo, full, true, sub_os,
+                    indent, detail.text_);
       // If the sub-tree was interesting, add it.
       if (sub_interesting || full)
         os << sub_os.str();
@@ -199,7 +207,7 @@ void ReportFlat(Reporting& reporting, const Comparison& comparison, bool full,
   for (const auto& detail : diff.details) {
     std::ostringstream os;
     const bool interesting =
-        FlatPrint(reporting, *detail.edge_, seen, todo, full, true, os, 0);
+        FlatPrint(reporting, *detail.edge_, seen, todo, full, true, os, 0, {});
     if (interesting || full)
       output << os.str() << '\n';
   }
@@ -208,7 +216,7 @@ void ReportFlat(Reporting& reporting, const Comparison& comparison, bool full,
     todo.pop_front();
     std::ostringstream os;
     const bool interesting =
-        FlatPrint(reporting, comp, seen, todo, full, false, os, 0);
+        FlatPrint(reporting, comp, seen, todo, full, false, os, 0, {});
     if (interesting || full)
       output << os.str() << '\n';
   }
@@ -232,15 +240,15 @@ void VizPrint(Reporting& reporting, const Comparison& comparison,
   const auto id2 = comparison.second;
   if (!id2) {
     os << "  \"" << node << "\" [color=red, label=\"" << "removed("
-       << GetDescription(reporting.graph, reporting.names, *id1)
-       << reporting.graph.Get(*id1).ExtraDescription()
+       << Describe(reporting.graph, reporting.names)(*id1)
+       << DescribeExtra(reporting.graph)(*id1)
        << ")\"]\n";
     return;
   }
   if (!id1) {
     os << "  \"" << node << "\" [color=red, label=\"" << "added("
-       << GetDescription(reporting.graph, reporting.names, *id2)
-       << reporting.graph.Get(*id2).ExtraDescription()
+       << Describe(reporting.graph, reporting.names)(*id2)
+       << DescribeExtra(reporting.graph)(*id2)
        << ")\"]\n";
     return;
   }
@@ -322,4 +330,5 @@ void Report(Reporting& reporting, const Comparison& comparison,
   }
 }
 
+}  // namespace reporting
 }  // namespace stg

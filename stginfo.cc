@@ -29,33 +29,29 @@
 #include "btf_reader.h"
 #include "error.h"
 
-enum class InputFormat { ABI, BTF, ELF };
+enum class InputFormat { BTF, ELF };
 using Input = std::pair<InputFormat, std::string>;
 
 int main(int argc, char* const argv[]) {
   static option opts[] = {
-      {"abi",    required_argument, nullptr, 'a'},
       {"btf",    required_argument, nullptr, 'b'},
       {"elf",    required_argument, nullptr, 'e'},
       {nullptr,  0,                 nullptr, 0  },
   };
   auto usage = [&]() {
-    std::cerr << "Parse libabigail XML, BTF or ELF with verbose logging.\n"
-              << "usage: " << argv[0] << " -a|--abi|-b|--btf|-e|--elf file\n";
+    std::cerr << "Parse BTF or ELF with verbose logging.\n"
+              << "usage: " << argv[0] << " -b|--btf|-e|--elf file\n";
     return 1;
   };
 
   std::optional<Input> input;
   while (true) {
-    int c = getopt_long(argc, argv, "-a:b:e:", opts, nullptr);
+    int c = getopt_long(argc, argv, "-b:e:", opts, nullptr);
     if (c == -1)
       break;
     const char* argument = optarg;
     InputFormat input_format;
     switch (c) {
-      case 'a':
-        input_format = InputFormat::ABI;
-        break;
       case 'b':
         input_format = InputFormat::BTF;
         break;
@@ -79,10 +75,6 @@ int main(int argc, char* const argv[]) {
   try {
     stg::Graph graph;
     switch (format) {
-      case InputFormat::ABI: {
-        (void)stg::abixml::Read(graph, filename, /* verbose = */ true);
-        break;
-      }
       case InputFormat::BTF: {
         (void)stg::btf::ReadFile(graph, filename, /* verbose = */ true);
         break;
