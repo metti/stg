@@ -31,6 +31,8 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -40,6 +42,41 @@
 #include "scc.h"
 
 namespace stg {
+
+struct Ignore {
+  enum Value {
+    SYMBOL_TYPE_PRESENCE = 1<<0,
+    TYPE_DECLARATION_STATUS = 1<<1,
+    PRIMITIVE_TYPE_ENCODING = 1<<2,
+    MEMBER_SIZE = 1<<3,
+    ENUM_UNDERLYING_TYPE = 1<<4,
+    QUALIFIER = 1<<5,
+  };
+
+  using Bitset = std::underlying_type_t<Value>;
+
+  Ignore() = default;
+  template <typename... Values>
+  explicit Ignore(Values... values) {
+    for (auto value : {values...}) {
+      Set(value);
+    }
+  }
+
+  void Set(Value other) {
+    bitset |= static_cast<Bitset>(other);
+  }
+  bool Test(Value other) const {
+    return bitset & static_cast<Bitset>(other);
+  }
+
+  Bitset bitset = 0;
+};
+
+std::optional<Ignore::Value> ParseIgnore(std::string_view ignore);
+
+struct IgnoreUsage {};
+std::ostream& operator<<(std::ostream& os, IgnoreUsage);
 
 using Comparison = std::pair<std::optional<Id>, std::optional<Id>>;
 
@@ -166,11 +203,6 @@ struct HashComparison {
 
 using Outcomes = std::unordered_map<Comparison, Diff, HashComparison>;
 
-struct CompareOptions {
-  bool ignore_symbol_type_presence_changes = false;
-  bool ignore_type_declaration_status_changes = false;
-};
-
 struct MatchingKey {
   explicit MatchingKey(const Graph& graph) : graph(graph) {}
   std::string operator()(Id id);
@@ -221,8 +253,8 @@ struct ResolveQualifier {
 };
 
 struct Compare {
-  Compare(const Graph& graph, const CompareOptions& options, Metrics& metrics)
-      : graph(graph), options(options),
+  Compare(const Graph& graph, const Ignore& ignore, Metrics& metrics)
+      : graph(graph), ignore(ignore),
         queried(metrics, "compare.queried"),
         already_compared(metrics, "compare.already_compared"),
         being_compared(metrics, "compare.being_compared"),
@@ -231,8 +263,11 @@ struct Compare {
         inequivalent(metrics, "compare.inequivalent"),
         scc_size(metrics, "compare.scc_size") {}
   std::pair<bool, std::optional<Comparison>>  operator()(Id id1, Id id2);
+
   Comparison Removed(Id id);
   Comparison Added(Id id);
+  bool CompareDefined(bool defined1, bool defined2, Result& result);
+
   Result Mismatch();
   Result operator()(const Void&, const Void&);
   Result operator()(const Variadic&, const Variadic&);
@@ -249,8 +284,9 @@ struct Compare {
   Result operator()(const Function&, const Function&);
   Result operator()(const ElfSymbol&, const ElfSymbol&);
   Result operator()(const Symbols&, const Symbols&);
+
   const Graph& graph;
-  const CompareOptions options;
+  const Ignore ignore;
   std::unordered_map<Comparison, bool, HashComparison> known;
   Outcomes outcomes;
   Outcomes provisional;

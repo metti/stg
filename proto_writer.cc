@@ -438,7 +438,7 @@ void SortNodes(STG& stg) {
   SortNodesByName(*stg.mutable_struct_union());
   SortNodesByName(*stg.mutable_enumeration());
   SortNodesById(*stg.mutable_function());
-  SortNodesById(*stg.mutable_elf_symbol());
+  SortNodesByName(*stg.mutable_elf_symbol());
 }
 
 class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
