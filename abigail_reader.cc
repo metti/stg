@@ -189,7 +189,7 @@ std::optional<T> ReadAttribute(xmlNodePtr element, const char* name) {
 }
 
 template <typename T>
-T ReadAttribute(xmlNodePtr element, const char* name, T default_value) {
+T ReadAttribute(xmlNodePtr element, const char* name, const T& default_value) {
   const auto value = GetAttribute(element, name);
   if (!value)
     return default_value;
@@ -263,7 +263,7 @@ Corpus::Corpus(Graph& graph, bool verbose, Typing& typing)
     : graph_(graph), verbose_(verbose), typing_(typing) { }
 
 std::unique_ptr<Node> Corpus::MakeFunctionType(xmlNodePtr function) {
-  std::vector<Parameter> parameters;
+  std::vector<Id> parameters;
   std::optional<Id> return_type;
   for (auto child = xmlFirstElementChild(function); child;
        child = xmlNextElementSibling(child)) {
@@ -272,17 +272,8 @@ std::unique_ptr<Node> Corpus::MakeFunctionType(xmlNodePtr function) {
       Die() << "unexpected element after return-type";
     if (child_name == "parameter") {
       const auto is_variadic = ReadAttribute<bool>(child, "is-variadic", false);
-      if (is_variadic) {
-        const auto type = typing_.GetVariadic();
-        Parameter parameter{.name = std::string(), .type_id = type};
-        parameters.push_back(std::move(parameter));
-      } else {
-        const auto name = GetAttribute(child, "name");
-        const auto type = typing_.GetEdge(child);
-        Parameter parameter{.name = name ? *name : std::string(),
-                            .type_id = type};
-        parameters.push_back(std::move(parameter));
-      }
+      parameters.push_back(
+          is_variadic ? typing_.GetVariadic() : typing_.GetEdge(child));
     } else if (child_name == "return") {
       return_type = {typing_.GetEdge(child)};
     } else {
@@ -298,7 +289,7 @@ std::unique_ptr<Node> Corpus::MakeFunctionType(xmlNodePtr function) {
     for (const auto& p : parameters) {
       if (comma)
         std::cerr << ", ";
-      std::cerr << p.type_id;
+      std::cerr << p;
       comma = true;
     }
     std::cerr << ") -> " << *return_type << "\n";
@@ -692,7 +683,8 @@ std::optional<Id> Corpus::ProcessDataMember(bool is_struct,
 Id Corpus::ProcessMemberFunction(xmlNodePtr method) {
   xmlNodePtr decl = GetOnlyChild("member-function", method);
   CheckElementName("function-decl", decl);
-  const auto mangled_name = GetAttributeOrDie(decl, "mangled-name");
+  static const std::string missing = "{missing}";
+  const auto mangled_name = ReadAttribute(decl, "mangled-name", missing);
   const auto name = GetAttributeOrDie(decl, "name");
   const auto type = ProcessDecl(false, decl);
   const auto vtable_offset = ReadAttribute<uint64_t>(method, "vtable-offset");
@@ -724,6 +716,7 @@ Id Corpus::BuildSymbol(const SymbolInfo& info,
   const xmlNodePtr symbol = info.node;
   const bool is_defined = ReadAttributeOrDie<bool>(symbol, "is-defined");
   const auto crc = ReadAttribute<CRC>(symbol, "crc");
+  const auto ns = ReadAttribute<std::string>(symbol, "namespace");
   const auto type = ReadAttributeOrDie<ElfSymbol::SymbolType>(symbol, "type");
   const auto binding =
       ReadAttributeOrDie<ElfSymbol::Binding>(symbol, "binding");
@@ -732,7 +725,7 @@ Id Corpus::BuildSymbol(const SymbolInfo& info,
 
   return graph_.Add(Make<ElfSymbol>(
       info.name, info.version_info,
-      is_defined, type, binding, visibility, crc, type_id, name));
+      is_defined, type, binding, visibility, crc, ns, type_id, name));
 }
 
 std::map<std::string, Id> Corpus::BuildSymbols() {
