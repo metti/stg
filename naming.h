@@ -43,6 +43,7 @@ class Name {
   Name Add(Side side, Precedence precedence, const std::string& text) const;
   Name Qualify(Qualifier qualifier) const;
   std::ostream& Print(std::ostream& os) const;
+  std::string ToString() const;
 
  private:
   std::string left_;

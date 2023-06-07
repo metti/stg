@@ -34,6 +34,7 @@
 #include "dwarf_wrappers.h"
 #include "elf_loader.h"
 #include "graph.h"
+#include "naming.h"
 
 namespace stg {
 namespace elf {
@@ -59,7 +60,7 @@ ElfSymbol::SymbolType ConvertSymbolType(
   }
 }
 
-CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols) {
+CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols, const ElfLoader& elf) {
   constexpr std::string_view kCRCPrefix = "__crc_";
 
   CRCValuesMap crc_values;
@@ -68,8 +69,8 @@ CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols) {
     const std::string_view name = symbol.name;
     if (name.substr(0, kCRCPrefix.size()) == kCRCPrefix) {
       std::string_view name_suffix = name.substr(kCRCPrefix.size());
-      ElfSymbol::CRC crc{static_cast<uint32_t>(symbol.value)};
-      if (!crc_values.emplace(name_suffix, crc).second) {
+      if (!crc_values.emplace(name_suffix, elf.GetElfSymbolCRC(symbol))
+               .second) {
         Die() << "Multiple CRC values for symbol '" << name_suffix << '\'';
       }
     }
@@ -144,10 +145,69 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   return true;
 }
 
-Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&& dwarf,
-        bool verbose) {
-  const auto all_symbols = elf.GetElfSymbols();
-  if (verbose) {
+class Typing {
+ public:
+  Typing(Graph& graph, dwarf::Types types)
+      : graph_(graph), types_(std::move(types)) {
+  }
+
+
+  Id JoinAllIds() {
+    return graph_.Add<Function>(graph_.Add<Void>(), types_.all_ids);
+  }
+
+  // This hack is used to attach all processed DWARF entries to symbols map.
+  // This is temporary solution, until entries are matched to real ELF symbols.
+  // TODO: match STG from DWARF with ELF symbols
+  void AddFakeSymbols(std::map<std::string, Id>& symbols_map) {
+    std::unordered_map<std::string, size_t> keys_counter;
+    NameCache name_cache;
+    Describe describe(graph_, name_cache);
+    for (const auto& id : types_.all_ids) {
+      std::string key = describe(id).ToString();
+      std::string unique_key = key + "_" + std::to_string(keys_counter[key]++);
+      symbols_map.emplace(unique_key, id);
+    }
+  }
+
+ private:
+  Graph& graph_;
+  dwarf::Types types_;
+};
+
+class Reader {
+ public:
+  Reader(Graph& graph, const std::string& path, bool process_dwarf,
+         bool verbose)
+      : graph_(graph),
+        dwarf_(path),
+        elf_(dwarf_.GetElf(), verbose),
+        process_dwarf_(process_dwarf),
+        verbose_(verbose) {}
+
+  Reader(Graph& graph, char* data, size_t size, bool process_dwarf,
+         bool verbose)
+      : graph_(graph),
+        dwarf_(data, size),
+        elf_(dwarf_.GetElf(), verbose),
+        process_dwarf_(process_dwarf),
+        verbose_(verbose) {}
+
+  Id Read();
+
+ private:
+  Graph& graph_;
+  // The order of the following two fields is important because ElfLoader uses
+  // an Elf* from dwarf::Handler without owning it.
+  dwarf::Handler dwarf_;
+  elf::ElfLoader elf_;
+  bool process_dwarf_;
+  bool verbose_;
+};
+
+Id Reader::Read() {
+  const auto all_symbols = elf_.GetElfSymbols();
+  if (verbose_) {
     std::cout << "Parsed " << all_symbols.size() << " symbols\n";
   }
 
@@ -158,10 +218,11 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&& dwarf,
                IsPublicFunctionOrVariable);
   public_functions_and_variables.shrink_to_fit();
 
-  const CRCValuesMap crc_values =
-      elf.IsLinuxKernelBinary() ? GetCRCValuesMap(all_symbols) : CRCValuesMap{};
+  const CRCValuesMap crc_values = elf_.IsLinuxKernelBinary()
+                                      ? GetCRCValuesMap(all_symbols, elf_)
+                                      : CRCValuesMap{};
 
-  if (verbose) {
+  if (verbose_) {
     std::cout << "File has " << public_functions_and_variables.size()
               << " public functions and variables:\n";
     for (const auto& symbol : public_functions_and_variables) {
@@ -172,39 +233,32 @@ Id Read(Graph& graph, elf::ElfLoader&& elf, dwarf::Handler&& dwarf,
     }
   }
 
-  // TODO: match STG from DWARF with ELF symbols
-  (void)dwarf::Process(dwarf, graph);
+  Typing typing(
+      graph_, process_dwarf_ ? dwarf::Process(dwarf_, graph_) : dwarf::Types{});
 
   std::map<std::string, Id> symbols_map;
   for (const auto& symbol : public_functions_and_variables) {
     // TODO: add VersionInfoToString to SymbolKey name
     // TODO: check for uniqueness of SymbolKey in map after support
     // for version info
-    symbols_map.emplace(std::string(symbol.name),
-                        graph.Add<ElfSymbol>(
-                            SymbolTableEntryToElfSymbol(symbol, crc_values)));
+    symbols_map.emplace(
+        std::string(symbol.name),
+        graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol, crc_values)));
   }
-  return graph.Add<Symbols>(std::move(symbols_map));
+  typing.AddFakeSymbols(symbols_map);
+  return graph_.Add<Symbols>(std::move(symbols_map));
 }
 
 }  // namespace
 
-Id Read(Graph& graph, const std::string& path, bool verbose) {
-  if (verbose) {
-    std::cout << "Parsing ELF: " << path << '\n';
-  }
-
-  return Read(graph, elf::ElfLoader(path, verbose), dwarf::Handler(path),
-              verbose);
+Id Read(Graph& graph, const std::string& path, bool process_dwarf,
+        bool verbose) {
+  return Reader(graph, path, process_dwarf, verbose).Read();
 }
 
-Id Read(Graph& graph, char* data, size_t size, bool verbose) {
-  if (verbose) {
-    std::cout << "Parsing ELF from memory\n";
-  }
-
-  return Read(graph, elf::ElfLoader(data, size, verbose),
-              dwarf::Handler(data, size), verbose);
+Id Read(Graph& graph, char* data, size_t size, bool process_dwarf,
+        bool verbose) {
+  return Reader(graph, data, size, process_dwarf, verbose).Read();
 }
 
 }  // namespace elf

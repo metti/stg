@@ -23,10 +23,11 @@
 #include <cstdint>
 #include <istream>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
-#include <google/protobuf/repeated_field.h>
 #include "graph.h"
 #include "stg.pb.h"
 
@@ -34,6 +35,7 @@ namespace stg {
 namespace proto {
 
 Id Read(Graph&, const std::string&);
+Id ReadFromString(Graph&, std::string_view);
 
 }  // namespace proto
 }  // namespace stg

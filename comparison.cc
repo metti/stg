@@ -62,11 +62,13 @@ std::string QualifiersMessage(Qualifier qualifier, const std::string& action) {
  */
 std::pair<bool, std::optional<Comparison>> Compare::operator()(Id id1, Id id2) {
   const Comparison comparison{{id1}, {id2}};
+  ++queried;
 
   // 1. Check if the comparison has an already known result.
   auto already_known = known.find(comparison);
   if (already_known != known.end()) {
     // Already visited and closed.
+    ++already_compared;
     if (already_known->second)
       return {true, {}};
     else
@@ -82,9 +84,11 @@ std::pair<bool, std::optional<Comparison>> Compare::operator()(Id id1, Id id2) {
     // Return a dummy true outcome and some tentative diffs. The diffs may end
     // up not being used and, while it would be nice to be lazier, they encode
     // all the cycling-breaking edges needed to recreate a full diff structure.
+    ++being_compared;
     return {true, {comparison}};
   }
   // Comparison opened, need to close it before returning.
+  ++really_compared;
 
   Result result;
 
@@ -127,7 +131,9 @@ std::pair<bool, std::optional<Comparison>> Compare::operator()(Id id1, Id id2) {
   // 5. Update result and check for a complete Strongly-Connected Component.
   provisional.insert({comparison, result.diff_});
   auto comparisons = scc.Close(*handle);
-  if (!comparisons.empty()) {
+  auto size = comparisons.size();
+  if (size) {
+    scc_size.Add(size);
     // Closed SCC.
     //
     // Note that result now incorporates every inequality and difference in the
@@ -143,10 +149,13 @@ std::pair<bool, std::optional<Comparison>> Compare::operator()(Id id1, Id id2) {
         outcomes.insert(*it);
       provisional.erase(it);
     }
-    if (result.equals_)
+    if (result.equals_) {
+      equivalent += size;
       return {true, {}};
-    else
+    } else {
+      inequivalent += size;
       return {false, {comparison}};
+    }
   }
 
   // Note that both equals and diff are tentative as comparison is still open.

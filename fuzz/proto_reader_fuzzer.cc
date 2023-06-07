@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2021-2022 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -16,25 +16,17 @@
 // limitations under the License.
 //
 // Author: Matthias Maennich
-// Author: Aleksei Vetrov
 
-#include <vector>
+#include <string>
 
-#include "elf_reader.h"
-#include "error.h"
-#include "graph.h"
+#include "proto_reader.h"
 
 extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
   try {
-    // Fuzzer forbids changing "data", but libdwfl, used in elf::Read, requires
-    // read and write access to memory.
-    // Luckily, such trivial copy can be easily tracked by fuzzer.
-    std::vector<char> data_copy(data, data + size);
     stg::Graph graph;
-    stg::elf::Read(graph, data_copy.data(), size, /* process_dwarf= */ true,
-                   /* verbose= */ false);
+    stg::proto::ReadFromString(graph, std::string_view(data, size));
   } catch (const stg::Exception&) {
-    // Pass as this is us catching invalid ELF properly.
+    // Pass as this is us catching invalid proto properly.
   }
   return 0;
 }
