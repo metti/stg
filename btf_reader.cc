@@ -387,7 +387,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << '\n';
       }
 
-      define(Make<ElfSymbol>(name, std::string(), false, true,
+      define(Make<ElfSymbol>(name, std::nullopt, true,
                              ElfSymbol::SymbolType::FUNCTION,
                              ElfSymbol::Binding::GLOBAL,
                              ElfSymbol::Visibility::DEFAULT,
@@ -424,7 +424,7 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << '\n';
       }
 
-      define(Make<ElfSymbol>(name, std::string(), false, true,
+      define(Make<ElfSymbol>(name, std::nullopt, true,
                              ElfSymbol::SymbolType::OBJECT,
                              ElfSymbol::Binding::GLOBAL,
                              ElfSymbol::Visibility::DEFAULT,

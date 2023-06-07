@@ -422,7 +422,11 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
 
 std::string ElfSymbol::ExtraDescription() const {
   const auto& name = full_name ? *full_name : symbol_name;
-  return name == symbol_name ? std::string() : " {" + symbol_name + "}";
+  std::string versioned = symbol_name;
+  if (version_info) {
+    versioned += VersionInfoToString(*version_info);
+  }
+  return name == versioned ? std::string() : " {" + versioned + '}';
 }
 
 Name ElfSymbol::MakeDescription(const Graph& graph, NameCache& names) const {
@@ -449,7 +453,11 @@ std::string Member::GetKindDescription() const { return "member"; }
 
 std::string Method::GetKindDescription() const { return "method"; }
 
-std::string ElfSymbol::GetKindDescription() const { return "symbol"; }
+std::string ElfSymbol::GetKindDescription() const {
+  std::ostringstream os;
+  os << symbol_type << " symbol";
+  return os.str();
+}
 
 std::string Symbols::GetKindDescription() const { return "symbols"; }
 
@@ -808,9 +816,15 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   Result result;
   result.MaybeAddNodeDiff("name", symbol_name, o.symbol_name);
 
-  result.MaybeAddNodeDiff("version", version, o.version);
-  result.MaybeAddNodeDiff(
-      "default version", is_default_version, o.is_default_version);
+  if (version_info && o.version_info) {
+    result.MaybeAddNodeDiff("version", version_info->name,
+                            o.version_info->name);
+    result.MaybeAddNodeDiff("default version", version_info->is_default,
+                            o.version_info->is_default);
+  } else {
+    result.MaybeAddNodeDiff("has version", version_info.has_value(),
+                            o.version_info.has_value());
+  }
 
   result.MaybeAddNodeDiff("defined", is_defined, o.is_defined);
   result.MaybeAddNodeDiff("symbol type", symbol_type, o.symbol_type);
@@ -1017,7 +1031,7 @@ std::ostream& operator<<(std::ostream& os, Qualifier qualifier) {
 std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType type) {
   switch (type) {
     case ElfSymbol::SymbolType::OBJECT:
-      os << "object";
+      os << "variable";
       break;
     case ElfSymbol::SymbolType::FUNCTION:
       os << "function";
@@ -1066,6 +1080,11 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility visibility) {
       break;
   }
   return os;
+}
+
+std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info) {
+  return '@' + std::string(version_info.is_default ? "@" : "") +
+         version_info.name;
 }
 
 std::ostream& operator<<(std::ostream& os, const SymbolKey& key) {
