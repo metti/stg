@@ -26,7 +26,6 @@
 #include <cstdint>
 #include <functional>
 #include <map>
-#include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -81,20 +80,13 @@ struct hash<stg::Pair> {
 
 namespace stg {
 
-struct Node {
-  Node() = default;
-  Node(const Node&) = delete;
-  Node(Node&&) = default;
-  virtual ~Node() = default;
+struct Void {
 };
 
-struct Void : Node {
+struct Variadic {
 };
 
-struct Variadic : Node {
-};
-
-struct PointerReference : Node {
+struct PointerReference {
   enum class Kind {
     POINTER,
     LVALUE_REFERENCE,
@@ -109,7 +101,7 @@ struct PointerReference : Node {
 
 std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind);
 
-struct Typedef : Node {
+struct Typedef {
   Typedef(const std::string& name, Id referred_type_id)
       : name(name), referred_type_id(referred_type_id) {}
 
@@ -121,7 +113,7 @@ enum class Qualifier { CONST, VOLATILE, RESTRICT };
 
 std::ostream& operator<<(std::ostream& os, Qualifier qualifier);
 
-struct Qualified : Node {
+struct Qualified {
   Qualified(Qualifier qualifier, Id qualified_type_id)
       : qualifier(qualifier), qualified_type_id(qualified_type_id) {}
 
@@ -129,7 +121,7 @@ struct Qualified : Node {
   Id qualified_type_id;
 };
 
-struct Primitive : Node {
+struct Primitive {
   enum class Encoding {
     BOOLEAN,
     SIGNED_INTEGER,
@@ -141,18 +133,15 @@ struct Primitive : Node {
     UTF,
   };
   Primitive(const std::string& name, std::optional<Encoding> encoding,
-            uint32_t bitsize, uint32_t bytesize)
-      : name(name), encoding(encoding), bitsize(bitsize), bytesize(bytesize) {}
+            uint32_t bytesize)
+      : name(name), encoding(encoding), bytesize(bytesize) {}
 
   std::string name;
   std::optional<Encoding> encoding;
-  // bitsize gives the semantics of the field. bytesize gives the
-  // storage size, and is equal to bitsize / 8 rounded up.
-  uint32_t bitsize;
   uint32_t bytesize;
 };
 
-struct Array : Node {
+struct Array {
   Array(uint64_t number_of_elements, Id element_type_id)
       : number_of_elements(number_of_elements),
         element_type_id(element_type_id)  {}
@@ -161,7 +150,7 @@ struct Array : Node {
   Id element_type_id;
 };
 
-struct BaseClass : Node {
+struct BaseClass {
   enum class Inheritance { NON_VIRTUAL, VIRTUAL };
   BaseClass(Id type_id, uint64_t offset, Inheritance inheritance)
       : type_id(type_id), offset(offset), inheritance(inheritance) {}
@@ -173,7 +162,7 @@ struct BaseClass : Node {
 
 std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance);
 
-struct Method : Node {
+struct Method {
   enum class Kind { NON_VIRTUAL, STATIC, VIRTUAL };
   Method(const std::string& mangled_name, const std::string& name, Kind kind,
          const std::optional<uint64_t> vtable_offset, Id type_id)
@@ -189,7 +178,7 @@ struct Method : Node {
 
 std::ostream& operator<<(std::ostream& os, Method::Kind kind);
 
-struct Member : Node {
+struct Member {
   Member(const std::string& name, Id type_id, uint64_t offset, uint64_t bitsize)
       : name(name), type_id(type_id), offset(offset), bitsize(bitsize) {}
 
@@ -199,7 +188,7 @@ struct Member : Node {
   uint64_t bitsize;
 };
 
-struct StructUnion : Node {
+struct StructUnion {
   enum class Kind { STRUCT, UNION };
   struct Definition {
     uint64_t bytesize;
@@ -221,22 +210,22 @@ struct StructUnion : Node {
 
 std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind);
 
-struct Enumeration : Node {
+struct Enumeration {
   using Enumerators = std::vector<std::pair<std::string, int64_t>>;
   struct Definition {
-    uint32_t bytesize;
+    Id underlying_type_id;
     Enumerators enumerators;
   };
   explicit Enumeration(const std::string& name) : name(name) {}
-  Enumeration(const std::string& name, uint32_t bytesize,
+  Enumeration(const std::string& name, Id underlying_type_id,
               const Enumerators& enumerators)
-      : name(name), definition({bytesize, enumerators}) {}
+      : name(name), definition({underlying_type_id, enumerators}) {}
 
   std::string name;
   std::optional<Definition> definition;
 };
 
-struct Function : Node {
+struct Function {
   Function(Id return_type_id, const std::vector<Id>& parameters)
       : return_type_id(return_type_id), parameters(parameters) {}
 
@@ -244,7 +233,7 @@ struct Function : Node {
   std::vector<Id> parameters;
 };
 
-struct ElfSymbol : Node {
+struct ElfSymbol {
   enum class SymbolType { OBJECT, FUNCTION, COMMON, TLS };
   enum class Binding { GLOBAL, LOCAL, WEAK, GNU_UNIQUE };
   enum class Visibility { DEFAULT, PROTECTED, HIDDEN, INTERNAL };
@@ -309,7 +298,7 @@ std::string VersionedSymbolName(const ElfSymbol&);
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc);
 
-struct Symbols : Node {
+struct Symbols {
   explicit Symbols(const std::map<std::string, Id>& symbols)
       : symbols(symbols) {}
 
@@ -322,20 +311,68 @@ std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding);
 class Graph {
  public:
   bool Is(Id id) const {
-    return nodes_[id.ix_] != nullptr;
+    return indirection_[id.ix_].first != Which::ABSENT;
   }
 
   Id Allocate() {
-    const auto ix = nodes_.size();
-    nodes_.push_back(nullptr);
+    const auto ix = indirection_.size();
+    indirection_.push_back({Which::ABSENT, 0});
     return Id(ix);
   }
 
   template <typename Node, typename... Args>
   void Set(Id id, Args&&... args) {
-    auto& reference = nodes_[id.ix_];
-    Check(reference == nullptr) << "node value already set";
-    reference = std::make_unique<Node>(std::forward<Args>(args)...);
+    auto& reference = indirection_[id.ix_];
+    Check(reference.first == Which::ABSENT) << "node value already set";
+    if constexpr (std::is_same_v<Node, Void>) {
+      reference = {Which::VOID, void_.size()};
+      void_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, Variadic>) {
+      reference = {Which::VARIADIC, variadic_.size()};
+      variadic_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, PointerReference>) {
+      reference = {Which::POINTER_REFERENCE, pointer_reference_.size()};
+      pointer_reference_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, Typedef>) {
+      reference = {Which::TYPEDEF, typedef_.size()};
+      typedef_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, Qualified>) {
+      reference = {Which::QUALIFIED, qualified_.size()};
+      qualified_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, Primitive>) {
+      reference = {Which::PRIMITIVE, primitive_.size()};
+      primitive_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, Array>) {
+      reference = {Which::ARRAY, array_.size()};
+      array_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, BaseClass>) {
+      reference = {Which::BASE_CLASS, base_class_.size()};
+      base_class_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, Method>) {
+      reference = {Which::METHOD, method_.size()};
+      method_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, Member>) {
+      reference = {Which::MEMBER, member_.size()};
+      member_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, StructUnion>) {
+      reference = {Which::STRUCT_UNION, struct_union_.size()};
+      struct_union_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, Enumeration>) {
+      reference = {Which::ENUMERATION, enumeration_.size()};
+      enumeration_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, Function>) {
+      reference = {Which::FUNCTION, function_.size()};
+      function_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, ElfSymbol>) {
+      reference = {Which::ELF_SYMBOL, elf_symbol_.size()};
+      elf_symbol_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, Symbols>) {
+      reference = {Which::SYMBOLS, symbols_.size()};
+      symbols_.emplace_back(std::forward<Args>(args)...);
+    } else {
+      // unfortunately we cannot static_assert(false, "missing case")
+      static_assert(std::is_same<Node, Node*>::value, "missing case");
+    }
   }
 
   template <typename Node, typename... Args>
@@ -350,9 +387,9 @@ class Graph {
   }
 
   void Unset(Id id) {
-    auto& reference = nodes_[id.ix_];
-    Check(reference != nullptr) << "node value already unset";
-    reference = nullptr;
+    auto& reference = indirection_[id.ix_];
+    Check(reference.first != Which::ABSENT) << "node value already unset";
+    reference = {Which::ABSENT, 0};
   }
 
   void Remove(Id id) {
@@ -370,166 +407,140 @@ class Graph {
   Result Apply(FunctionObject& function, Id id, Args&&... args);
 
  private:
-  const Node& Get(Id id) const {
-    return *nodes_[id.ix_].get();
-  }
+  enum class Which {
+    ABSENT,
+    VOID,
+    VARIADIC,
+    POINTER_REFERENCE,
+    TYPEDEF,
+    QUALIFIED,
+    PRIMITIVE,
+    ARRAY,
+    BASE_CLASS,
+    METHOD,
+    MEMBER,
+    STRUCT_UNION,
+    ENUMERATION,
+    FUNCTION,
+    ELF_SYMBOL,
+    SYMBOLS,
+  };
 
-  std::vector<std::unique_ptr<Node>> nodes_;
+  std::vector<std::pair<Which, size_t>> indirection_;
+
+  std::vector<Void> void_;
+  std::vector<Variadic> variadic_;
+  std::vector<PointerReference> pointer_reference_;
+  std::vector<Typedef> typedef_;
+  std::vector<Qualified> qualified_;
+  std::vector<Primitive> primitive_;
+  std::vector<Array> array_;
+  std::vector<BaseClass> base_class_;
+  std::vector<Method> method_;
+  std::vector<Member> member_;
+  std::vector<StructUnion> struct_union_;
+  std::vector<Enumeration> enumeration_;
+  std::vector<Function> function_;
+  std::vector<ElfSymbol> elf_symbol_;
+  std::vector<Symbols> symbols_;
 };
 
 template <typename Result, typename FunctionObject, typename... Args>
 Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) const {
-  const Node& node = Get(id);
-  const auto& type_id = typeid(node);
-  if (type_id == typeid(Void)) {
-    return function(static_cast<const Void&>(node),
-                    std::forward<Args>(args)...);
+  const auto& [which, ix] = indirection_[id.ix_];
+  switch (which) {
+    case Which::ABSENT:
+      Die() << "undefined node";
+    case Which::VOID:
+      return function(void_[ix], std::forward<Args>(args)...);
+    case Which::VARIADIC:
+      return function(variadic_[ix], std::forward<Args>(args)...);
+    case Which::POINTER_REFERENCE:
+      return function(pointer_reference_[ix], std::forward<Args>(args)...);
+    case Which::TYPEDEF:
+      return function(typedef_[ix], std::forward<Args>(args)...);
+    case Which::QUALIFIED:
+      return function(qualified_[ix], std::forward<Args>(args)...);
+    case Which::PRIMITIVE:
+      return function(primitive_[ix], std::forward<Args>(args)...);
+    case Which::ARRAY:
+      return function(array_[ix], std::forward<Args>(args)...);
+    case Which::BASE_CLASS:
+      return function(base_class_[ix], std::forward<Args>(args)...);
+    case Which::METHOD:
+      return function(method_[ix], std::forward<Args>(args)...);
+    case Which::MEMBER:
+      return function(member_[ix], std::forward<Args>(args)...);
+    case Which::STRUCT_UNION:
+      return function(struct_union_[ix], std::forward<Args>(args)...);
+    case Which::ENUMERATION:
+      return function(enumeration_[ix], std::forward<Args>(args)...);
+    case Which::FUNCTION:
+      return function(function_[ix], std::forward<Args>(args)...);
+    case Which::ELF_SYMBOL:
+      return function(elf_symbol_[ix], std::forward<Args>(args)...);
+    case Which::SYMBOLS:
+      return function(symbols_[ix], std::forward<Args>(args)...);
   }
-  if (type_id == typeid(Variadic)) {
-    return function(static_cast<const Variadic&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(PointerReference)) {
-    return function(static_cast<const PointerReference&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(Typedef)) {
-    return function(static_cast<const Typedef&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(Qualified)) {
-    return function(static_cast<const Qualified&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(Primitive)) {
-    return function(static_cast<const Primitive&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(Array)) {
-    return function(static_cast<const Array&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(BaseClass)) {
-    return function(static_cast<const BaseClass&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(Method)) {
-    return function(static_cast<const Method&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(Member)) {
-    return function(static_cast<const Member&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(StructUnion)) {
-    return function(static_cast<const StructUnion&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(Enumeration)) {
-    return function(static_cast<const Enumeration&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(Function)) {
-    return function(static_cast<const Function&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(ElfSymbol)) {
-    return function(static_cast<const ElfSymbol&>(node),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id == typeid(Symbols)) {
-    return function(static_cast<const Symbols&>(node),
-                    std::forward<Args>(args)...);
-  }
-  Die() << "unknown node type " << type_id.name();
 }
 
 template <typename Result, typename FunctionObject, typename... Args>
 Result Graph::Apply2(
     FunctionObject& function, Id id1, Id id2, Args&&... args) const {
-  const Node& node1 = Get(id1);
-  const Node& node2 = Get(id2);
-  const auto& type_id1 = typeid(node1);
-  const auto& type_id2 = typeid(node2);
-  if (type_id1 != type_id2) {
+  const auto& [which1, ix1] = indirection_[id1.ix_];
+  const auto& [which2, ix2] = indirection_[id2.ix_];
+  if (which1 != which2) {
     return function.Mismatch(std::forward<Args>(args)...);
   }
-  if (type_id1 == typeid(Void)) {
-    return function(static_cast<const Void&>(node1),
-                    static_cast<const Void&>(node2),
-                    std::forward<Args>(args)...);
+  switch (which1) {
+    case Which::ABSENT:
+      Die() << "undefined node";
+    case Which::VOID:
+      return function(void_[ix1], void_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::VARIADIC:
+      return function(variadic_[ix1], variadic_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::POINTER_REFERENCE:
+      return function(pointer_reference_[ix1], pointer_reference_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::TYPEDEF:
+      return function(typedef_[ix1], typedef_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::QUALIFIED:
+      return function(qualified_[ix1], qualified_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::PRIMITIVE:
+      return function(primitive_[ix1], primitive_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::ARRAY:
+      return function(array_[ix1], array_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::BASE_CLASS:
+      return function(base_class_[ix1], base_class_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::METHOD:
+      return function(method_[ix1], method_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::MEMBER:
+      return function(member_[ix1], member_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::STRUCT_UNION:
+      return function(struct_union_[ix1], struct_union_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::ENUMERATION:
+      return function(enumeration_[ix1], enumeration_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::FUNCTION:
+      return function(function_[ix1], function_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::ELF_SYMBOL:
+      return function(elf_symbol_[ix1], elf_symbol_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::SYMBOLS:
+      return function(symbols_[ix1], symbols_[ix2],
+                      std::forward<Args>(args)...);
   }
-  if (type_id1 == typeid(Variadic)) {
-    return function(static_cast<const Variadic&>(node1),
-                    static_cast<const Variadic&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(PointerReference)) {
-    return function(static_cast<const PointerReference&>(node1),
-                    static_cast<const PointerReference&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(Typedef)) {
-    return function(static_cast<const Typedef&>(node1),
-                    static_cast<const Typedef&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(Qualified)) {
-    return function(static_cast<const Qualified&>(node1),
-                    static_cast<const Qualified&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(Primitive)) {
-    return function(static_cast<const Primitive&>(node1),
-                    static_cast<const Primitive&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(Array)) {
-    return function(static_cast<const Array&>(node1),
-                    static_cast<const Array&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(BaseClass)) {
-    return function(static_cast<const BaseClass&>(node1),
-                    static_cast<const BaseClass&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(Method)) {
-    return function(static_cast<const Method&>(node1),
-                    static_cast<const Method&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(Member)) {
-    return function(static_cast<const Member&>(node1),
-                    static_cast<const Member&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(StructUnion)) {
-    return function(static_cast<const StructUnion&>(node1),
-                    static_cast<const StructUnion&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(Enumeration)) {
-    return function(static_cast<const Enumeration&>(node1),
-                    static_cast<const Enumeration&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(Function)) {
-    return function(static_cast<const Function&>(node1),
-                    static_cast<const Function&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(ElfSymbol)) {
-    return function(static_cast<const ElfSymbol&>(node1),
-                    static_cast<const ElfSymbol&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  if (type_id1 == typeid(Symbols)) {
-    return function(static_cast<const Symbols&>(node1),
-                    static_cast<const Symbols&>(node2),
-                    std::forward<Args>(args)...);
-  }
-  Die() << "unknown node type " << type_id1.name();
 }
 
 template <typename Result, typename FunctionObject, typename... Args>

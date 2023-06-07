@@ -156,7 +156,6 @@ void Transform<MapId>::operator()(const stg::Primitive& x, uint32_t id) {
   if (x.encoding) {
     primitive.set_encoding((*this)(*x.encoding));
   }
-  primitive.set_bitsize(x.bitsize);
   primitive.set_bytesize(x.bytesize);
 }
 
@@ -228,7 +227,8 @@ void Transform<MapId>::operator()(const stg::Enumeration& x, uint32_t id) {
   enumeration.set_name(x.name);
   if (x.definition) {
     auto& definition = *enumeration.mutable_definition();
-    definition.set_bytesize(x.definition->bytesize);
+    definition.set_underlying_type_id(
+        (*this)(x.definition->underlying_type_id));
     for (const auto& [name, value] : x.definition->enumerators) {
       auto& enumerator = *definition.add_enumerator();
       enumerator.set_name(name);

@@ -220,9 +220,7 @@ Result Compare::operator()(const Primitive& x1, const Primitive& x2) {
   }
   result.diff_.holds_changes = !x1.name.empty();
   result.MaybeAddNodeDiff("encoding", x1.encoding, x2.encoding);
-  result.MaybeAddNodeDiff("bit size", x1.bitsize, x2.bitsize);
-  if (x1.bitsize != x1.bytesize * 8 && x2.bitsize != x2.bytesize * 8)
-    result.MaybeAddNodeDiff("byte size", x1.bytesize, x2.bytesize);
+  result.MaybeAddNodeDiff("byte size", x1.bytesize, x2.bytesize);
   return result;
 }
 
@@ -397,8 +395,9 @@ Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
   if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
                       options.ignore_type_declaration_status_changes))
     return result;
-  result.MaybeAddNodeDiff(
-      "byte size", definition1->bytesize, definition2->bytesize);
+  const auto type_diff = (*this)(definition1->underlying_type_id,
+                                 definition2->underlying_type_id);
+  result.MaybeAddEdgeDiff("underlying", type_diff);
 
   const auto enums1 = definition1->enumerators;
   const auto enums2 = definition2->enumerators;

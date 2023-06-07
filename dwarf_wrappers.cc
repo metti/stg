@@ -277,5 +277,25 @@ std::optional<uint64_t> Entry::MaybeGetAddress(uint32_t attribute) {
   return result;
 }
 
+std::optional<uint64_t> Entry::MaybeGetMemberByteOffset() {
+  std::optional<uint64_t> result;
+  auto attribute = GetAttribute(&die, DW_AT_data_member_location);
+  if (!attribute) {
+    return result;
+  }
+
+  result.emplace();
+  // Try to interpret attribute as an unsigned integer constant
+  if (dwarf_formudata(&attribute.value(), &result.value()) == kReturnOk) {
+    return result;
+  } else {
+    Die() << "dwarf_formudata returned error, " << std::hex << GetOffset();
+  }
+
+  // TODO: support location expressions
+
+  return std::nullopt;
+}
+
 }  // namespace dwarf
 }  // namespace stg

@@ -78,8 +78,10 @@ class ElfLoader final {
   std::string_view GetBtfRawData() const;
   std::vector<SymbolTableEntry> GetElfSymbols() const;
   ElfSymbol::CRC GetElfSymbolCRC(const SymbolTableEntry& symbol) const;
+  std::string_view GetElfSymbolNamespace(const SymbolTableEntry& symbol) const;
   size_t GetAbsoluteAddress(const SymbolTableEntry& symbol) const;
   bool IsLinuxKernelBinary() const;
+  bool IsLittleEndianBinary() const;
 
  private:
   void InitializeElfInformation();
@@ -88,6 +90,7 @@ class ElfLoader final {
   Elf* elf_;
   bool is_linux_kernel_binary_;
   bool is_relocatable_;
+  bool is_little_endian_binary_;
 };
 
 }  // namespace elf

@@ -80,41 +80,40 @@ struct Hasher {
   }
 
   HashValue operator()(const StructUnion& x) {
-    if (x.name.empty()) {
-      auto h = hash('u', static_cast<uint32_t>(x.kind));
-      if (x.definition.has_value()) {
-        auto& definition = *x.definition;
-        ToDo(definition.base_classes);
-        ToDo(definition.methods);
+    auto h = hash('U', static_cast<uint32_t>(x.kind), x.name);
+    if (x.definition.has_value()) {
+      h = hash(h, '1');
+      auto& definition = *x.definition;
+      ToDo(definition.base_classes);
+      ToDo(definition.methods);
+      if (x.name.empty()) {
         for (auto id : definition.members) {
           h = hash(h, (*this)(id));
         }
-      }
-      return h;
-    } else {
-      if (x.definition.has_value()) {
-        auto& definition = *x.definition;
-        ToDo(definition.base_classes);
-        ToDo(definition.methods);
+      } else {
         ToDo(definition.members);
       }
-      return hash('U', static_cast<uint32_t>(x.kind), x.name,
-                  x.definition ? '1' : '0');
+    } else {
+      h = hash(h, '0');
     }
+    return h;
   }
 
   HashValue operator()(const Enumeration& x) {
-    if (x.name.empty()) {
-      auto h = hash('e');
-      if (x.definition) {
-        for (const auto& e : x.definition->enumerators) {
+    auto h = hash('E', x.name);
+    if (x.definition.has_value()) {
+      h = hash(h, '1');
+      const auto& definition = *x.definition;
+      todo.insert(definition.underlying_type_id);
+      if (x.name.empty()) {
+        for (const auto& e : definition.enumerators) {
           h = hash(h, e.first);
         }
       }
-      return h;
     } else {
-      return hash('E', x.name, x.definition ? '1' : '0');
+      h = hash(h, '0');
     }
+    return h;
   }
 
   HashValue operator()(const Function& x) {

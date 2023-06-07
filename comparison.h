@@ -92,7 +92,7 @@ struct Result {
 
   // Used when a node attribute may have changed, lazy version.
   template <typename T>
-  void MaybeAddNodeDiff(std::function<void(std::ostream&)> text,
+  void MaybeAddNodeDiff(const std::function<void(std::ostream&)>& text,
                         const T& before, const T& after) {
     if (before != after) {
       std::ostringstream os;
@@ -135,7 +135,7 @@ struct Result {
   }
 
   // Used when an edge to a possible comparison is present, lazy version.
-  void MaybeAddEdgeDiff(std::function<void(std::ostream&)> text,
+  void MaybeAddEdgeDiff(const std::function<void(std::ostream&)>& text,
                         const std::pair<bool, std::optional<Comparison>>& p) {
     equals_ &= p.first;
     const auto& comparison = p.second;
