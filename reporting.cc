@@ -67,6 +67,10 @@ bool PrintComparison(const Reporting& reporting, const Comparison& comparison,
   }
   const auto id1 = comparison.first;
   const auto id2 = comparison.second;
+
+  Check(id1.has_value() || id2.has_value())
+      << "internal error: Attempt to print comparison with nothing to compare.";
+
   if (!id2) {
     os << DescribeKind(reporting.graph)(*id1) << " '"
        << Describe(reporting.graph, reporting.names)(*id1)
@@ -282,6 +286,10 @@ void VizPrint(const Reporting& reporting, const Comparison& comparison,
 
   const auto id1 = comparison.first;
   const auto id2 = comparison.second;
+
+  Check(id1.has_value() || id2.has_value())
+      << "internal error: Attempt to print comparison with nothing to compare.";
+
   if (!id2) {
     os << "  \"" << node << "\" [color=red, label=\"" << "removed("
        << Describe(reporting.graph, reporting.names)(*id1)

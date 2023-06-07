@@ -87,7 +87,7 @@ struct Transformer {
   Type Transform(const Type&);
 
   Graph& graph;
-  std::unordered_map<uint32_t, Id> id_map_;
+  std::unordered_map<uint32_t, Id> id_map;
 };
 
 Id Transformer::Transform(const proto::STG& x) {
@@ -112,7 +112,7 @@ Id Transformer::Transform(const proto::STG& x) {
 }
 
 Id Transformer::GetId(uint32_t id) {
-  auto [it, inserted] = id_map_.emplace(id, 0);
+  auto [it, inserted] = id_map.emplace(id, 0);
   if (inserted) {
     it->second = graph.Allocate();
   }
@@ -418,7 +418,7 @@ Id Read(Graph& graph, const std::string& path) {
 
 Id ReadFromString(Graph& graph, const std::string_view input) {
   proto::STG stg;
-  google::protobuf::TextFormat::ParseFromString(std::string(input), &stg);
+  google::protobuf::TextFormat::ParseFromString(std::string(input), &stg);  // NOLINT
   return Transformer(graph).Transform(stg);
 }
 

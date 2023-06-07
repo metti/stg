@@ -21,6 +21,7 @@
 
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -61,7 +62,7 @@ Id Read(Graph& graph, InputFormat format, const char* input, bool process_dwarf,
     }
     case InputFormat::ELF: {
       Time read(metrics, "read ELF");
-      return elf::Read(graph, input, process_dwarf, info);
+      return elf::Read(graph, input, process_dwarf, info, metrics);
     }
     case InputFormat::STG: {
       Time read(metrics, "read STG");
@@ -230,7 +231,7 @@ int main(int argc, char* argv[]) {
       stg::Filter(graph, root, *opt_symbols);
     }
     if (!opt_keep_duplicates) {
-      root = stg::ResolveTypes(graph, root, stg::metrics);
+      stg::ResolveTypes(graph, {std::ref(root)}, stg::metrics);
       const auto hashes = stg::Fingerprint(graph, root, stg::metrics);
       root = stg::Deduplicate(graph, root, hashes, stg::metrics);
     }

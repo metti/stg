@@ -15,23 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Giuliano Procida
+// Author: Aleksei Vetrov
 
-#ifndef STG_TYPE_RESOLUTION_H_
-#define STG_TYPE_RESOLUTION_H_
-
-#include <functional>
-#include <vector>
+#ifndef STG_TYPE_NORMALISATION_H_
+#define STG_TYPE_NORMALISATION_H_
 
 #include "graph.h"
-#include "metrics.h"
 
 namespace stg {
 
-void ResolveTypes(Graph& graph,
-                  const std::vector<std::reference_wrapper<Id>>& roots,
-                  Metrics& metrics);
+void RemoveUselessQualifiers(Graph& graph, Id root);
 
 }  // namespace stg
 
-#endif  // STG_TYPE_RESOLUTION_H_
+#endif  // STG_TYPE_NORMALISATION_H_
