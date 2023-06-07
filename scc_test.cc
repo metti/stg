@@ -17,6 +17,8 @@
 //
 // Author: Giuliano Procida
 
+#include "scc.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -29,7 +31,6 @@
 #include <utility>
 #include <vector>
 
-#include "scc.h"
 #include <catch/catch.hpp>
 
 namespace Test {
@@ -134,10 +135,13 @@ void process(const Graph& g) {
 
   // find SCCs
   std::set<size_t> visited;
-  SCC<size_t> scc;
   std::vector<std::set<size_t>> sccs;
-  for (size_t o = 0; o < n; ++o)
+  for (size_t o = 0; o < n; ++o) {
+    // could reuse a single SCC finder but assert stronger invariants this way
+    SCC<size_t> scc;
     dfs(visited, scc, g, o, sccs);
+    CHECK(scc.Empty());
+  }
 
   // check partition and topological order properties
   std::set<size_t> seen;

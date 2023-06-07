@@ -17,8 +17,8 @@
 //
 // Author: Giuliano Procida
 
-#ifndef CRC_H_
-#define CRC_H_
+#ifndef STG_CRC_H_
+#define STG_CRC_H_
 
 #include <ios>
 #include <ostream>
@@ -43,4 +43,4 @@ inline std::ostream& operator<<(std::ostream& os, CRC crc) {
 
 }  // namespace stg
 
-#endif  // CRC_H_
+#endif  // STG_CRC_H_
