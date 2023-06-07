@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020 Google LLC
+// Copyright 2021 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -15,19 +15,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Maria Teguiani
+// Author: Giuliano Procida
 
-#include <iostream>
+#ifndef CRC_H_
+#define CRC_H_
 
-#include "btf_reader.h"
+#include <ios>
+#include <ostream>
 
-int main(int argc, const char* argv[]) {
-  if (argc != 2) {
-    std::cerr << "Please specify the path to a BTF file.";
-    return 1;
-  }
+namespace stg {
 
-  (void)stg::btf::ReadFile(argv[1], /* verbose = */ true);
+struct CRC {
+  uint64_t number;
+};
 
-  return 0;
+inline bool operator==(CRC crc1, CRC crc2) {
+  return crc1.number == crc2.number;
 }
+
+inline bool operator!=(CRC crc1, CRC crc2) {
+  return crc1.number != crc2.number;
+}
+
+inline std::ostream& operator<<(std::ostream& os, CRC crc) {
+  return os << "0x" << std::hex << crc.number;
+}
+
+}  // namespace stg
+
+#endif  // CRC_H_

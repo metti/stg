@@ -35,8 +35,8 @@
 #include <utility>
 #include <vector>
 
-#include "abigail-reader.h"
-#include "btf-reader.h"
+#include "abigail_reader.h"
+#include "btf_reader.h"
 
 namespace {
 
@@ -85,9 +85,9 @@ void ReportPlain(const stg::Comparison& comparison,
   stg::Print(diff.details, outcomes, seen, names, output);
 }
 
-void ReportFlat(bool want_all_trees, const stg::Comparison& comparison,
-                const stg::Outcomes& outcomes,
-                stg::NameCache& names, std::ostream& output) {
+void ReportFlat(bool full, const stg::Comparison& comparison,
+                const stg::Outcomes& outcomes, stg::NameCache& names,
+                std::ostream& output) {
   // We want a symbol diff forest rather than a symbol table diff tree, so
   // unpack the symbol table and then print the symbols specially.
   const auto& diff = outcomes.at(comparison);
@@ -95,16 +95,18 @@ void ReportFlat(bool want_all_trees, const stg::Comparison& comparison,
   std::deque<stg::Comparison> todo;
   for (const auto& detail : diff.details) {
     std::ostringstream os;
-    if (stg::FlatPrint(*detail.edge_, outcomes, seen, todo, true, names, os)
-        || want_all_trees)
+    const bool interesting = stg::FlatPrint(
+        *detail.edge_, outcomes, seen, todo, full, true, names, os);
+    if (interesting || full)
       output << os.str() << '\n';
   }
   while (!todo.empty()) {
     auto comp = todo.front();
     todo.pop_front();
     std::ostringstream os;
-    if (stg::FlatPrint(comp, outcomes, seen, todo, false, names, os)
-        || want_all_trees)
+    const bool interesting =
+        stg::FlatPrint(comp, outcomes, seen, todo, full, false, names, os);
+    if (interesting || full)
       output << os.str() << '\n';
   }
 }
@@ -233,8 +235,8 @@ int main(int argc, char* argv[]) {
         }
         case OutputFormat::FLAT:
         case OutputFormat::SMALL: {
-          bool want_all_trees = format == OutputFormat::FLAT;
-          ReportFlat(want_all_trees, *comparison, outcomes, names, output);
+          bool full = format == OutputFormat::FLAT;
+          ReportFlat(full, *comparison, outcomes, names, output);
           break;
         }
         case OutputFormat::VIZ: {
