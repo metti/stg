@@ -14,9 +14,17 @@ stg
   [-i|--info]
   [-d|--keep-duplicates]
   [-u|--unstable]
+  [-S|--symbols <filter>]
   [-a|--abi|-b|--btf|-e|--elf] [file] ...
   [{-o|--output} {filename|-}] ...
 implicit defaults: --abi
+symbol filter syntax:
+  <filter>   ::= <term>          |  <expression> '|' <term>
+  <term>     ::= <factor>        |  <term> '&' <factor>
+  <factor>   ::= <atom>          |  '!' <factor>
+  <atom>     ::= ':' <filename>  |  <glob>  |  '(' <expression> ')'
+  <filename> ::= <string>
+  <glob>     ::= <string>
 ```
 
 ## Input
@@ -59,6 +67,29 @@ The tool can be passed any number of inputs to combine into a unified ABI.
 If multiple (or zero) inputs are provided, then a symbol merge operation is run.
 
 The resulting ABI has the union of the inputs' symbols, which must be disjoint.
+
+## Filter
+
+If a symbol filter is supplied, symbols not matching the filter are dropped.
+
+The basic syntactical elements are:
+
+*   `glob` - a glob pattern matching symbol names
+*   `:filename` - the name of a file containing a libabigail format symbol list
+
+Filter expressions can be combined with infix disjuction (`|`) and conjunction
+(`&`) operators and negated with the prefix (`!`) operator; these obey the usual
+precedence rules. Parentheses (`( ... )`) can be used to enclose subexpressions.
+Whitespace is not significant, except as a string delimiter.
+
+### Examples
+
+*   `jiffies |panic` - keep just the symbols `jiffies` and `panic`
+*   `str*` - keep symbols beginning with `str` such as `strncpy_from_user`
+*   `!(*@* & ! *@@*`) - drop versioned symbols that are not the default versions
+*   ` !*@*|*@@*` - the same
+*   `:include & !:exclude ` - keep symbols that are in the symbol list file
+    `include` but not in the symbol list file `exclude`
 
 ## Deduplication
 
