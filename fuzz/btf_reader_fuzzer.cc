@@ -19,22 +19,13 @@
 
 #include <stdexcept>
 
-#include <abg-symtab-reader.h>  // for symtab_reader
 #include "btf_reader.h"
 #include "error.h"
 
 extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
-  auto env = std::make_unique<abigail::ir::environment>();
-
-  // Just an empty symtab to satisfy the Structs constructor. The BTF will still
-  // be read, just BuildSymbols will exit quickly upon an empty symtab.
-  auto symmap = std::make_shared<abigail::ir::string_elf_symbols_map_type>();
-  auto symtab = abigail::symtab_reader::symtab::load(symmap, symmap);
-
   try {
     stg::Graph graph;
-    stg::btf::Structs(
-        graph, std::move(env), std::move(symtab)).Process(data, size);
+    stg::btf::Structs(graph).Process(data, size);
   } catch (const stg::Exception&) {
     // Pass as this is us catching invalid BTF properly.
   }

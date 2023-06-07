@@ -106,6 +106,9 @@ class Abigail {
   std::unordered_map<std::string, std::pair<Id, std::string>>
       symbol_id_and_full_name_;
 
+  // Full name of the current scope.
+  std::string scope_name_;
+
   Id GetNode(const std::string& type_id);
   Id GetEdge(xmlNodePtr element);
   Id GetVariadic();
@@ -115,7 +118,12 @@ class Abigail {
   void ProcessCorpus(xmlNodePtr corpus);
   void ProcessSymbols(xmlNodePtr symbols);
   void ProcessSymbol(xmlNodePtr symbol);
+
+  bool ProcessUserDefinedType(const std::string& name, Id id, xmlNodePtr decl);
+  void ProcessScope(xmlNodePtr scope);
+
   void ProcessInstr(xmlNodePtr instr);
+  void ProcessNamespace(xmlNodePtr scope);
 
   void ProcessDecl(bool is_variable, xmlNodePtr decl);
 
@@ -127,6 +135,8 @@ class Abigail {
   void ProcessTypeDecl(Id id, xmlNodePtr type_decl);
   void ProcessStructUnion(Id id, bool is_struct, xmlNodePtr struct_union);
   void ProcessEnum(Id id, xmlNodePtr enumeration);
+
+  Id ProcessDataMember(bool is_struct, xmlNodePtr data_member);
 
   Id BuildSymbol(const SymbolInfo& info,
                  std::optional<Id> type_id,
