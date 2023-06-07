@@ -24,24 +24,140 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <elf.h>
 #include <gelf.h>
+#include <libelf.h>
 
-#include <cstring>
+#include <cstddef>
+#include <functional>
+#include <iostream>
 #include <string>
 #include <string_view>
 
 #include "error.h"
+#include "stg.h"
 
 namespace stg {
 namespace elf {
 
-ElfLoader::ElfLoader(const std::string& path)
-    : path_(path), fd_(-1), elf_(nullptr) {
-  Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
+namespace {
+
+SymbolTableEntry::SymbolType ParseSymbolType(unsigned char symbol_type) {
+  switch (symbol_type) {
+    case STT_NOTYPE:
+      return SymbolTableEntry::SymbolType::NOTYPE;
+    case STT_OBJECT:
+      return SymbolTableEntry::SymbolType::OBJECT;
+    case STT_FUNC:
+      return SymbolTableEntry::SymbolType::FUNCTION;
+    case STT_SECTION:
+      return SymbolTableEntry::SymbolType::SECTION;
+    case STT_FILE:
+      return SymbolTableEntry::SymbolType::FILE;
+    case STT_COMMON:
+      return SymbolTableEntry::SymbolType::COMMON;
+    case STT_TLS:
+      return SymbolTableEntry::SymbolType::TLS;
+    case STT_GNU_IFUNC:
+      return SymbolTableEntry::SymbolType::GNU_IFUNC;
+    default:
+      Die() << "Unknown ELF symbol type: " << symbol_type;
+  }
+}
+
+SymbolTableEntry::Binding ParseSymbolBinding(unsigned char binding) {
+  switch (binding) {
+    case STB_LOCAL:
+      return SymbolTableEntry::Binding::LOCAL;
+    case STB_GLOBAL:
+      return SymbolTableEntry::Binding::GLOBAL;
+    case STB_WEAK:
+      return SymbolTableEntry::Binding::WEAK;
+    case STB_GNU_UNIQUE:
+      return SymbolTableEntry::Binding::GNU_UNIQUE;
+    default:
+      Die() << "Unknown ELF symbol binding: " << binding;
+  }
+}
+
+SymbolTableEntry::Visibility ParseSymbolVisibility(unsigned char visibility) {
+  switch (visibility) {
+    case STV_DEFAULT:
+      return SymbolTableEntry::Visibility::DEFAULT;
+    case STV_INTERNAL:
+      return SymbolTableEntry::Visibility::INTERNAL;
+    case STV_HIDDEN:
+      return SymbolTableEntry::Visibility::HIDDEN;
+    case STV_PROTECTED:
+      return SymbolTableEntry::Visibility::PROTECTED;
+    default:
+      Die() << "Unknown ELF symbol visibility: " << visibility;
+  }
+}
+
+SymbolTableEntry::ValueType ParseSymbolValueType(Elf64_Section section_index) {
+  switch (section_index) {
+    case SHN_UNDEF:
+      return SymbolTableEntry::ValueType::UNDEFINED;
+    case SHN_ABS:
+      return SymbolTableEntry::ValueType::ABSOLUTE;
+    case SHN_COMMON:
+      return SymbolTableEntry::ValueType::COMMON;
+    default:
+      return SymbolTableEntry::ValueType::RELATIVE_TO_SECTION;
+  }
+}
+
+std::string PrintElfHeaderType(unsigned char elf_header_type) {
+  switch (elf_header_type) {
+    case ET_NONE:
+      return "none";
+    case ET_REL:
+      return "relocatable";
+    case ET_EXEC:
+      return "executable";
+    case ET_DYN:
+      return "shared object";
+    case ET_CORE:
+      return "coredump";
+    default:
+      return "unknown (type = " + std::to_string(elf_header_type) + ')';
+  }
+}
+
+std::string PrintElfSectionType(Elf64_Word elf_section_type) {
+  switch (elf_section_type) {
+    case SHT_SYMTAB:
+      return "symtab";
+    case SHT_DYNSYM:
+      return "dynsym";
+    case SHT_GNU_verdef:
+      return "GNU_verdef";
+    case SHT_GNU_verneed:
+      return "GNU_verneed";
+    case SHT_GNU_versym:
+      return "GNU_versym";
+    default:
+      return "unknown (type = " + std::to_string(elf_section_type) + ')';
+  }
+}
+
+}  // namespace
+
+ElfLoader::ElfLoader(const std::string& path, bool verbose)
+    : verbose_(verbose), fd_(-1), elf_(nullptr) {
   fd_ = open(path.c_str(), O_RDONLY);
   Check(fd_ >= 0) << "Could not open " << path;
+  Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
   elf_ = elf_begin(fd_, ELF_C_READ, nullptr);
   Check(elf_ != nullptr) << "ELF data not found in " << path;
+}
+
+ElfLoader::ElfLoader(char* data, size_t size, bool verbose)
+    : verbose_(verbose), fd_(-1), elf_(nullptr) {
+  Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
+  elf_ = elf_memory(data, size);
+  Check(elf_ != nullptr) << "Cannot initialize libelf with provided memory";
 }
 
 ElfLoader::~ElfLoader() {
@@ -51,30 +167,130 @@ ElfLoader::~ElfLoader() {
     close(fd_);
 }
 
-Elf_Scn* ElfLoader::GetBtfSection() const {
-  size_t shdr_strtab_index;
-  if (elf_getshdrstrndx(elf_, &shdr_strtab_index) < 0)
-    Die() << "Could not get ELF section header string table index";
-
+std::vector<Elf_Scn*> ElfLoader::GetSectionsIf(
+    std::function<bool(const GElf_Shdr&)> predicate) const {
+  std::vector<Elf_Scn*> result;
   Elf_Scn* section = nullptr;
   GElf_Shdr header;
   while ((section = elf_nextscn(elf_, section)) != nullptr) {
-    Check(gelf_getshdr(section, &header)) << "Could not get ELF section header";
-    const char* name = elf_strptr(elf_, shdr_strtab_index, header.sh_name);
-    if (strcmp(name, ".BTF") == 0)
-      break;
+    Check(gelf_getshdr(section, &header) != nullptr)
+        << "could not get ELF section header";
+    if (predicate(header))
+      result.push_back(section);
   }
-  return section;
+  return result;
+}
+
+std::vector<Elf_Scn*> ElfLoader::GetSectionsByName(
+    const std::string& name) const {
+  size_t shdr_strtab_index;
+  Check(elf_getshdrstrndx(elf_, &shdr_strtab_index) == 0)
+      << "could not get ELF section header string table index";
+  return GetSectionsIf([&](const GElf_Shdr& header) {
+    return elf_strptr(elf_, shdr_strtab_index, header.sh_name) == name;
+  });
+}
+
+Elf_Scn* ElfLoader::GetSectionByName(const std::string& name) const {
+  const auto sections = GetSectionsByName(name);
+  Check(!sections.empty()) << "no section found with name '" << name << "'";
+  Check(sections.size() == 1)
+      << "multiple sections found with name '" << name << "'";
+  return sections[0];
+}
+
+Elf_Scn* ElfLoader::GetSectionByType(Elf64_Word type) const {
+  auto sections = GetSectionsIf([&](const GElf_Shdr& header) {
+    return header.sh_type == type;
+  });
+  Check(!sections.empty()) << "no section found with type " << type;
+  Check(sections.size() == 1) << "multiple sections found with type " << type;
+  return sections[0];
+}
+
+ElfLoader::SectionInfo ElfLoader::GetSectionInfo(Elf_Scn* section) const {
+  size_t index = elf_ndxscn(section);
+  GElf_Shdr section_header;
+  Check(gelf_getshdr(section, &section_header) != nullptr)
+      << "failed to read section (index = " << index << ") header";
+  Elf_Data* data = elf_getdata(section, 0);
+  Check(data != nullptr) << "section (index = " << index << ") data is invalid";
+  return {section_header, data};
+}
+
+size_t ElfLoader::GetNumberOfEntries(const GElf_Shdr& section_header) const {
+  Check(section_header.sh_entsize != 0)
+      << "zero table entity size is unexpected for section "
+      << PrintElfSectionType(section_header.sh_type);
+  return section_header.sh_size / section_header.sh_entsize;
 }
 
 std::string_view ElfLoader::GetBtfRawData() const {
-  Elf_Scn* btf_section = GetBtfSection();
-  Check(btf_section != nullptr) << "No .BTF section found in " << path_;
+  Elf_Scn* btf_section = GetSectionByName(".BTF");
+  Check(btf_section != nullptr) << ".BTF section is invalid";
   Elf_Data* elf_data = elf_rawdata(btf_section, 0);
-  Check(elf_data != nullptr) << "The .BTF section is invalid";
+  Check(elf_data != nullptr) << ".BTF section data is invalid";
   const char* btf_start = static_cast<char*>(elf_data->d_buf);
   const size_t btf_size = elf_data->d_size;
   return std::string_view(btf_start, btf_size);
+}
+
+Elf_Scn* ElfLoader::GetSymbolTableSection() const {
+  GElf_Ehdr elf_header;
+  Check(gelf_getehdr(elf_, &elf_header) != nullptr)
+      << "could not get ELF header";
+
+  if (verbose_)
+    std::cout << "ELF type: " << PrintElfHeaderType(elf_header.e_type) << '\n';
+  // TODO: check if vmlinux symbol table type matches ELF type
+  // same way as other binaries
+  if (elf_header.e_type == ET_REL)
+    return GetSectionByType(SHT_SYMTAB);
+  else if (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)
+    return GetSectionByType(SHT_DYNSYM);
+  else
+    Die() << "unsupported ELF type: '" << PrintElfHeaderType(elf_header.e_type)
+          << "'";
+}
+
+std::string_view ElfLoader::GetString(uint32_t section, size_t offset) const {
+  const auto name = elf_strptr(elf_, section, offset);
+
+  Check(name != nullptr) << "string was not found (section: " << section
+                         << ", offset: " << offset << ")";
+  return name;
+}
+
+std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
+  Elf_Scn* symbol_table_section = GetSymbolTableSection();
+  Check(symbol_table_section != nullptr)
+      << "failed to find symbol table section";
+
+  const auto [symbol_table_header, symbol_table_data] =
+      GetSectionInfo(symbol_table_section);
+  const size_t number_of_symbols = GetNumberOfEntries(symbol_table_header);
+
+  std::vector<SymbolTableEntry> result;
+  result.reserve(number_of_symbols);
+
+  for (size_t i = 0; i < number_of_symbols; ++i) {
+    GElf_Sym symbol;
+    Check(gelf_getsym(symbol_table_data, i, &symbol) != nullptr)
+        << "symbol (i = " << i << ") was not found";
+
+    const auto name = GetString(symbol_table_header.sh_link, symbol.st_name);
+    result.push_back(SymbolTableEntry{
+        .name = name,
+        .value = symbol.st_value,
+        .size = symbol.st_size,
+        .symbol_type = ParseSymbolType(GELF_ST_TYPE(symbol.st_info)),
+        .binding = ParseSymbolBinding(GELF_ST_BIND(symbol.st_info)),
+        .visibility = ParseSymbolVisibility(GELF_ST_VISIBILITY(symbol.st_info)),
+        .value_type = ParseSymbolValueType(symbol.st_shndx),
+    });
+  }
+
+  return result;
 }
 
 }  // namespace elf

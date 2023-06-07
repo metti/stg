@@ -780,7 +780,7 @@ Id Abigail::ProcessRoot(xmlNodePtr root) {
     for (auto child = xmlFirstElementChild(root); child;
          child = xmlNextElementSibling(child)) {
       CheckElementName("abi-corpus", child);
-      const auto path = ReadAttribute(child, "path", std::string());
+      const auto path = ReadAttributeOrDie<std::string>(child, "path");
       merge(path, Corpus(graph_, verbose_, typing).ProcessCorpus(child));
     }
   } else if (name == "abi-corpus") {
