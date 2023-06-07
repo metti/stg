@@ -32,7 +32,9 @@ extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
   auto symtab = abigail::symtab_reader::symtab::load(symmap, symmap);
 
   try {
-    stg::btf::Structs(data, size, std::move(env), std::move(symtab));
+    stg::Graph graph;
+    stg::btf::Structs(
+        graph, std::move(env), std::move(symtab)).Process(data, size);
   } catch (const stg::Exception&) {
     // Pass as this is us catching invalid BTF properly.
   }
