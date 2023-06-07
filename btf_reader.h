@@ -76,6 +76,7 @@ class Structs {
   Enumeration::Enumerators BuildEnums(
       bool is_signed, const struct btf_enum* enums, size_t vlen);
   std::vector<Id> BuildParams(const struct btf_param* params, size_t vlen);
+  Id BuildEnumUnderlyingType(size_t size, bool is_signed);
   std::string GetName(uint32_t name_off);
 
   static void PrintStrings(MemoryRange memory);

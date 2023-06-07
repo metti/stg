@@ -26,6 +26,7 @@
 #include <libelf.h>
 
 #include <cstddef>
+#include <cstring>
 #include <functional>
 #include <iostream>
 #include <ostream>
@@ -143,7 +144,7 @@ std::string ElfSectionTypeToString(Elf64_Word elf_section_type) {
 }
 
 std::vector<Elf_Scn*> GetSectionsIf(
-    Elf* elf, std::function<bool(const GElf_Shdr&)> predicate) {
+    Elf* elf, const std::function<bool(const GElf_Shdr&)>& predicate) {
   std::vector<Elf_Scn*> result;
   Elf_Scn* section = nullptr;
   GElf_Shdr header;
@@ -284,6 +285,21 @@ bool IsRelocatable(Elf* elf) {
   return elf_header.e_type == ET_REL;
 }
 
+bool IsLittleEndianBinary(Elf* elf) {
+  GElf_Ehdr elf_header;
+  Check(gelf_getehdr(elf, &elf_header) != nullptr)
+      << "could not get ELF header";
+
+  switch (auto endianness = elf_header.e_ident[EI_DATA]) {
+    case ELFDATA2LSB:
+      return true;
+    case ELFDATA2MSB:
+      return false;
+    default:
+      Die() << "Unsupported ELF endianness: " << endianness;
+  }
+}
+
 }  // namespace
 
 std::ostream& operator<<(std::ostream& os, SymbolTableEntry::SymbolType type) {
@@ -332,6 +348,7 @@ ElfLoader::ElfLoader(Elf* elf, bool verbose)
 void ElfLoader::InitializeElfInformation() {
   is_linux_kernel_binary_ = elf::IsLinuxKernelBinary(elf_);
   is_relocatable_ = elf::IsRelocatable(elf_);
+  is_little_endian_binary_ = elf::IsLittleEndianBinary(elf_);
 }
 
 std::string_view ElfLoader::GetBtfRawData() const {
@@ -382,6 +399,8 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
 
 ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(
     const SymbolTableEntry& symbol) const {
+  Check(is_little_endian_binary_)
+      << "CRC is not supported in big-endian binaries";
   const auto address = GetAbsoluteAddress(symbol);
   if (symbol.value_type == SymbolTableEntry::ValueType::ABSOLUTE) {
     return ElfSymbol::CRC{static_cast<uint32_t>(address)};
@@ -403,6 +422,31 @@ ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(
 
   return ElfSymbol::CRC{*reinterpret_cast<uint32_t*>(
       reinterpret_cast<char*>(data->d_buf) + offset)};
+}
+
+std::string_view ElfLoader::GetElfSymbolNamespace(
+    const SymbolTableEntry& symbol) const {
+  Check(symbol.value_type == SymbolTableEntry::ValueType::RELATIVE_TO_SECTION)
+      << "Namespace symbol is expected to be relative to a section";
+
+  const auto section = GetSectionByIndex(elf_, symbol.section_index);
+  const auto [header, data] = GetSectionInfo(section);
+  Check(data->d_buf != nullptr) << "Section has no data buffer";
+
+  const auto address = GetAbsoluteAddress(symbol);
+  Check(address >= header.sh_addr)
+      << "Namespace symbol address is below namespace section start";
+
+  const size_t offset = address - header.sh_addr;
+  Check(offset < data->d_size && offset < header.sh_size)
+      << "Namespace symbol address is above namespace section end";
+
+  const char* begin = reinterpret_cast<const char*>(data->d_buf) + offset;
+  const size_t length = strnlen(begin, data->d_size - offset);
+  Check(offset + length < data->d_size)
+      << "Namespace string should be null-terminated";
+
+  return std::string_view(begin, length);
 }
 
 size_t ElfLoader::GetAbsoluteAddress(const SymbolTableEntry& symbol) const {
@@ -427,6 +471,10 @@ size_t ElfLoader::GetAbsoluteAddress(const SymbolTableEntry& symbol) const {
 
 bool ElfLoader::IsLinuxKernelBinary() const {
   return is_linux_kernel_binary_;
+}
+
+bool ElfLoader::IsLittleEndianBinary() const {
+  return is_little_endian_binary_;
 }
 
 }  // namespace elf

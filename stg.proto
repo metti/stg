@@ -99,8 +99,7 @@ message Primitive {
   fixed32 id = 1;
   string name = 2;
   optional Encoding encoding = 3;
-  fixed32 bitsize = 4;
-  fixed32 bytesize = 5;
+  fixed32 bytesize = 4;
 }
 
 message Array {
@@ -173,7 +172,7 @@ message Enumeration {
   }
 
   message Definition {
-    fixed32 bytesize = 1;
+    fixed32 underlying_type_id = 1;
     repeated Enumerator enumerator = 2;
   }
 

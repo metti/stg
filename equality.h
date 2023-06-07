@@ -131,7 +131,6 @@ struct Equals {
   bool operator()(const Primitive& x1, const Primitive& x2) {
     return x1.name == x2.name
         && x1.encoding == x2.encoding
-        && x1.bitsize == x2.bitsize
         && x1.bytesize == x2.bytesize;
   }
 
@@ -182,7 +181,8 @@ struct Equals {
     bool result = x1.name == x2.name
                   && definition1.has_value() == definition2.has_value();
     if (result && definition1.has_value()) {
-      result = definition1->bytesize == definition2->bytesize
+      result = (*this)(definition1->underlying_type_id,
+                       definition2->underlying_type_id)
                && definition1->enumerators == definition2->enumerators;
     }
     return result;
