@@ -58,7 +58,7 @@ namespace stg {
  * The SCCs will be presented in a topological order, leaves first.
  *
  * Note that within each SCC, nodes will be presented in DFS traversal order,
- * roots first. However, this is just an implemention detail, not a guarantee.
+ * roots first. However, this is just an implementation detail, not a guarantee.
  *
  * USAGE
  *
@@ -69,7 +69,7 @@ namespace stg {
  * returned and the node will be recorded as waiting to be assigned to an SCC.
  *
  * Now examine the node, making recursive calls to follow edges to other nodes.
- * Infomation about the node can be stored provisionally, but must NOT be used
+ * Information about the node can be stored provisionally, but must NOT be used
  * to make decisions about whether to revisit it - that is Open's job.
  *
  * Once the examination is done, call Close, passing in the handle. If the node

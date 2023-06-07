@@ -271,11 +271,15 @@ TEST_CASE("hand-curated reorderings with input order randomisation") {
     INFO("testing with " << count << " random input orderings");
     for (size_t n = 0; n < count; ++n, ++seed) {
       gen.seed(seed);
-      auto permutation = MakePermutation(k, gen);
-      auto copy = given;
-      stg::Permute(copy, permutation);
-      stg::Reorder(copy);
-      CHECK(copy == expected);
+      std::ostringstream os;
+      os << "permutation of " << k << " items generated using seed " << seed;
+      GIVEN(os.str()) {
+        auto permutation = MakePermutation(k, gen);
+        auto copy = given;
+        stg::Permute(copy, permutation);
+        stg::Reorder(copy);
+        CHECK(copy == expected);
+      }
     }
   }
 }

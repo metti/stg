@@ -255,9 +255,6 @@ class Type {
   static Comparison Added(const Type& node, State& state);
 
  private:
-  static std::string GetDiffMessage(NameCache& names,
-                                    const Type& node1, const Type& node2,
-                                    const std::string& message = std::string());
   const std::vector<std::unique_ptr<Type>>& types_;
 };
 

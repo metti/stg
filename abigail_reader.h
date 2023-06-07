@@ -86,8 +86,8 @@ class Abigail : public Graph {
   // this is its node id.
   std::optional<Id> variadic_type_id_;
   // libabigail type ids often appear before definition; except for the type of
-  // variadic parameters, this records their node id.
-  std::unordered_map<std::string, size_t> type_ids_;
+  // variadic parameters, this records their node index.
+  std::unordered_map<std::string, size_t> type_indexes_;
 
   std::unique_ptr<abigail::ir::environment> env_;
   std::vector<std::pair<abigail::elf_symbol_sptr, std::vector<std::string>>>
