@@ -144,10 +144,14 @@ void Fidelity::operator()(const Member& x, Id) {
 }
 
 void Fidelity::operator()(const StructUnion& x, Id id) {
-  auto [it, _] =
-      types.emplace(describe(id).ToString(), TypeFidelity::DECLARATION_ONLY);
+  if (!x.name.empty()) {
+    auto [it, _] =
+        types.emplace(describe(id).ToString(), TypeFidelity::DECLARATION_ONLY);
+    if (x.definition) {
+      it->second = TypeFidelity::FULLY_DEFINED;
+    }
+  }
   if (x.definition) {
-    it->second = TypeFidelity::FULLY_DEFINED;
     (*this)(x.definition->base_classes);
     (*this)(x.definition->methods);
     (*this)(x.definition->members);
@@ -155,10 +159,12 @@ void Fidelity::operator()(const StructUnion& x, Id id) {
 }
 
 void Fidelity::operator()(const Enumeration& x, Id id) {
-  auto [it, _] =
-      types.emplace(describe(id).ToString(), TypeFidelity::DECLARATION_ONLY);
-  if (x.definition) {
-    it->second = TypeFidelity::FULLY_DEFINED;
+  if (!x.name.empty()) {
+    auto [it, _] =
+        types.emplace(describe(id).ToString(), TypeFidelity::DECLARATION_ONLY);
+    if (x.definition) {
+      it->second = TypeFidelity::FULLY_DEFINED;
+    }
   }
 }
 

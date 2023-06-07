@@ -262,7 +262,7 @@ static KeyIndexPairs MatchingKeys(const Graph& graph,
     if (key.empty()) {
       key = "#anon#" + std::to_string(anonymous_ix++);
     }
-    keys.push_back({key, ix});
+    keys.emplace_back(key, ix);
   }
   std::stable_sort(keys.begin(), keys.end());
   return keys;
@@ -383,7 +383,7 @@ static KeyIndexPairs MatchingKeys(const Enumeration::Enumerators& enums) {
   names.reserve(size);
   for (size_t ix = 0; ix < size; ++ix) {
     const auto& name = enums[ix].first;
-    names.push_back({name, ix});
+    names.emplace_back(name, ix);
   }
   std::stable_sort(names.begin(), names.end());
   return names;
@@ -589,7 +589,7 @@ Result Compare::operator()(const Symbols& x1, const Symbols& x2) {
       ++it2;
     } else {
       // in both
-      in_both.push_back({it1->second, it2->second});
+      in_both.emplace_back(it1->second, it2->second);
       ++it1;
       ++it2;
     }

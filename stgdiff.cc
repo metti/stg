@@ -251,7 +251,7 @@ int main(int argc, char* argv[]) {
         opt_exact = true;
         break;
       case 1:
-        inputs.push_back({opt_input_format, argument});
+        inputs.emplace_back(opt_input_format, argument);
         break;
       case 'c':
         if (strcmp(argument, "ignore_symbol_type_presence_changes") == 0) {
@@ -282,7 +282,7 @@ int main(int argc, char* argv[]) {
         if (strcmp(argument, "-") == 0) {
           argument = "/dev/stdout";
         }
-        outputs.push_back({opt_output_format, argument});
+        outputs.emplace_back(opt_output_format, argument);
         break;
       case 'F':
         if (strcmp(argument, "-") == 0) {
