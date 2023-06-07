@@ -32,6 +32,7 @@
 
 #include <linux/btf.h>
 #include "graph.h"
+#include "reader_options.h"
 
 namespace stg {
 namespace btf {
@@ -82,7 +83,7 @@ class Structs {
   static void PrintStrings(MemoryRange memory);
 };
 
-Id ReadFile(Graph& graph, const std::string& path, bool verbose = false);
+Id ReadFile(Graph& graph, const std::string& path, ReadOptions options);
 
 }  // namespace btf
 }  // namespace stg

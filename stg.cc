@@ -27,6 +27,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "deduplication.h"
@@ -36,6 +37,7 @@
 #include "input.h"
 #include "metrics.h"
 #include "proto_writer.h"
+#include "reader_options.h"
 #include "symbol_filter.h"
 #include "type_resolution.h"
 
@@ -45,12 +47,12 @@ namespace {
 Metrics metrics;
 
 struct GetInterface {
-  const std::map<std::string, Id>& operator()(const Interface& x) {
-    return x.symbols;
+  Interface& operator()(Interface& x) {
+    return x;
   }
 
   template <typename Node>
-  const std::map<std::string, Id>& operator()(const Node&) {
+  Interface& operator()(Node&) {
     Die() << "expected an Interface root node";
   }
 };
@@ -59,8 +61,12 @@ Id Merge(Graph& graph, const std::vector<Id>& roots) {
   std::map<std::string, Id> symbols;
   GetInterface get;
   for (auto root : roots) {
-    for (const auto& x :
-         graph.Apply<const std::map<std::string, Id>&>(get, root)) {
+    const auto& interface = graph.Apply<Interface&>(get, root);
+    // TODO: Implement merging interfaces with type roots.
+    if (!interface.types.empty()) {
+      Die() << "merging interfaces with type roots is not yet supported";
+    }
+    for (const auto& x : interface.symbols) {
       if (!symbols.insert(x).second) {
         Die() << "merge failed with duplicate symbol: " << x.first;
       }
@@ -73,21 +79,20 @@ Id Merge(Graph& graph, const std::vector<Id>& roots) {
 void Filter(Graph& graph, Id root, const SymbolFilter& filter) {
   std::map<std::string, Id> symbols;
   GetInterface get;
-  for (const auto& x :
-       graph.Apply<const std::map<std::string, Id>&>(get, root)) {
+  auto& interface = graph.Apply<Interface&>(get, root);
+  for (const auto& x : interface.symbols) {
     if (filter(x.first)) {
       symbols.insert(x);
     }
   }
-  graph.Unset(root);
-  graph.Set<Interface>(root, symbols);
+  std::swap(interface.symbols, symbols);
 }
 
-void Write(const Graph& graph, Id root, const char* output, bool stable) {
+void Write(const Graph& graph, Id root, const char* output) {
   std::ofstream os(output);
   {
     Time x(metrics, "write");
-    proto::Writer writer(graph, stable);
+    proto::Writer writer(graph);
     writer.Write(root, os);
     os << std::flush;
   }
@@ -105,11 +110,9 @@ int main(int argc, char* argv[]) {
   };
   // Process arguments.
   bool opt_metrics = false;
-  bool opt_info = false;
   bool opt_keep_duplicates = false;
-  bool opt_unstable = false;
   std::unique_ptr<stg::SymbolFilter> opt_symbols;
-  bool opt_skip_dwarf = false;
+  stg::ReadOptions opt_read_options;
   stg::InputFormat opt_input_format = stg::InputFormat::ABI;
   std::vector<const char*> inputs;
   std::vector<const char*> outputs;
@@ -117,7 +120,7 @@ int main(int argc, char* argv[]) {
       {"metrics",         no_argument,       nullptr, 'm'       },
       {"info",            no_argument,       nullptr, 'i'       },
       {"keep-duplicates", no_argument,       nullptr, 'd'       },
-      {"unstable",        no_argument,       nullptr, 'u'       },
+      {"types",           no_argument,       nullptr, 't'       },
       {"symbols",         required_argument, nullptr, 'S'       },
       {"abi",             no_argument,       nullptr, 'a'       },
       {"btf",             no_argument,       nullptr, 'b'       },
@@ -132,7 +135,7 @@ int main(int argc, char* argv[]) {
               << "  [-m|--metrics]\n"
               << "  [-i|--info]\n"
               << "  [-d|--keep-duplicates]\n"
-              << "  [-u|--unstable]\n"
+              << "  [-t|--types]\n"
               << "  [-S|--symbols <filter>]\n"
               << "  [--skip-dwarf]\n"
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...\n"
@@ -143,7 +146,7 @@ int main(int argc, char* argv[]) {
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-miduS:abeso:", opts, &ix);
+    const int c = getopt_long(argc, argv, "-midtS:abeso:", opts, &ix);
     if (c == -1) {
       break;
     }
@@ -153,13 +156,13 @@ int main(int argc, char* argv[]) {
         opt_metrics = true;
         break;
       case 'i':
-        opt_info = true;
+        opt_read_options.Set(stg::ReadOptions::INFO);
         break;
       case 'd':
         opt_keep_duplicates = true;
         break;
-      case 'u':
-        opt_unstable = true;
+      case 't':
+        opt_read_options.Set(stg::ReadOptions::TYPE_ROOTS);
         break;
       case 'S':
         opt_symbols = stg::MakeSymbolFilter(argument);
@@ -186,7 +189,7 @@ int main(int argc, char* argv[]) {
         outputs.push_back(argument);
         break;
       case kSkipDwarf:
-        opt_skip_dwarf = true;
+        opt_read_options.Set(stg::ReadOptions::SKIP_DWARF);
         break;
       default:
         return usage();
@@ -199,7 +202,7 @@ int main(int argc, char* argv[]) {
     roots.reserve(inputs.size());
     for (auto input : inputs) {
       roots.push_back(stg::Read(graph, opt_input_format, input,
-                                !opt_skip_dwarf, opt_info, stg::metrics));
+                                opt_read_options, stg::metrics));
     }
     stg::Id root = roots.size() == 1 ? roots[0] : stg::Merge(graph, roots);
     if (opt_symbols) {
@@ -211,7 +214,7 @@ int main(int argc, char* argv[]) {
       root = stg::Deduplicate(graph, root, hashes, stg::metrics);
     }
     for (auto output : outputs) {
-      stg::Write(graph, root, output, !opt_unstable);
+      stg::Write(graph, root, output);
     }
     if (opt_metrics) {
       stg::Report(stg::metrics, std::cerr);

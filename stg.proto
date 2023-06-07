@@ -239,6 +239,12 @@ message Symbols {
   map<string, fixed32> symbol = 2;
 }
 
+message Interface {
+  fixed32 id = 1;
+  repeated fixed32 symbol_id = 2;
+  repeated fixed32 type_id = 3;
+}
+
 message STG {
   uint32 version = 1;
   fixed32 root_id = 2;
@@ -257,5 +263,6 @@ message STG {
   repeated Enumeration enumeration = 15;
   repeated Function function = 16;
   repeated ElfSymbol elf_symbol = 17;
-  optional Symbols symbols = 18;
+  repeated Symbols symbols = 18;
+  repeated Interface interface = 19;
 }

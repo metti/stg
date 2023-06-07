@@ -22,13 +22,13 @@
 #include <getopt.h>
 
 #include <iostream>
-#include <string>
 #include <utility>
 #include <vector>
 
 #include "input.h"
 #include "error.h"
 #include "metrics.h"
+#include "reader_options.h"
 
 using Input = std::pair<stg::InputFormat, const char*>;
 
@@ -36,7 +36,7 @@ int main(int argc, char* const argv[]) {
   enum LongOptions {
     kSkipDwarf = 256,
   };
-  bool opt_skip_dwarf = false;
+  stg::ReadOptions opt_read_options(stg::ReadOptions::INFO);
   static option opts[] = {
       {"btf",        required_argument, nullptr, 'b'       },
       {"elf",        required_argument, nullptr, 'e'       },
@@ -65,7 +65,7 @@ int main(int argc, char* const argv[]) {
         inputs.emplace_back(stg::InputFormat::ELF, argument);
         break;
       case kSkipDwarf:
-        opt_skip_dwarf = true;
+        opt_read_options.Set(stg::ReadOptions::SKIP_DWARF);
         break;
       default:
         return usage();
@@ -82,8 +82,7 @@ int main(int argc, char* const argv[]) {
   try {
     stg::Graph graph;
     stg::Metrics metrics;
-    (void)stg::Read(graph, format, filename, !opt_skip_dwarf, /* info = */ true,
-                    metrics);
+    (void)stg::Read(graph, format, filename, opt_read_options, metrics);
   } catch (const stg::Exception& e) {
     std::cerr << e.what() << '\n';
     return 1;
