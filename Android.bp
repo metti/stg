@@ -49,6 +49,7 @@ cc_defaults {
         "libelf",
         "libicuuc",
         "libicuuc_stubdata",
+        "libjemalloc5",
         "libprotobuf-cpp-full",
         "libxml2",
         "libz",
