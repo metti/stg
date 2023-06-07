@@ -74,10 +74,11 @@ std::pair<bool, std::optional<Comparison>> Compare::operator()(Id id1, Id id2) {
   if (already_known != known.end()) {
     // Already visited and closed.
     ++already_compared;
-    if (already_known->second)
+    if (already_known->second) {
       return {true, {}};
-    else
+    } else  {
       return {false, {comparison}};
+    }
   }
   // Either open or not visited at all
 
@@ -149,9 +150,10 @@ std::pair<bool, std::optional<Comparison>> Compare::operator()(Id id1, Id id2) {
       const auto it = provisional.find(c);
       Check(it != provisional.end())
           << "internal error: missing provisional diffs";
-      if (!result.equals_)
+      if (!result.equals_) {
         // Record differences.
         outcomes.insert(*it);
+      }
       provisional.erase(it);
     }
     if (result.equals_) {
@@ -194,8 +196,9 @@ Result Compare::operator()(const Variadic&, const Variadic&) {
 Result Compare::operator()(const PointerReference& x1,
                            const PointerReference& x2) {
   Result result;
-  if (x1.kind != x2.kind)
+  if (x1.kind != x2.kind) {
     return result.MarkIncomparable();
+  }
   const auto type_diff = (*this)(x1.pointee_type_id, x2.pointee_type_id);
   const auto text =
       x1.kind == PointerReference::Kind::POINTER ? "pointed-to" : "referred-to";
@@ -235,8 +238,9 @@ Result Compare::operator()(const Array& x1, const Array& x2) {
 
 static bool CompareDefined(bool defined1, bool defined2, Result& result,
                            bool ignore_diff) {
-  if (defined1 && defined2)
+  if (defined1 && defined2) {
     return true;
+  }
   if (!ignore_diff && defined1 != defined2) {
     std::ostringstream os;
     os << "was " << (defined1 ? "fully defined" : "only declared")
@@ -255,8 +259,9 @@ static KeyIndexPairs MatchingKeys(const Graph& graph,
   size_t anonymous_ix = 0;
   for (size_t ix = 0; ix < size; ++ix) {
     auto key = MatchingKey(graph)(ids[ix]);
-    if (key.empty())
+    if (key.empty()) {
       key = "#anon#" + std::to_string(anonymous_ix++);
+    }
     keys.push_back({key, ix});
   }
   std::stable_sort(keys.begin(), keys.end());
@@ -299,8 +304,9 @@ static void CompareNodes(Result& result, Compare& compare,
   const auto keys1 = MatchingKeys(compare.graph, ids1);
   const auto keys2 = MatchingKeys(compare.graph, ids2);
   auto pairs = PairUp(keys1, keys2);
-  if (reorder)
+  if (reorder) {
     Reorder(pairs);
+  }
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
       // removed
@@ -348,15 +354,17 @@ Result Compare::operator()(const StructUnion& x1, const StructUnion& x2) {
   // Compare two anonymous types recursively, not holding diffs.
   // Compare two identically named types recursively, holding diffs.
   // Everything else treated as distinct. No recursion.
-  if (x1.kind != x2.kind || x1.name != x2.name)
+  if (x1.kind != x2.kind || x1.name != x2.name) {
     return result.MarkIncomparable();
+  }
   result.diff_.holds_changes = !x1.name.empty();
 
   const auto& definition1 = x1.definition;
   const auto& definition2 = x2.definition;
   if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
-                      options.ignore_type_declaration_status_changes))
+                      options.ignore_type_declaration_status_changes)) {
     return result;
+  }
 
   result.MaybeAddNodeDiff(
       "byte size", definition1->bytesize, definition2->bytesize);
@@ -386,15 +394,17 @@ Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
   // Compare two anonymous types recursively, not holding diffs.
   // Compare two identically named types recursively, holding diffs.
   // Everything else treated as distinct. No recursion.
-  if (x1.name != x2.name)
+  if (x1.name != x2.name) {
     return result.MarkIncomparable();
+  }
   result.diff_.holds_changes = !x1.name.empty();
 
   const auto& definition1 = x1.definition;
   const auto& definition2 = x2.definition;
   if (!CompareDefined(definition1.has_value(), definition2.has_value(), result,
-                      options.ignore_type_declaration_status_changes))
+                      options.ignore_type_declaration_status_changes)) {
     return result;
+  }
   const auto type_diff = (*this)(definition1->underlying_type_id,
                                  definition2->underlying_type_id);
   result.MaybeAddEdgeDiff("underlying", type_diff);
@@ -539,11 +549,13 @@ Result Compare::operator()(const ElfSymbol& x1, const ElfSymbol& x2) {
   if (x1.type_id && x2.type_id) {
     result.MaybeAddEdgeDiff("", (*this)(*x1.type_id, *x2.type_id));
   } else if (x1.type_id) {
-    if (!options.ignore_symbol_type_presence_changes)
+    if (!options.ignore_symbol_type_presence_changes) {
       result.AddEdgeDiff("", Removed(*x1.type_id));
+    }
   } else if (x2.type_id) {
-    if (!options.ignore_symbol_type_presence_changes)
+    if (!options.ignore_symbol_type_presence_changes) {
       result.AddEdgeDiff("", Added(*x2.type_id));
+    }
   } else {
     // both types missing, we have nothing to say
   }
@@ -583,12 +595,15 @@ Result Compare::operator()(const Symbols& x1, const Symbols& x2) {
     }
   }
 
-  for (const auto symbol1 : removed)
+  for (const auto symbol1 : removed) {
     result.AddEdgeDiff("", Removed(symbol1));
-  for (const auto symbol2 : added)
+  }
+  for (const auto symbol2 : added) {
     result.AddEdgeDiff("", Added(symbol2));
-  for (const auto& [symbol1, symbol2] : in_both)
+  }
+  for (const auto& [symbol1, symbol2] : in_both) {
     result.MaybeAddEdgeDiff("", (*this)(symbol1, symbol2));
+  }
 
   return result;
 }
@@ -653,8 +668,9 @@ std::string MatchingKey::operator()(const BaseClass& x) {
 }
 
 std::string MatchingKey::operator()(const Member& x) {
-  if (!x.name.empty())
+  if (!x.name.empty()) {
     return x.name;
+  }
   return (*this)(x.type_id);
 }
 
@@ -663,14 +679,16 @@ std::string MatchingKey::operator()(const Method& x) {
 }
 
 std::string MatchingKey::operator()(const StructUnion& x) {
-  if (!x.name.empty())
+  if (!x.name.empty()) {
     return x.name;
+  }
   if (x.definition) {
     const auto& members = x.definition->members;
     for (const auto& member : members) {
       const auto recursive = (*this)(member);
-      if (!recursive.empty())
+      if (!recursive.empty()) {
         return recursive + '+';
+      }
     }
   }
   return {};

@@ -46,8 +46,9 @@ Graph invent(size_t n, G& gen) {
   std::uniform_int_distribution<int> toss(0, 1);
   for (auto& node : graph) {
     for (size_t o = 0; o < n; ++o) {
-      if (toss(gen))
+      if (toss(gen)) {
         node.insert(o);
+      }
     }
   }
   return graph;
@@ -57,9 +58,10 @@ Graph invent(size_t n, G& gen) {
 Graph symmetric_subset_of_reflexive_transitive_closure(Graph g) {
   const size_t n = g.size();
   // compute reflexive, transitive closure using a modified Floyd-Warshall
-  for (size_t o = 0; o < n; ++o)
+  for (size_t o = 0; o < n; ++o) {
     // 1. add edge o -> o, for each node o
     g[o].insert(o);
+  }
   for (size_t k = 0; k < n; ++k) {
     // 2. for each node k check for paths of the form: i -> ... -> k -> ... -> j
     // where no node after k appears in the ...
@@ -83,10 +85,12 @@ Graph symmetric_subset_of_reflexive_transitive_closure(Graph g) {
       // discard i -> j if not j -> i and vice versa
       auto ij = g[i].count(j);
       auto ji = g[j].count(i);
-      if (ij < ji)
+      if (ij < ji) {
         g[j].erase(i);
-      if (ji < ij)
+      }
+      if (ji < ij) {
         g[i].erase(j);
+      }
     }
   }
   // now have edge i -> j iff there is a path from i to j and a path from j to i
@@ -99,26 +103,31 @@ Graph scc_strong_connectivity(const std::vector<std::set<size_t>>& sccs) {
   std::map<size_t, const std::set<size_t>*> edges;
   for (const auto& scc : sccs) {
     for (auto o : scc) {
-      if (o >= n)
+      if (o >= n) {
         n = o + 1;
+      }
       edges[o] = &scc;
     }
   }
   Graph g(n);
-  for (size_t o = 0; o < n; ++o)
+  for (size_t o = 0; o < n; ++o) {
     g[o] = *edges[o];
+  }
   return g;
 }
 
 void dfs(std::set<size_t>& visited, SCC<size_t>& scc, const Graph& g,
          size_t node, std::vector<std::set<size_t>>& sccs) {
-  if (visited.count(node))
+  if (visited.count(node)) {
     return;
+  }
   auto handle = scc.Open(node);
-  if (!handle)
+  if (!handle) {
     return;
-  for (auto o : g[node])
+  }
+  for (auto o : g[node]) {
     dfs(visited, scc, g, o, sccs);
+  }
   auto nodes = scc.Close(*handle);
   if (!nodes.empty()) {
     std::set<size_t> scc_set;

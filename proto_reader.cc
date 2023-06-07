@@ -126,7 +126,9 @@ void Transformer::AddNodes(const google::protobuf::RepeatedPtrField<ProtoType>& 
   }
 }
 
-void Transformer::AddNode(const Void& x) { AddNode<stg::Void>(GetId(x.id())); }
+void Transformer::AddNode(const Void& x) {
+  AddNode<stg::Void>(GetId(x.id()));
+}
 
 void Transformer::AddNode(const Variadic& x) {
   AddNode<stg::Variadic>(GetId(x.id()));

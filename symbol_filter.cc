@@ -249,10 +249,10 @@ std::unique_ptr<SymbolFilter> Factor(std::queue<std::string>& tokens) {
     invert = !invert;
   }
   auto atom = Atom(tokens);
-  if (invert)
-    return std::make_unique<NotFilter>(std::move(atom));
-  else
-    return atom;
+  if (invert) {
+    atom = std::make_unique<NotFilter>(std::move(atom));
+  }
+  return atom;
 }
 
 // Parse a symbol filter term.

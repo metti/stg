@@ -175,10 +175,12 @@ void Reorder(std::vector<std::pair<std::optional<T>, std::optional<T>>>& data) {
     const auto& [position1, position2] = data[index];
     Check(position1 || position2)
         << "internal error: Reorder constraint with no positions";
-    if (position1)
+    if (position1) {
       positions1.push_back({*position1, index});
-    if (position2)
+    }
+    if (position2) {
       positions2.push_back({*position2, index});
+    }
   }
   // Order the indexes by the desired positions.
   std::stable_sort(positions1.begin(), positions1.end());
@@ -187,10 +189,12 @@ void Reorder(std::vector<std::pair<std::optional<T>, std::optional<T>>>& data) {
   indexes1.reserve(size);
   std::vector<size_t> indexes2;
   indexes2.reserve(positions2.size());
-  for (const auto& ordered_index : positions1)
+  for (const auto& ordered_index : positions1) {
     indexes1.push_back(ordered_index.second);
-  for (const auto& ordered_index : positions2)
+  }
+  for (const auto& ordered_index : positions2) {
     indexes2.push_back(ordered_index.second);
+  }
   // Merge the two orderings of indexes.
   ExtendOrder(indexes1, indexes2);
   // Use this to permute the original data array.
