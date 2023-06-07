@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020-2022 Google LLC
+// Copyright 2020-2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -22,8 +22,8 @@
 #ifndef STG_GRAPH_H_
 #define STG_GRAPH_H_
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
@@ -327,6 +327,21 @@ class Graph {
     auto id = Allocate();
     Set<Node>(id, std::forward<Args>(args)...);
     return id;
+  }
+
+  void Deallocate(Id) {
+    // don't actually do anything, not supported
+  }
+
+  void Unset(Id id) {
+    auto& reference = nodes_[id.ix_];
+    Check(reference != nullptr) << "node value already unset";
+    reference = nullptr;
+  }
+
+  void Remove(Id id) {
+    Unset(id);
+    Deallocate(id);
   }
 
   template <typename Result, typename FunctionObject, typename... Args>

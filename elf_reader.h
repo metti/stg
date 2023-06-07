@@ -25,8 +25,10 @@
 namespace stg {
 namespace elf {
 
-Id Read(Graph& graph, const std::string& path, bool verbose = false);
-Id Read(Graph& graph, char* data, size_t size, bool verbose = false);
+Id Read(Graph& graph, const std::string& path, bool process_dwarf,
+        bool verbose);
+Id Read(Graph& graph, char* data, size_t size, bool process_dwarf,
+        bool verbose);
 
 }  // namespace elf
 }  // namespace stg

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020-2022 Google LLC
+// Copyright 2020-2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -35,6 +35,7 @@
 #include <vector>
 
 #include "graph.h"
+#include "metrics.h"
 #include "scc.h"
 
 namespace stg {
@@ -218,8 +219,15 @@ struct ResolveQualifier {
 };
 
 struct Compare {
-  Compare(const Graph& graph, const CompareOptions& options)
-      : graph(graph), options(options) {}
+  Compare(const Graph& graph, const CompareOptions& options, Metrics& metrics)
+      : graph(graph), options(options),
+        queried(metrics, "compare.queried"),
+        already_compared(metrics, "compare.already_compared"),
+        being_compared(metrics, "compare.being_compared"),
+        really_compared(metrics, "compare.really_compared"),
+        equivalent(metrics, "compare.equivalent"),
+        inequivalent(metrics, "compare.inequivalent"),
+        scc_size(metrics, "compare.scc_size") {}
   std::pair<bool, std::optional<Comparison>>  operator()(Id id1, Id id2);
   Comparison Removed(Id id);
   Comparison Added(Id id);
@@ -245,6 +253,13 @@ struct Compare {
   Outcomes outcomes;
   Outcomes provisional;
   SCC<Comparison, HashComparison> scc;
+  Counter queried;
+  Counter already_compared;
+  Counter being_compared;
+  Counter really_compared;
+  Counter equivalent;
+  Counter inequivalent;
+  Histogram scc_size;
 };
 
 }  // namespace stg

@@ -84,6 +84,10 @@ std::ostream& Name::Print(std::ostream& os) const {
   return os << left_ << right_;
 }
 
+std::string Name::ToString() const {
+  return left_ + right_;
+}
+
 std::ostream& operator<<(std::ostream& os, const Name& name) {
   return name.Print(os);
 }

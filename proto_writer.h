@@ -30,11 +30,13 @@ namespace proto {
 
 class Writer {
  public:
-  Writer(const stg::Graph& graph) : graph_(graph) {}
+  Writer(const stg::Graph& graph, bool stable)
+      : graph_(graph), stable(stable) {}
   void Write(const Id&, std::ostream&);
 
  private:
   const stg::Graph& graph_;
+  const bool stable;
 };
 
 }  // namespace proto
