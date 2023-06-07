@@ -19,7 +19,7 @@
 
 #include <stdexcept>
 
-#include <libabigail/src/abg-symtab-reader.h>  // for symtab_reader
+#include <abg-symtab-reader.h>  // for symtab_reader
 #include "btf_reader.h"
 
 extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {

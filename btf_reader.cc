@@ -28,9 +28,9 @@
 #include <string_view>
 #include <utility>
 
-#include <libabigail/include/abg-tools-utils.h>  // for base_name
-#include <libabigail/src/abg-elf-helpers.h>  // for find_section
-#include <libabigail/src/abg-symtab-reader.h>  // for symtab_reader
+#include <abg-tools-utils.h>  // for base_name
+#include <abg-elf-helpers.h>  // for find_section
+#include <abg-symtab-reader.h>  // for symtab_reader
 
 #ifdef FOR_FUZZING
 #define m_assert(expr, msg) \
