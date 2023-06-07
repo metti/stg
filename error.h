@@ -21,6 +21,7 @@
 #define STG_ERROR_H_
 
 #include <exception>
+#include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -70,6 +71,22 @@ class Die {
 
   template <typename T>
   Die& operator<<(const T& t) {
+    os_ << t;
+    return *this;
+  }
+
+ private:
+  std::ostringstream os_;
+};
+
+class Warn {
+ public:
+  ~Warn() {
+    std::cerr << "warning: " << os_.str() << '\n';
+  }
+
+  template <typename T>
+  Warn& operator<<(const T& t) {
     os_ << t;
     return *this;
   }
