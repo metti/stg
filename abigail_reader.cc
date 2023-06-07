@@ -24,7 +24,6 @@
 
 #include <cerrno>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <iostream>
@@ -33,15 +32,12 @@
 
 #include <libxml/parser.h>
 #include "crc.h"
+#include "error.h"
 
 namespace stg {
 namespace abixml {
 
 namespace {
-
-#ifdef FOR_FUZZING
-#define exit(n) throw AbigailReaderException()
-#endif
 
 const char* FromLibxml(const xmlChar* str) {
   return reinterpret_cast<const char*>(str);
@@ -57,11 +53,9 @@ std::string GetElementName(xmlNodePtr element) {
 
 void CheckElementName(const char* name, xmlNodePtr element) {
   const auto element_name = FromLibxml(element->name);
-  if (strcmp(element_name, name) != 0) {
-    std::cerr << "expected element '" << name
-              << "' but got '" << element_name << "'\n";
-    exit(1);
-  }
+  if (strcmp(element_name, name) != 0)
+    Die() << "expected element '" << name
+          << "' but got '" << element_name << "'";
 }
 
 std::optional<std::string> GetAttribute(xmlNodePtr node, const char* name) {
@@ -76,14 +70,12 @@ std::optional<std::string> GetAttribute(xmlNodePtr node, const char* name) {
 
 std::string GetAttributeOrDie(xmlNodePtr node, const char* name) {
   xmlChar* attribute = xmlGetProp(node, ToLibxml(name));
-  if (attribute) {
-    std::string result = FromLibxml(attribute);
-    xmlFree(attribute);
-    return result;
-  }
-  std::cerr << "element '" << FromLibxml(node->name)
-            << "' missing attribute '" << name << "'\n";
-  exit(1);
+  if (!attribute)
+    Die() << "element '" << FromLibxml(node->name)
+          << "' missing attribute '" << name << "'";
+  std::string result = FromLibxml(attribute);
+  xmlFree(attribute);
+  return result;
 }
 
 template <typename T>
@@ -120,12 +112,10 @@ std::optional<CRC> Parse<CRC>(const std::string& value) {
 template <typename T>
 T GetParsedValueOrDie(xmlNodePtr element, const char* name,
                       const std::string& value, const std::optional<T>& parse) {
-  if (!parse) {
-    std::cerr << "element '" << FromLibxml(element->name)
-              << "' has attribute '" << name
-              << "' with bad value '" << value << "'\n";
-    exit(1);
-  }
+  if (!parse)
+    Die() << "element '" << FromLibxml(element->name)
+          << "' has attribute '" << name
+          << "' with bad value '" << value << "'";
   return *parse;
 }
 
@@ -196,10 +186,8 @@ std::unique_ptr<Function> Abigail::MakeFunctionType(xmlNodePtr function) {
   for (auto child = xmlFirstElementChild(function); child;
        child = xmlNextElementSibling(child)) {
     const auto child_name = GetElementName(child);
-    if (return_type) {
-      std::cerr << "unexpected element after return-type\n";
-      exit(1);
-    }
+    if (return_type)
+      Die() << "unexpected element after return-type";
     if (child_name == "parameter") {
       const auto is_variadic = ReadAttribute<bool>(child, "is-variadic", false);
       if (is_variadic) {
@@ -220,10 +208,8 @@ std::unique_ptr<Function> Abigail::MakeFunctionType(xmlNodePtr function) {
                 << "'\n";
     }
   }
-  if (!return_type) {
-    std::cerr << "missing return-type\n";
-    exit(1);
-  }
+  if (!return_type)
+    Die() << "missing return-type";
   if (verbose_) {
     std::cerr << "  made function type (";
     bool comma = false;
@@ -245,8 +231,7 @@ void Abigail::ProcessRoot(xmlNodePtr root) {
   } else if (name == "abi-corpus") {
     ProcessCorpus(root);
   } else {
-    std::cerr << "unrecognised root element '" << name << "'\n";
-    exit(1);
+    Die() << "unrecognised root element '" << name << "'";
   }
 }
 
@@ -269,8 +254,7 @@ void Abigail::ProcessCorpus(xmlNodePtr corpus) {
     } else if (name == "abi-instr") {
       ProcessInstr(element);
     } else {
-      std::cerr << "unrecognised abi-corpus child element '" << name << "'\n";
-      exit(1);
+      Die() << "unrecognised abi-corpus child element '" << name << "'";
     }
   }
 }
@@ -362,8 +346,7 @@ void Abigail::ProcessInstr(xmlNodePtr instr) {
       } else if (name == "enum-decl") {
         ProcessEnum(ix, element);
       } else {
-        std::cerr << "bad abi-instr type child element '" << name << "'\n";
-        exit(1);
+        Die() << "bad abi-instr type child element '" << name << "'";
       }
     } else {
       if (name == "var-decl") {
@@ -371,8 +354,7 @@ void Abigail::ProcessInstr(xmlNodePtr instr) {
       } else if (name == "function-decl") {
         ProcessDecl(false, element);
       } else {
-        std::cerr << "bad abi-instr non-type child element '" << name << "'\n";
-        exit(1);
+        Die() << "bad abi-instr non-type child element '" << name << "'";
       }
     }
   }
@@ -390,10 +372,8 @@ void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
     if (verbose_)
       std::cerr << "ELF symbol " << *symbol_id << " of " << type << "\n";
     const auto [it, inserted] = symbol_id_to_type_.emplace(*symbol_id, type);
-    if (!inserted && it->second.ix_ != type.ix_) {
-      std::cerr << "conflicting types for '" << *symbol_id << "'\n";
-      exit(1);
-    }
+    if (!inserted && it->second.ix_ != type.ix_)
+      Die() << "conflicting types for '" << *symbol_id << "'";
   }
 }
 
@@ -425,10 +405,7 @@ void Abigail::ProcessQualified(size_t ix, xmlNodePtr qualified) {
     qualifiers.push_back(QualifierKind::VOLATILE);
   if (ReadAttribute<bool>(qualified, "const", false))
     qualifiers.push_back(QualifierKind::CONST);
-  if (qualifiers.empty()) {
-    std::cerr << "qualified-type-def has no qualifiers\n";
-    exit(1);
-  }
+  Check(!qualifiers.empty()) << "qualified-type-def has no qualifiers";
   // Handle multiple qualifiers by unconditionally adding the qualifiers as new
   // nodes and the swapping the last one into place.
   if (verbose_)
@@ -453,10 +430,7 @@ void Abigail::ProcessArray(size_t ix, xmlNodePtr array) {
     const auto length = ReadAttribute<uint64_t>(child, "length", &ParseLength);
     dimensions.push_back(length);
   }
-  if (dimensions.empty()) {
-    std::cerr << "array-type-def element has no children\n";
-    exit(1);
-  }
+  Check(!dimensions.empty()) << "array-type-def element has no children";
   // int[M][N] means array[M] of array[N] of int
   //
   // We need to chain a bunch of types together:
@@ -514,12 +488,13 @@ void Abigail::ProcessStructUnion(
   const auto name = ReadAttribute<bool>(struct_union, "is-anonymous", false)
                     ? std::string()
                     : GetAttributeOrDie(struct_union, "name");
+  const auto kind = is_struct ? StructUnionKind::STRUCT
+                              : StructUnionKind::UNION;
   if (forward) {
-    const auto kind = is_struct ? ForwardDeclarationKind::STRUCT
-                                : ForwardDeclarationKind::UNION;
-    types_[ix] = std::make_unique<ForwardDeclaration>(types_, name, kind);
+    types_[ix] = std::make_unique<StructUnion>(types_, name, kind);
     if (verbose_)
-      std::cerr << Id(ix) << " forward " << kind << " " << name << "\n";
+      std::cerr << Id(ix) << " " << kind << " (forward-declared) " << name
+                << "\n";
     return;
   }
   const auto bits = ReadAttribute<size_t>(struct_union, "size-in-bits", 0);
@@ -533,10 +508,8 @@ void Abigail::ProcessStructUnion(
                     ? ReadAttributeOrDie<size_t>(child, "layout-offset-in-bits")
                     : 0;
     xmlNodePtr decl = xmlFirstElementChild(child);
-    if (!decl || xmlNextElementSibling(decl)) {
-      std::cerr << "data-member with not exactly one child element\n";
-      exit(1);
-    }
+    Check(decl && !xmlNextElementSibling(decl))
+        << "data-member with not exactly one child element";
     CheckElementName("var-decl", decl);
     const auto member_name = GetAttributeOrDie(decl, "name");
     const auto type = GetTypeId(decl);
@@ -546,8 +519,6 @@ void Abigail::ProcessStructUnion(
     members.push_back(member);
   }
 
-  const auto kind = is_struct ? StructUnionKind::STRUCT
-                              : StructUnionKind::UNION;
   types_[ix] =
       std::make_unique<StructUnion>(types_, name, kind, bytes, members);
   if (verbose_)
@@ -560,18 +531,14 @@ void Abigail::ProcessEnum(size_t ix, xmlNodePtr enumeration) {
                     ? std::string()
                     : GetAttributeOrDie(enumeration, "name");
   if (forward) {
-    const auto kind = ForwardDeclarationKind::ENUM;
-    types_[ix] = std::make_unique<ForwardDeclaration>(types_, name, kind);
+    types_[ix] = std::make_unique<Enumeration>(types_, name);
     if (verbose_)
-      std::cerr << Id(ix) << " forward " << kind << " " << name << "\n";
+      std::cerr << Id(ix) << " enum (forward-declared) " << name << "\n";
     return;
   }
 
   xmlNodePtr underlying = xmlFirstElementChild(enumeration);
-  if (!underlying) {
-    std::cerr << "enum-decl has no child elements\n";
-    exit(1);
-  }
+  Check(underlying) << "enum-decl has no child elements";
   CheckElementName("underlying-type", underlying);
   const auto type = GetTypeId(underlying);
   // TODO: decision on underlying type vs size
@@ -607,30 +574,20 @@ void Abigail::BuildSymbols() {
   std::unordered_map<std::string, std::string> alias_to_main;
   for (auto& [symbol, aliases] : elf_symbol_aliases_) {
     const auto id = symbol->get_id_string();
-    if (!id_to_symbol.insert({id, symbol}).second) {
-      std::cerr << "multiple symbols with id " << id << '\n';
-      exit(1);
-    }
-    for (const auto& alias : aliases) {
-      if (!alias_to_main.insert({alias, id}).second) {
-        std::cerr << "multiple aliases with id " << alias << '\n';
-        exit(1);
-      }
-    }
+    Check(id_to_symbol.insert({id, symbol}).second)
+        << "multiple symbols with id " << id;
+    for (const auto& alias : aliases)
+      Check(alias_to_main.insert({alias, id}).second)
+          << "multiple aliases with id " << alias;
   }
-  for (const auto& [alias, main] : alias_to_main) {
-    if (alias_to_main.count(main)) {
-      std::cerr << "found main symbol and alias with id " << main << '\n';
-      exit(1);
-    }
-  }
+  for (const auto& [alias, main] : alias_to_main)
+    Check(!alias_to_main.count(main))
+        << "found main symbol and alias with id " << main;
   // Tie aliases to their main symbol.
   for (const auto& [alias, main] : alias_to_main) {
     const auto it = id_to_symbol.find(alias);
-    if (it == id_to_symbol.end()) {
-      std::cerr << "missing symbol alias " << alias << '\n';
-      exit(1);
-    }
+    Check(it != id_to_symbol.end())
+        << "missing symbol alias " << alias;
     id_to_symbol[main]->add_alias(it->second);
   }
   // Build final symbol table, tying symbols to their types.
@@ -653,11 +610,8 @@ void Abigail::BuildSymbols() {
 std::unique_ptr<Abigail> Read(const std::string& path, bool verbose) {
   // Open input for reading.
   const int fd = open(path.c_str(), O_RDONLY);
-  if (fd < 0) {
-    std::cerr << "could not open '" << path << "' for reading: "
-              << strerror(errno) << '\n';
-    exit(1);
-  }
+  if (fd < 0)
+    Die() << "could not open '" << path << "' for reading: " << strerror(errno);
   xmlParserCtxtPtr parser_context = xmlNewParserCtxt();
 
   // Read the XML.
@@ -670,15 +624,9 @@ std::unique_ptr<Abigail> Read(const std::string& path, bool verbose) {
   close(fd);
 
   // Get the root element.
-  if (!document) {
-    std::cerr << "failed to parse input as XML\n";
-    exit(1);
-  }
+  Check(document != nullptr) << "failed to parse input as XML";
   xmlNodePtr root = xmlDocGetRootElement(document.get());
-  if (!root) {
-    std::cerr << "XML document has no root element\n";
-    exit(1);
-  }
+  Check(root) << "XML document has no root element";
 
   return std::make_unique<Abigail>(root, verbose);
 }

@@ -21,6 +21,7 @@
 
 #include <abg-symtab-reader.h>  // for symtab_reader
 #include "btf_reader.h"
+#include "error.h"
 
 extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
   auto env = std::make_unique<abigail::ir::environment>();
@@ -32,7 +33,7 @@ extern "C" int LLVMFuzzerTestOneInput(char* data, size_t size) {
 
   try {
     stg::btf::Structs(data, size, std::move(env), std::move(symtab));
-  } catch (const stg::btf::BtfReaderException&) {
+  } catch (const stg::Exception&) {
     // Pass as this is us catching invalid BTF properly.
   }
   return 0;

@@ -22,13 +22,13 @@
 
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <iomanip>
 #include <ostream>
 #include <string_view>
 #include <typeinfo>
 
 #include "crc.h"
+#include "error.h"
 #include "order.h"
 
 namespace stg {
@@ -85,7 +85,7 @@ Name Name::Qualify(const std::set<QualifierKind>& qualifiers) const {
       os << ' ' << qualifier;
   } else {
     // qualifiers do not apply to arrays, functions or names
-    abort();
+    Die() << "qualifiers found for inappropriate node";
   }
   // qualifiers attach without affecting precedence
   return Name{os.str(), precedence_, right_};
@@ -177,7 +177,7 @@ void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
     os << "changed from " << description1 << " to " << description2;
 
   const auto it = outcomes.find(comparison);
-  assert(it != outcomes.end());
+  Check(it != outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
   auto insertion = seen.insert({comparison, false});
   if (!insertion.second) {
@@ -246,7 +246,7 @@ bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
 
   // Look up the diff (including node and edge changes).
   const auto it = outcomes.find(comparison);
-  assert(it != outcomes.end());
+  Check(it != outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
 
   // Check the stopping condition.
@@ -259,7 +259,7 @@ bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
   // The stop flag can only be false on a non-recursive call which should be for
   // a diff-holding node.
   if (!diff.holds_changes && !stop)
-    abort();
+    Die() << "internal error: FlatPrint called on inappropriate node";
 
   // Indent before describing diff details.
   indent += INDENT_INCREMENT;
@@ -315,7 +315,7 @@ void VizPrint(const Comparison& comparison, const Outcomes& outcomes,
   }
 
   const auto it = outcomes.find(comparison);
-  assert(it != outcomes.end());
+  Check(it != outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
   const char* colour = diff.has_changes ? "color=red, " : "";
   const char* shape = diff.holds_changes ? "shape=rectangle, " : "";
@@ -477,7 +477,8 @@ std::pair<bool, std::optional<Comparison>> Type::Compare(
       // Record equality / inequality.
       state.known.insert({c, result.equals_});
       const auto it = state.provisional.find(c);
-      assert(it != state.provisional.end());
+      Check(it != state.provisional.end())
+          << "internal error: missing provisional diffs";
       if (!result.equals_)
         // Record differences.
         state.outcomes.insert(*it);
@@ -493,9 +494,9 @@ std::pair<bool, std::optional<Comparison>> Type::Compare(
   return {result.equals_, {comparison}};
 }
 
-Name Void::MakeDescription(NameCache& names) const { return Name{"void"}; }
+Name Void::MakeDescription(NameCache&) const { return Name{"void"}; }
 
-Name Variadic::MakeDescription(NameCache& names) const { return Name{"..."}; }
+Name Variadic::MakeDescription(NameCache&) const { return Name{"..."}; }
 
 Name Ptr::MakeDescription(NameCache& names) const {
   return GetType(GetPointeeTypeId())
@@ -503,13 +504,17 @@ Name Ptr::MakeDescription(NameCache& names) const {
       .Add(Side::LEFT, Precedence::POINTER, "*");
 }
 
-Name Typedef::MakeDescription(NameCache& names) const {
+Name Typedef::MakeDescription(NameCache&) const {
   return Name{GetName()};
 }
 
-Name Qualifier::MakeDescription(NameCache& names) const { abort(); }
+Name Qualifier::MakeDescription(NameCache&) const {
+  // Qualifiers are resolved before GetDescription is called.
+  Die() << "internal error: Qualifier::MakeDescription";
+  __builtin_unreachable();
+}
 
-Name Integer::MakeDescription(NameCache& names) const {
+Name Integer::MakeDescription(NameCache&) const {
   return Name{GetName()};
 }
 
@@ -537,33 +542,27 @@ Name StructUnion::MakeDescription(NameCache& names) const {
   os << GetStructUnionKind() << ' ';
   if (!name.empty()) {
     os << GetName();
-  } else {
+  } else if (const auto& definition = GetDefinition()) {
     os << "{ ";
-    for (const auto& member : GetMembers())
+    for (const auto& member : definition->members)
       os << GetType(member).GetDescription(names) << "; ";
     os << '}';
   }
   return Name{os.str()};
 }
 
-Name Enumeration::MakeDescription(NameCache& names) const {
+Name Enumeration::MakeDescription(NameCache&) const {
   std::ostringstream os;
   const auto& name = GetName();
   os << "enum ";
   if (!name.empty()) {
     os << GetName();
-  } else {
+  } else if (const auto& definition = GetDefinition()) {
     os << "{ ";
-    for (const auto& e : GetEnums())
+    for (const auto& e : definition->enumerators)
       os << e.first << " = " << e.second << ", ";
     os << '}';
   }
-  return Name{os.str()};
-}
-
-Name ForwardDeclaration::MakeDescription(NameCache& names) const {
-  std::ostringstream os;
-  os << GetForwardKind() << ' ' << GetName() << "<incomplete>";
   return Name{os.str()};
 }
 
@@ -596,7 +595,7 @@ Name ElfSymbol::MakeDescription(NameCache& names) const {
       : Name{name};
 }
 
-Name Symbols::MakeDescription(NameCache& names) const {
+Name Symbols::MakeDescription(NameCache&) const {
   return Name{"symbols"};
 }
 
@@ -608,9 +607,9 @@ std::string ElfSymbol::GetKindDescription() const { return "symbol"; }
 
 std::string Symbols::GetKindDescription() const { return "symbols"; }
 
-Result Void::Equals(const Type& other, State& state) const { return {}; }
+Result Void::Equals(const Type&, State&) const { return {}; }
 
-Result Variadic::Equals(const Type& other, State& state) const { return {}; }
+Result Variadic::Equals(const Type&, State&) const { return {}; }
 
 Result Ptr::Equals(const Type& other, State& state) const {
   const auto& o = other.as<Ptr>();
@@ -622,17 +621,19 @@ Result Ptr::Equals(const Type& other, State& state) const {
   return result;
 }
 
-Result Typedef::Equals(const Type& other, State& state) const {
+Result Typedef::Equals(const Type&, State&) const {
   // Compare will never attempt to directly compare Typedefs.
-  abort();
+  Die() << "internal error: Typedef::Equals";
+  __builtin_unreachable();
 }
 
-Result Qualifier::Equals(const Type& other, State& state) const {
+Result Qualifier::Equals(const Type&, State&) const {
   // Compare will never attempt to directly compare Qualifiers.
-  abort();
+  Die() << "internal error: Qualifier::Equals";
+  __builtin_unreachable();
 }
 
-Result Integer::Equals(const Type& other, State& state) const {
+Result Integer::Equals(const Type& other, State&) const {
   const auto& o = other.as<Integer>();
 
   Result result;
@@ -655,6 +656,18 @@ Result Array::Equals(const Type& other, State& state) const {
               o.GetType(o.GetElementTypeId()), state);
   result.MaybeAddEdgeDiff("element", element_type_diff);
   return result;
+}
+
+static bool CompareDefined(bool defined1, bool defined2, Result& result) {
+  if (defined1 && defined2)
+    return true;
+  if (defined1 != defined2) {
+    std::ostringstream os;
+    os << "was " << (defined1 ? "fully defined" : "only declared")
+       << ", is now " << (defined2 ? "fully defined" : "only declared");
+    result.AddNodeDiff(os.str());
+  }
+  return false;
 }
 
 static std::vector<std::pair<std::optional<size_t>, std::optional<size_t>>>
@@ -714,10 +727,15 @@ Result StructUnion::Equals(const Type& other, State& state) const {
     return result;
   }
   result.diff_.holds_changes = !name1.empty();
-  result.MaybeAddNodeDiff("byte size", GetByteSize(), o.GetByteSize());
+  const auto& definition1 = GetDefinition();
+  const auto& definition2 = o.GetDefinition();
+  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result))
+    return result;
 
-  const auto& members1 = GetMembers();
-  const auto& members2 = o.GetMembers();
+  result.MaybeAddNodeDiff(
+      "byte size", definition1->bytesize, definition2->bytesize);
+  const auto& members1 = definition1->members;
+  const auto& members2 = definition2->members;
   const auto names1 = GetMemberNames();
   const auto names2 = o.GetMemberNames();
   const auto pairs = PairUp(names1, names2);
@@ -743,7 +761,7 @@ Result StructUnion::Equals(const Type& other, State& state) const {
   return result;
 }
 
-Result Enumeration::Equals(const Type& other, State& state) const {
+Result Enumeration::Equals(const Type& other, State&) const {
   const auto& o = other.as<Enumeration>();
 
   Result result;
@@ -758,10 +776,15 @@ Result Enumeration::Equals(const Type& other, State& state) const {
     return result;
   }
   result.diff_.holds_changes = !name1.empty();
-  result.MaybeAddNodeDiff("byte size", GetByteSize(), o.GetByteSize());
+  const auto& definition1 = GetDefinition();
+  const auto& definition2 = o.GetDefinition();
+  if (!CompareDefined(definition1.has_value(), definition2.has_value(), result))
+    return result;
+  result.MaybeAddNodeDiff(
+      "byte size", definition1->bytesize, definition2->bytesize);
 
-  const auto enums1 = GetEnums();
-  const auto enums2 = o.GetEnums();
+  const auto enums1 = definition1->enumerators;
+  const auto enums2 = definition2->enumerators;
   const auto names1 = GetEnumNames();
   const auto names2 = o.GetEnumNames();
   const auto pairs = PairUp(names1, names2);
@@ -792,24 +815,6 @@ Result Enumeration::Equals(const Type& other, State& state) const {
     }
   }
 
-  return result;
-}
-
-Result ForwardDeclaration::Equals(const Type& other, State& state) const {
-  const auto& o = other.as<ForwardDeclaration>();
-
-  Result result;
-  // Assume two identically named types are the same.
-  // Everything else treated as distinct.
-  const auto kind1 = GetForwardKind();
-  const auto kind2 = o.GetForwardKind();
-  const auto& name1 = GetName();
-  const auto& name2 = o.GetName();
-  if (kind1 != kind2 || name1 != name2) {
-    result.equals_ = false;
-    result.diff_.has_changes = true;
-    return result;
-  }
   return result;
 }
 
@@ -996,7 +1001,7 @@ Result Symbols::Equals(const Type& other, State& state) const {
   return result;
 }
 
-const Type& Type::ResolveQualifiers(std::set<QualifierKind>& qualifiers) const {
+const Type& Type::ResolveQualifiers(std::set<QualifierKind>&) const {
   return *this;
 }
 
@@ -1020,7 +1025,7 @@ const Type& Qualifier::ResolveQualifiers(
   return GetType(GetQualifiedTypeId()).ResolveQualifiers(qualifiers);
 }
 
-const Type& Type::ResolveTypedef(std::vector<std::string>& typedefs) const {
+const Type& Type::ResolveTypedef(std::vector<std::string>&) const {
   return *this;
 }
 
@@ -1042,43 +1047,49 @@ std::string StructUnion::GetFirstName() const {
   const auto& name = GetName();
   if (!name.empty())
     return name;
-  const auto& members = GetMembers();
-  for (const auto& member : members) {
-    const auto recursive = GetType(member).GetFirstName();
-    if (!recursive.empty())
-      return recursive;
+  if (const auto& definition = GetDefinition()) {
+    const auto& members = definition->members;
+    for (const auto& member : members) {
+      const auto recursive = GetType(member).GetFirstName();
+      if (!recursive.empty())
+        return recursive;
+    }
   }
   return {};
 }
 
 std::vector<std::pair<std::string, size_t>> StructUnion::GetMemberNames()
     const {
-  const auto& members = GetMembers();
-  const auto size = members.size();
   std::vector<std::pair<std::string, size_t>> names;
-  names.reserve(size);
-  size_t anonymous_ix = 0;
-  for (size_t ix = 0; ix < size; ++ix) {
-    const auto& member = GetType(members[ix]);
-    auto key = member.GetFirstName();
-    if (key.empty())
-      key = "#anon#" + std::to_string(anonymous_ix++);
-    names.push_back({key, ix});
+  if (const auto& definition = GetDefinition()) {
+    const auto& members = definition->members;
+    const auto size = members.size();
+    names.reserve(size);
+    size_t anonymous_ix = 0;
+    for (size_t ix = 0; ix < size; ++ix) {
+      const auto& member = GetType(members[ix]);
+      auto key = member.GetFirstName();
+      if (key.empty())
+        key = "#anon#" + std::to_string(anonymous_ix++);
+      names.push_back({key, ix});
+    }
+    std::stable_sort(names.begin(), names.end());
   }
-  std::stable_sort(names.begin(), names.end());
   return names;
 }
 
 std::vector<std::pair<std::string, size_t>> Enumeration::GetEnumNames() const {
-  const auto& enums = GetEnums();
-  const auto size = enums.size();
   std::vector<std::pair<std::string, size_t>> names;
-  names.reserve(size);
-  for (size_t ix = 0; ix < size; ++ix) {
-    const auto& name = enums[ix].first;
-    names.push_back({name, ix});
+  if (const auto& definition = GetDefinition()) {
+    const auto& enums = definition->enumerators;
+    const auto size = enums.size();
+    names.reserve(size);
+    for (size_t ix = 0; ix < size; ++ix) {
+      const auto& name = enums[ix].first;
+      names.push_back({name, ix});
+    }
+    std::stable_sort(names.begin(), names.end());
   }
-  std::stable_sort(names.begin(), names.end());
   return names;
 }
 
@@ -1089,21 +1100,6 @@ std::ostream& operator<<(std::ostream& os, StructUnionKind kind) {
       break;
     case StructUnionKind::UNION:
       os << "union";
-      break;
-  }
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, ForwardDeclarationKind kind) {
-  switch (kind) {
-    case ForwardDeclarationKind::STRUCT:
-      os << "struct";
-      break;
-    case ForwardDeclarationKind::UNION:
-      os << "union";
-      break;
-    case ForwardDeclarationKind::ENUM:
-      os << "enum";
       break;
   }
   return os;
@@ -1129,4 +1125,4 @@ std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {
   return os << (ix < kIntEncoding.size() ? kIntEncoding[ix] : "(unknown)");
 }
 
-}  // end namespace stg
+}  // namespace stg
