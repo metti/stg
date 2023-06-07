@@ -72,15 +72,6 @@ Id ResolveTypedefs(
   return id;
 }
 
-static constexpr std::array<std::string_view, 6> kIntEncoding = {
-    "boolean",
-    "signed integer",
-    "unsigned integer",
-    "signed character",
-    "unsigned character",
-    "UTF",
-};
-
 Name Name::Add(Side side, Precedence precedence,
                const std::string& text) const {
   bool bracket = precedence < precedence_;
@@ -91,7 +82,7 @@ Name Name::Add(Side side, Precedence precedence,
   left << left_;
   if (bracket)
     left << '(';
-  else if (side == Side::LEFT)
+  else if (side == Side::LEFT && precedence == Precedence::ATOMIC)
     left << ' ';
 
   (side == Side::LEFT ? left : right) << text;
@@ -407,13 +398,12 @@ Name Function::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
   os << '(';
   bool sep = false;
-  for (const auto& p : parameters) {
+  for (const Id p : parameters) {
     if (sep)
       os << ", ";
     else
       sep = true;
-    // do not emit parameter name as it's not part of the type
-    os << GetDescription(graph, names, p.type_id);
+    os << GetDescription(graph, names, p);
   }
   os << ')';
   return GetDescription(graph, names, return_type_id)
@@ -720,42 +710,23 @@ Result Function::Equals(State& state, const Node& other) const {
   const auto& parameters2 = o.parameters;
   size_t min = std::min(parameters1.size(), parameters2.size());
   for (size_t i = 0; i < min; ++i) {
-    const auto& p1 = parameters1.at(i);
-    const auto& p2 = parameters2.at(i);
+    const Id p1 = parameters1.at(i);
+    const Id p2 = parameters2.at(i);
     result.MaybeAddEdgeDiff(
         [&](std::ostream& os) {
           os << "parameter " << i + 1;
-          const auto& n1 = p1.name;
-          const auto& n2 = p2.name;
-          if (n1 == n2 && !n1.empty()) {
-            os << " (" << std::quoted(n1, '\'') << ")";
-          } else if (n1 != n2) {
-            os << " (";
-            if (!n1.empty())
-              os << "was " << std::quoted(n1, '\'');
-            if (!n1.empty() && !n2.empty())
-              os << ", ";
-            if (!n2.empty())
-              os << "now " << std::quoted(n2, '\'');
-            os << ")";
-          }
         },
-        Compare(state, p1.type_id, p2.type_id));
+        Compare(state, p1, p2));
   }
 
   bool added = parameters1.size() < parameters2.size();
   const auto& which = added ? o : *this;
   const auto& parameters = which.parameters;
   for (size_t i = min; i < parameters.size(); ++i) {
-    const auto& parameter = parameters.at(i);
+    const Id parameter = parameters.at(i);
     std::ostringstream os;
-    os << "parameter " << i + 1;
-    if (!parameter.name.empty())
-      os << " (" << std::quoted(parameter.name, '\'') << ")";
-    os << " of";
-    const auto parameter_type = parameter.type_id;
-    auto diff =
-        added ? Added(state, parameter_type) : Removed(state, parameter_type);
+    os << "parameter " << i + 1 << " of";
+    auto diff = added ? Added(state, parameter) : Removed(state, parameter);
     result.AddEdgeDiff(os.str(), diff);
   }
 
@@ -811,7 +782,7 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   //
   // MODVERSIONS CRC - fundamental to ABI compatibility, if present
   //
-  // Symbol namespaces - not yet supported by symtab_reader
+  // Symbol namespace - fundamental to ABI compatibility, if present
 
   Result result;
   result.MaybeAddNodeDiff("name", symbol_name, o.symbol_name);
@@ -831,6 +802,7 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   result.MaybeAddNodeDiff("binding", binding, o.binding);
   result.MaybeAddNodeDiff("visibility", visibility, o.visibility);
   result.MaybeAddNodeDiff("CRC", crc, o.crc);
+  result.MaybeAddNodeDiff("namespace", ns, o.ns);
 
   if (type_id && o.type_id) {
     result.MaybeAddEdgeDiff("", Compare(state, *type_id, *o.type_id));
@@ -974,112 +946,82 @@ std::vector<std::pair<std::string, size_t>> Enumeration::GetEnumNames() const {
 std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance) {
   switch (inheritance) {
     case BaseClass::Inheritance::NON_VIRTUAL:
-      os << "non-virtual";
-      break;
+      return os << "non-virtual";
     case BaseClass::Inheritance::VIRTUAL:
-      os << "virtual";
-      break;
+      return os << "virtual";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, Method::Kind kind) {
   switch (kind) {
     case Method::Kind::NON_VIRTUAL:
-      os << "non-virtual";
-      break;
+      return os << "non-virtual";
     case Method::Kind::STATIC:
-      os << "static";
-      break;
+      return os << "static";
     case Method::Kind::VIRTUAL:
-      os << "virtual";
-      break;
+      return os << "virtual";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind) {
   switch (kind) {
     case StructUnion::Kind::CLASS:
-      os << "class";
-      break;
+      return os << "class";
     case StructUnion::Kind::STRUCT:
-      os << "struct";
-      break;
+      return os << "struct";
     case StructUnion::Kind::UNION:
-      os << "union";
-      break;
+      return os << "union";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, Qualifier qualifier) {
   switch (qualifier) {
     case Qualifier::CONST:
-      os << "const";
-      break;
+      return os << "const";
     case Qualifier::VOLATILE:
-      os << "volatile";
-      break;
+      return os << "volatile";
     case Qualifier::RESTRICT:
-      os << "restrict";
-      break;
+      return os << "restrict";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType type) {
   switch (type) {
     case ElfSymbol::SymbolType::OBJECT:
-      os << "variable";
-      break;
+      return os << "variable";
     case ElfSymbol::SymbolType::FUNCTION:
-      os << "function";
-      break;
+      return os << "function";
     case ElfSymbol::SymbolType::COMMON:
-      os << "common";
-      break;
+      return os << "common";
     case ElfSymbol::SymbolType::TLS:
-      os << "TLS";
-      break;
+      return os << "TLS";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Binding binding) {
   switch (binding) {
     case ElfSymbol::Binding::GLOBAL:
-      os << "global";
-      break;
+      return os << "global";
     case ElfSymbol::Binding::LOCAL:
-      os << "local";
-      break;
+      return os << "local";
     case ElfSymbol::Binding::WEAK:
-      os << "weak";
-      break;
+      return os << "weak";
     case ElfSymbol::Binding::GNU_UNIQUE:
-      os << "GNU unique";
-      break;
+      return os << "GNU unique";
   }
-  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::Visibility visibility) {
   switch (visibility) {
     case ElfSymbol::Visibility::DEFAULT:
-      os << "default";
-      break;
+      return os << "default";
     case ElfSymbol::Visibility::PROTECTED:
-      os << "protected";
-      break;
+      return os << "protected";
     case ElfSymbol::Visibility::HIDDEN:
-      os << "hidden";
-      break;
+      return os << "hidden";
     case ElfSymbol::Visibility::INTERNAL:
-      os << "internal";
-      break;
+      return os << "internal";
   }
-  return os;
 }
 
 std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info) {
@@ -1090,28 +1032,35 @@ std::string VersionInfoToString(const ElfSymbol::VersionInfo& version_info) {
 std::ostream& operator<<(std::ostream& os, const SymbolKey& key) {
   if (!key.path.empty())
     os << key << ':';
-  os << key.name;
-  return os;
+  return os << key.name;
 }
 
 std::ostream& operator<<(std::ostream& os, Integer::Encoding encoding) {
-  auto ix = static_cast<size_t>(encoding);
-  return os << (ix < kIntEncoding.size() ? kIntEncoding[ix] : "(unknown)");
+  switch (encoding) {
+    case Integer::Encoding::BOOLEAN:
+      return os << "boolean";
+    case Integer::Encoding::SIGNED_INTEGER:
+      return os << "signed integer";
+    case Integer::Encoding::UNSIGNED_INTEGER:
+      return os << "unsigned integer";
+    case Integer::Encoding::SIGNED_CHARACTER:
+      return os << "signed character";
+    case Integer::Encoding::UNSIGNED_CHARACTER:
+      return os << "unsigned character";
+    case Integer::Encoding::UTF:
+      return os << "UTF";
+  }
 }
 
 std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind) {
   switch (kind) {
     case PointerReference::Kind::POINTER:
-      os << "pointer";
-      break;
+      return os << "pointer";
     case PointerReference::Kind::LVALUE_REFERENCE:
-      os << "lvalue reference";
-      break;
+      return os << "lvalue reference";
     case PointerReference::Kind::RVALUE_REFERENCE:
-      os << "rvalue reference";
-      break;
+      return os << "rvalue reference";
   }
-  return os;
 }
 
 }  // namespace stg

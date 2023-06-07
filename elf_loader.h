@@ -79,11 +79,15 @@ class ElfLoader final {
 
   std::string_view GetBtfRawData() const;
   std::vector<SymbolTableEntry> GetElfSymbols() const;
+  bool IsLinuxKernelBinary() const;
 
  private:
+  void InitializeElfInformation();
+
   const bool verbose_;
   int fd_;
   Elf* elf_;
+  bool is_linux_kernel_binary_;
 };
 
 }  // namespace elf

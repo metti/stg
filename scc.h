@@ -109,11 +109,14 @@ class SCC {
     Check(ix < open_.size()) << "internal error: illegal SCC node index";
     if (ix == root_index_.back()) {
       // Close SCC.
-      for (size_t o = ix; o < open_.size(); ++o)
-        is_open_.erase(open_[o]);
-      std::move(open_.begin() + ix, open_.end(), std::back_inserter(scc));
-      open_.resize(ix);
       root_index_.pop_back();
+      const auto begin = open_.begin() + ix;
+      const auto end = open_.end();
+      for (auto it = begin; it != end; ++it)
+        is_open_.erase(*it);
+      scc.reserve(end - begin);
+      std::move(begin, end, std::back_inserter(scc));
+      open_.erase(begin, end);
     }
     return scc;
   }
