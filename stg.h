@@ -131,6 +131,13 @@ struct Diff {
 };
 
 struct Result {
+  // Used when two nodes cannot be meaningfully compared.
+  Result& MarkIncomparable() {
+    equals_ = false;
+    diff_.has_changes = true;
+    return *this;
+  }
+
   // Used when a node attribute has changed.
   void AddNodeDiff(const std::string& text) {
     equals_ = false;
@@ -266,15 +273,24 @@ class Variadic : public Type {
 
 class Ptr : public Type {
  public:
-  Ptr(Id pointeeTypeId)
-      : pointeeTypeId_(pointeeTypeId) {}
+  enum class Kind {
+    POINTER,
+    LVALUE_REFERENCE,
+    RVALUE_REFERENCE,
+  };
+  Ptr(Kind kind, Id pointeeTypeId)
+      : kind_(kind), pointeeTypeId_(pointeeTypeId) {}
+  Kind GetKind() const { return kind_; }
   Id GetPointeeTypeId() const { return pointeeTypeId_; }
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
   Result Equals(State& state, const Type& other) const final;
 
  private:
+  const Kind kind_;
   const Id pointeeTypeId_;
 };
+
+std::ostream& operator<<(std::ostream& os, Ptr::Kind kind);
 
 class Typedef : public Type {
  public:
@@ -457,9 +473,9 @@ class Function : public Type {
 
 class ElfSymbol : public Type {
  public:
-  ElfSymbol(abigail::elf_symbol_sptr symbol, std::optional<Id> type_id)
-      : symbol_(symbol),
-        type_id_(type_id) {}
+  ElfSymbol(abigail::elf_symbol_sptr symbol, std::optional<Id> type_id,
+            std::optional<std::string> full_name)
+      : symbol_(symbol), type_id_(type_id), full_name_(full_name) {}
   abigail::elf_symbol_sptr GetElfSymbol() const { return symbol_; }
   std::optional<Id> GetTypeId() const { return type_id_; }
   std::string GetKindDescription() const final;
@@ -469,6 +485,7 @@ class ElfSymbol : public Type {
  private:
   abigail::elf_symbol_sptr symbol_;
   std::optional<Id> type_id_;
+  std::optional<std::string> full_name_;
 };
 
 class Symbols : public Type {
