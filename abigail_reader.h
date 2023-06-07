@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2021 Google LLC
+// Copyright 2021-2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -16,6 +16,7 @@
 // limitations under the License.
 //
 // Author: Giuliano Procida
+// Author: Ignes Simeonova
 
 #ifndef STG_ABIGAIL_READER_H_
 #define STG_ABIGAIL_READER_H_
@@ -125,7 +126,7 @@ class Abigail {
   void ProcessInstr(xmlNodePtr instr);
   void ProcessNamespace(xmlNodePtr scope);
 
-  void ProcessDecl(bool is_variable, xmlNodePtr decl);
+  Id ProcessDecl(bool is_variable, xmlNodePtr decl);
 
   void ProcessFunctionType(Id id, xmlNodePtr function);
   void ProcessTypedef(Id id, xmlNodePtr type_definition);
@@ -137,7 +138,8 @@ class Abigail {
   void ProcessEnum(Id id, xmlNodePtr enumeration);
 
   Id ProcessBaseClass(xmlNodePtr base_class);
-  Id ProcessDataMember(bool is_struct, xmlNodePtr data_member);
+  std::optional<Id> ProcessDataMember(bool is_struct, xmlNodePtr data_member);
+  Id ProcessMemberFunction(xmlNodePtr method);
   void ProcessMemberType(xmlNodePtr member_type);
 
   Id BuildSymbol(const SymbolInfo& info,

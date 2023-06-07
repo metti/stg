@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2021 Google LLC
+// Copyright 2021-2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -16,6 +16,7 @@
 // limitations under the License.
 //
 // Author: Giuliano Procida
+// Author: Ignes Simeonova
 
 #include "abigail_reader.h"
 
@@ -442,9 +443,8 @@ void Abigail::ProcessNamespace(xmlNodePtr scope) {
   ProcessScope(scope);
 }
 
-void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
+Id Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
   const auto name = scope_name_ + GetAttributeOrDie(decl, "name");
-  const auto mangled_name = GetAttribute(decl, "mangled-name");
   const auto symbol_id = GetAttribute(decl, "elf-symbol-id");
   const auto type = is_variable ? GetEdge(decl)
                                 : graph_.Add(MakeFunctionType(decl));
@@ -459,6 +459,7 @@ void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
     if (!inserted && it->second.first != type)
       Die() << "conflicting types for '" << *symbol_id << "'";
   }
+  return type;
 }
 
 void Abigail::ProcessFunctionType(Id id, xmlNodePtr function) {
@@ -579,8 +580,13 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
 
 void Abigail::ProcessStructUnion(Id id, bool is_struct,
                                  xmlNodePtr struct_union) {
-  bool forward =
-      ReadAttribute<bool>(struct_union, "is-declaration-only", false);
+  // TODO(b/236675648)
+  // Libabigail is reporting wrong information for is-declaration-only so it is
+  // not reliable. We are looking at the children of the element instead.
+  // It can be removed once the bug is fixed.
+  const bool forward =
+      ReadAttribute<bool>(struct_union, "is-declaration-only", false)
+      && !xmlFirstElementChild(struct_union);
   const auto kind = is_struct
                     ? (ReadAttribute<bool>(struct_union, "is-struct", false)
                            ? StructUnion::Kind::STRUCT
@@ -605,25 +611,30 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
   const auto bytes = (bits + 7) / 8;
 
   std::vector<Id> base_classes;
+  std::vector<Id> methods;
   std::vector<Id> members;
   for (xmlNodePtr child = xmlFirstElementChild(struct_union); child;
        child = xmlNextElementSibling(child)) {
     const auto child_name = GetElementName(child);
     if (child_name == "data-member") {
-      members.push_back(ProcessDataMember(is_struct, child));
+      if (const auto member = ProcessDataMember(is_struct, child))
+        members.push_back(*member);
     } else if (child_name == "member-type") {
       ProcessMemberType(child);
     } else if (child_name == "base-class") {
       base_classes.push_back(ProcessBaseClass(child));
+    } else if (child_name == "member-function") {
+      methods.push_back(ProcessMemberFunction(child));
     } else {
       Die() << "unrecognised " << kind << "-decl child element '" << child_name
             << "'";
     }
   }
 
-  graph_.Set(id,
-             Make<StructUnion>(kind, full_name, bytes, base_classes, members));
-  if (verbose_) std::cerr << id << " " << kind << " " << full_name << "\n";
+  graph_.Set(id, Make<StructUnion>(kind, full_name, bytes, base_classes,
+                                   methods, members));
+  if (verbose_)
+    std::cerr << id << " " << kind << " " << full_name << "\n";
 }
 
 void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
@@ -671,17 +682,39 @@ Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {
   return graph_.Add(Make<BaseClass>(type, offset, inheritance));
 }
 
-Id Abigail::ProcessDataMember(bool is_struct, xmlNodePtr data_member) {
+std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
+                                             xmlNodePtr data_member) {
+  xmlNodePtr decl = GetOnlyChild("data-member", data_member);
+  CheckElementName("var-decl", decl);
+  if (ReadAttribute<bool>(data_member, "static", false)) {
+    ProcessDecl(true, decl);
+    return {};
+  }
+
   size_t offset = is_struct
               ? ReadAttributeOrDie<size_t>(data_member, "layout-offset-in-bits")
               : 0;
-  xmlNodePtr decl = GetOnlyChild("data-member", data_member);
-  CheckElementName("var-decl", decl);
   const auto name = GetAttributeOrDie(decl, "name");
   const auto type = GetEdge(decl);
 
   // Note: libabigail does not model member size, yet
-  return graph_.Add(Make<Member>(name, type, offset, 0));
+  return {graph_.Add(Make<Member>(name, type, offset, 0))};
+}
+
+Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
+  xmlNodePtr decl = GetOnlyChild("member-function", method);
+  CheckElementName("function-decl", decl);
+  const auto mangled_name = GetAttributeOrDie(decl, "mangled-name");
+  const auto name = GetAttributeOrDie(decl, "name");
+  const auto type = ProcessDecl(false, decl);
+  const auto vtable_offset = ReadAttribute<uint64_t>(method, "vtable-offset");
+  const auto kind = vtable_offset
+                    ? Method::Kind::VIRTUAL
+                    : ReadAttribute<bool>(method, "static", false)
+                       ? Method::Kind::STATIC
+                       : Method::Kind::NON_VIRTUAL;
+  return graph_.Add(
+      Make<Method>(mangled_name, name, kind, vtable_offset, type));
 }
 
 void Abigail::ProcessMemberType(xmlNodePtr member_type) {

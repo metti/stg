@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020-2021 Google LLC
+// Copyright 2020-2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -17,6 +17,7 @@
 //
 // Author: Maria Teguiani
 // Author: Giuliano Procida
+// Author: Ignes Simeonova
 
 #include "stg.h"
 
@@ -249,8 +250,8 @@ std::pair<bool, std::optional<Comparison>> Compare(
         ++it2;
       }
     }
-    const auto comp = Compare(state, unqualified1, unqualified2);
-    result.MaybeAddEdgeDiff("underlying", comp);
+    const auto type_diff = Compare(state, unqualified1, unqualified2);
+    result.MaybeAddEdgeDiff("underlying", type_diff);
   } else {
     std::vector<std::string> typedefs1;
     std::vector<std::string> typedefs2;
@@ -258,10 +259,9 @@ std::pair<bool, std::optional<Comparison>> Compare(
     const Id resolved2 = ResolveTypedefs(graph, unqualified2, typedefs2);
     if (unqualified1 != resolved1 || unqualified2 != resolved2) {
       // 3.2 Typedef difference.
-      const auto comp = Compare(state, resolved1, resolved2);
       result.diff_.holds_changes = !typedefs1.empty() && !typedefs2.empty()
                                    && typedefs1[0] == typedefs2[0];
-      result.MaybeAddEdgeDiff("resolved", comp);
+      result.MaybeAddEdgeDiff("resolved", Compare(state, resolved1, resolved2));
     } else {
       const auto& type1 = graph.Get(unqualified1);
       const auto& type2 = graph.Get(unqualified2);
@@ -368,6 +368,12 @@ Name Member::MakeDescription(const Graph& graph, NameCache& names) const {
   return description;
 }
 
+Name Method::MakeDescription(const Graph&, NameCache&) const {
+  if (mangled_name == name)
+    return Name{name};
+  return Name{name + " {" + mangled_name + "}"};
+}
+
 Name StructUnion::MakeDescription(const Graph& graph, NameCache& names) const {
   std::ostringstream os;
   os << kind << ' ';
@@ -429,6 +435,8 @@ std::string BaseClass::GetKindDescription() const { return "base class"; }
 
 std::string Member::GetKindDescription() const { return "member"; }
 
+std::string Method::GetKindDescription() const { return "method"; }
+
 std::string ElfSymbol::GetKindDescription() const { return "symbol"; }
 
 std::string Symbols::GetKindDescription() const { return "symbols"; }
@@ -443,10 +451,10 @@ Result PointerReference::Equals(State& state, const Node& other) const {
   Result result;
   if (kind != o.kind)
     return result.MarkIncomparable();
-  const auto ref_diff = Compare(state, pointee_type_id, o.pointee_type_id);
+  const auto type_diff = Compare(state, pointee_type_id, o.pointee_type_id);
   const auto text =
       kind == PointerReference::Kind::POINTER ? "pointed-to" : "referred-to";
-  result.MaybeAddEdgeDiff(text, ref_diff);
+  result.MaybeAddEdgeDiff(text, type_diff);
   return result;
 }
 
@@ -477,9 +485,8 @@ Result Array::Equals(State& state, const Node& other) const {
   Result result;
   result.MaybeAddNodeDiff("number of elements",
                           number_of_elements, o.number_of_elements);
-  const auto element_type_diff =
-      Compare(state, element_type_id, o.element_type_id);
-  result.MaybeAddEdgeDiff("element", element_type_diff);
+  const auto type_diff = Compare(state, element_type_id, o.element_type_id);
+  result.MaybeAddEdgeDiff("element", type_diff);
   return result;
 }
 
@@ -538,16 +545,18 @@ static MatchedPairs PairUp(const KeyIndexPairs& keys1,
       ++it2;
     }
   }
-  Reorder(pairs);
   return pairs;
 }
 
 static void CompareNodes(Result& result, State& state,
                          const std::vector<Id>& nodes1,
-                         const std::vector<Id>& nodes2) {
-  const auto& keys1 = MatchingKeys(state.graph, nodes1);
-  const auto& keys2 = MatchingKeys(state.graph, nodes2);
-  const auto& pairs = PairUp(keys1, keys2);
+                         const std::vector<Id>& nodes2,
+                         const bool reorder) {
+  const auto keys1 = MatchingKeys(state.graph, nodes1);
+  const auto keys2 = MatchingKeys(state.graph, nodes2);
+  auto pairs = PairUp(keys1, keys2);
+  if (reorder)
+    Reorder(pairs);
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
       // removed
@@ -572,8 +581,7 @@ Result BaseClass::Equals(State& state, const Node& other) const {
   Result result;
   result.MaybeAddNodeDiff("inheritance", inheritance, o.inheritance);
   result.MaybeAddNodeDiff("offset", offset, o.offset);
-  const auto sub_diff = Compare(state, type_id, o.type_id);
-  result.MaybeAddEdgeDiff("", sub_diff);
+  result.MaybeAddEdgeDiff("", Compare(state, type_id, o.type_id));
   return result;
 }
 
@@ -583,8 +591,17 @@ Result Member::Equals(State& state, const Node& other) const {
   Result result;
   result.MaybeAddNodeDiff("offset", offset, o.offset);
   result.MaybeAddNodeDiff("size", bitsize, o.bitsize);
-  const auto sub_diff = Compare(state, type_id, o.type_id);
-  result.MaybeAddEdgeDiff("", sub_diff);
+  result.MaybeAddEdgeDiff("", Compare(state, type_id, o.type_id));
+  return result;
+}
+
+Result Method::Equals(State& state, const Node& other) const {
+  const auto& o = other.as<Method>();
+
+  Result result;
+  result.MaybeAddNodeDiff("kind", kind, o.kind);
+  result.MaybeAddNodeDiff("vtable offset", vtable_offset, o.vtable_offset);
+  result.MaybeAddEdgeDiff("", Compare(state, type_id, o.type_id));
   return result;
 }
 
@@ -607,8 +624,10 @@ Result StructUnion::Equals(State& state, const Node& other) const {
   result.MaybeAddNodeDiff(
       "byte size", definition1->bytesize, definition2->bytesize);
   CompareNodes(
-      result, state, definition1->base_classes, definition2->base_classes);
-  CompareNodes(result, state, definition1->members, definition2->members);
+     result, state, definition1->base_classes, definition2->base_classes, true);
+  CompareNodes(
+     result, state, definition1->methods, definition2->methods, false);
+  CompareNodes(result, state, definition1->members, definition2->members, true);
 
   return result;
 }
@@ -635,7 +654,8 @@ Result Enumeration::Equals(State&, const Node& other) const {
   const auto enums2 = definition2->enumerators;
   const auto names1 = GetEnumNames();
   const auto names2 = o.GetEnumNames();
-  const auto pairs = PairUp(names1, names2);
+  auto pairs = PairUp(names1, names2);
+  Reorder(pairs);
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
       // removed
@@ -670,9 +690,8 @@ Result Function::Equals(State& state, const Node& other) const {
   const auto& o = other.as<Function>();
 
   Result result;
-  const auto return_type_diff
-      = Compare(state, return_type_id, o.return_type_id);
-  result.MaybeAddEdgeDiff("return", return_type_diff);
+  const auto type_diff = Compare(state, return_type_id, o.return_type_id);
+  result.MaybeAddEdgeDiff("return", type_diff);
 
   const auto& parameters1 = parameters;
   const auto& parameters2 = o.parameters;
@@ -680,7 +699,6 @@ Result Function::Equals(State& state, const Node& other) const {
   for (size_t i = 0; i < min; ++i) {
     const auto& p1 = parameters1.at(i);
     const auto& p2 = parameters2.at(i);
-    const auto sub_diff = Compare(state, p1.type_id, p2.type_id);
     result.MaybeAddEdgeDiff(
         [&](std::ostream& os) {
           os << "parameter " << i + 1;
@@ -699,7 +717,7 @@ Result Function::Equals(State& state, const Node& other) const {
             os << ")";
           }
         },
-        sub_diff);
+        Compare(state, p1.type_id, p2.type_id));
   }
 
   bool added = parameters1.size() < parameters2.size();
@@ -786,8 +804,7 @@ Result ElfSymbol::Equals(State& state, const Node& other) const {
   result.MaybeAddNodeDiff("CRC", crc, o.crc);
 
   if (type_id && o.type_id) {
-    const auto type_diff = Compare(state, *type_id, *o.type_id);
-    result.MaybeAddEdgeDiff("", type_diff);
+    result.MaybeAddEdgeDiff("", Compare(state, *type_id, *o.type_id));
   } else if (type_id) {
     result.AddEdgeDiff("", Removed(state, *type_id));
   } else if (o.type_id) {
@@ -886,6 +903,10 @@ std::string Member::MatchingKey(const Graph& graph) const {
   return graph.Get(type_id).MatchingKey(graph);
 }
 
+std::string Method::MatchingKey(const Graph&) const {
+  return name + ',' + mangled_name;
+}
+
 std::string StructUnion::MatchingKey(const Graph& graph) const {
   if (!name.empty())
     return name;
@@ -921,6 +942,21 @@ std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance) {
       os << "non-virtual";
       break;
     case BaseClass::Inheritance::VIRTUAL:
+      os << "virtual";
+      break;
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, Method::Kind kind) {
+  switch (kind) {
+    case Method::Kind::NON_VIRTUAL:
+      os << "non-virtual";
+      break;
+    case Method::Kind::STATIC:
+      os << "static";
+      break;
+    case Method::Kind::VIRTUAL:
       os << "virtual";
       break;
   }
