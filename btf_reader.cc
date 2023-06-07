@@ -20,70 +20,22 @@
 
 #include "btf_reader.h"
 
+#include <fcntl.h>
+#include <unistd.h>
+
+#include <gelf.h>
+
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <string_view>
 #include <utility>
 
-#include <abg-tools-utils.h>  // for base_name
-#include <abg-elf-helpers.h>  // for find_section
-#include <abg-symtab-reader.h>  // for symtab_reader
 #include "error.h"
 
 namespace stg {
-
-namespace {
-
-// abigail::elfsymbol -> ElfSymbol translation functions
-
-ElfSymbol::SymbolType FromAbigail(abigail::elf_symbol::type from) {
-  switch (from) {
-    case abigail::elf_symbol::OBJECT_TYPE:
-      return ElfSymbol::SymbolType::OBJECT;
-    case abigail::elf_symbol::FUNC_TYPE:
-      return ElfSymbol::SymbolType::FUNCTION;
-    case abigail::elf_symbol::COMMON_TYPE:
-      return ElfSymbol::SymbolType::COMMON;
-    case abigail::elf_symbol::TLS_TYPE:
-      return ElfSymbol::SymbolType::TLS;
-    default:
-      Die() << "unhandled libabigail symbol type " << from;
-  }
-}
-
-ElfSymbol::Binding FromAbigail(abigail::elf_symbol::binding from) {
-  switch (from) {
-    case abigail::elf_symbol::LOCAL_BINDING:
-      return ElfSymbol::Binding::LOCAL;
-    case abigail::elf_symbol::GLOBAL_BINDING:
-      return ElfSymbol::Binding::GLOBAL;
-    case abigail::elf_symbol::WEAK_BINDING:
-      return ElfSymbol::Binding::WEAK;
-    case abigail::elf_symbol::GNU_UNIQUE_BINDING:
-      return ElfSymbol::Binding::GNU_UNIQUE;
-    default:
-      Die() << "unhandled libabigail binding " << from;
-  }
-}
-
-ElfSymbol::Visibility FromAbigail(abigail::elf_symbol::visibility from) {
-  switch (from) {
-    case abigail::elf_symbol::DEFAULT_VISIBILITY:
-      return ElfSymbol::Visibility::DEFAULT;
-    case abigail::elf_symbol::PROTECTED_VISIBILITY:
-      return ElfSymbol::Visibility::PROTECTED;
-    case abigail::elf_symbol::HIDDEN_VISIBILITY:
-      return ElfSymbol::Visibility::HIDDEN;
-    case abigail::elf_symbol::INTERNAL_VISIBILITY:
-      return ElfSymbol::Visibility::INTERNAL;
-    default:
-      Die() << "unhandled libabigail visibility " << from;
-  }
-}
-
-}  // namespace
 
 namespace btf {
 
@@ -119,11 +71,8 @@ const T* Structs::MemoryRange::Pull(size_t count) {
   return reinterpret_cast<const T*>(saved);
 }
 
-Structs::Structs(Graph& graph,
-                 std::unique_ptr<abigail::ir::environment> env,
-                 const abigail::symtab_reader::symtab_sptr tab,
-                 const bool verbose)
-    : graph_(graph), env_(std::move(env)), tab_(tab), verbose_(verbose) { }
+Structs::Structs(Graph& graph, const bool verbose)
+    : graph_(graph), verbose_(verbose) { }
 
 // Get the index of the void type, creating one if needed.
 Id Structs::GetVoid() {
@@ -436,8 +385,15 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << '\n';
       }
 
-      bool inserted = btf_symbol_types_.insert({name, GetId(t->type)}).second;
-      Check(inserted) << "Insertion failed, duplicate found in symbol map";
+      define(Make<ElfSymbol>(name, std::string(), false, true,
+                             ElfSymbol::SymbolType::FUNCTION,
+                             ElfSymbol::Binding::GLOBAL,
+                             ElfSymbol::Visibility::DEFAULT,
+                             std::nullopt,
+                             GetId(t->type),
+                             std::nullopt));
+      bool inserted = btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
+      Check(inserted) << "duplicate symbol " << name;
       break;
     }
     case BTF_KIND_FUNC_PROTO: {
@@ -464,8 +420,15 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                   << '\n';
       }
 
-      bool inserted = btf_symbol_types_.insert({name, GetId(t->type)}).second;
-      Check(inserted) << "Insertion failed, duplicate found in symbol map";
+      define(Make<ElfSymbol>(name, std::string(), false, true,
+                             ElfSymbol::SymbolType::OBJECT,
+                             ElfSymbol::Binding::GLOBAL,
+                             ElfSymbol::Visibility::DEFAULT,
+                             std::nullopt,
+                             GetId(t->type),
+                             std::nullopt));
+      bool inserted = btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
+      Check(inserted) << "duplicate symbol " << name;
       break;
     }
     case BTF_KIND_DATASEC: {
@@ -505,100 +468,61 @@ void Structs::PrintStrings(MemoryRange memory) {
 }
 
 Id Structs::BuildSymbols() {
-  const auto filter = [&]() {
-    auto filter = tab_->make_filter();
-    filter.set_public_symbols();
-    return filter;
-  }();
-  std::map<std::string, Id> elf_symbols;
-  for (const auto& symbol :
-           abigail::symtab_reader::filtered_symtab(*tab_, filter)) {
-    std::optional<Id> type_id;
-    const auto& symbol_name = symbol->get_name();
-    const auto& main_symbol_name = symbol->get_main_symbol()->get_name();
-    auto it = btf_symbol_types_.find(main_symbol_name);
-    if (it == btf_symbol_types_.end()) {
-      // missing BTF information is tracked explicitly
-      std::cerr << "ELF symbol " << std::quoted(symbol_name, '\'');
-      if (symbol_name != main_symbol_name)
-        std::cerr << " (aliased to " << std::quoted(main_symbol_name, '\'')
-                  << ')';
-      std::cerr << " BTF info missing\n";
-    } else {
-      type_id = {it->second};
-    }
-
-    const auto abigail_version = symbol->get_version();
-    const auto abigail_symbol_type = symbol->get_type();
-    const auto abigail_binding = symbol->get_binding();
-    const auto abigail_visibility = symbol->get_visibility();
-    const auto abigail_crc = symbol->get_crc();
-
-    elf_symbols.emplace(symbol->get_id_string(),
-                        graph_.Add(Make<ElfSymbol>(
-                            symbol_name,
-                            abigail_version.str(),
-                            abigail_version.is_default(),
-                            symbol->is_defined(),
-                            FromAbigail(abigail_symbol_type),
-                            FromAbigail(abigail_binding),
-                            FromAbigail(abigail_visibility),
-                            abigail_crc
-                              ? std::make_optional(CRC{abigail_crc})
-                              : std::nullopt,
-                            type_id, /*full_name_=*/std::nullopt)));
-  }
-  return graph_.Add(Make<Symbols>(elf_symbols));
+  return graph_.Add(Make<Symbols>(btf_symbols_));
 }
 
-class ElfHandle {
+Elf_Scn* GetBtfSection(Elf* elf) {
+  size_t shdr_strtab_index;
+  if (elf_getshdrstrndx(elf, &shdr_strtab_index) < 0)
+    Die() << "Could not get ELF section header string table index";
+
+  Elf_Scn* section = nullptr;
+  GElf_Shdr header;
+  while ((section = elf_nextscn(elf, section)) != nullptr) {
+    Check(gelf_getshdr(section, &header)) << "Could not get ELF section header";
+    const char* name = elf_strptr(elf, shdr_strtab_index, header.sh_name);
+    if (strcmp(name, ".BTF") == 0)
+      break;
+  }
+  return section;
+}
+
+class ElfReader {
  public:
-  ElfHandle(const std::string& path) : dwfl_(nullptr, dwfl_end) {
-    std::string name;
-    abigail::tools_utils::base_name(path, name);
-
-    elf_version(EV_CURRENT);
-
-    dwfl_ = std::unique_ptr<Dwfl, decltype(&dwfl_end)>(
-        dwfl_begin(&offline_callbacks_), dwfl_end);
-    auto dwfl_module =
-        dwfl_report_offline(dwfl_.get(), name.c_str(), path.c_str(), -1);
-    GElf_Addr bias;
-    elf_handle_ = dwfl_module_getelf(dwfl_module, &bias);
+  ElfReader(const std::string& path)
+      : fd_(-1), elf_(nullptr) {
+    Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
+    fd_ = open(path.c_str(), O_RDONLY);
+    Check(fd_ >= 0) << "Could not open " << path;
+    elf_ = elf_begin(fd_, ELF_C_READ, nullptr);
+    Check(elf_ != nullptr) << "ELF data not found in " << path;
+  }
+  ElfReader(const ElfReader&) = delete;
+  ElfReader& operator=(const ElfReader&) = delete;
+  ~ElfReader() {
+    if (elf_)
+      elf_end(elf_);
+    if (fd_ >= 0)
+      close(fd_);
+  }
+  operator Elf*() const {
+    return elf_;
   }
 
-  // Conversion operator to act as a drop-in replacement for Elf*
-  operator Elf*() const { return elf_handle_; }
-
-  Elf* get() const { return elf_handle_; }
-
  private:
-  // Dwfl owns all our data, hence only keep track of this
-  std::unique_ptr<Dwfl, decltype(&dwfl_end)> dwfl_;
-  Elf* elf_handle_;
-
-  Dwfl_Callbacks offline_callbacks_;
+  int fd_;
+  Elf* elf_;
 };
 
 Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
-  using abigail::symtab_reader::symtab;
-
-  ElfHandle elf(path);
-  Check(elf.get() != nullptr) << "Could not get ELF handle from file";
-
-  Elf_Scn* btf_section =
-      abigail::elf_helpers::find_section(elf, ".BTF", SHT_PROGBITS);
-  Check(btf_section != nullptr) << "The given file does not have a BTF section";
+  ElfReader elf(path);
+  Elf_Scn* btf_section = GetBtfSection(elf);
+  Check(btf_section != nullptr) << "No .BTF section found in " << path;
   Elf_Data* elf_data = elf_rawdata(btf_section, 0);
-  Check(elf_data != nullptr) << "The BTF section is invalid";
+  Check(elf_data != nullptr) << "The .BTF section is invalid";
   const char* btf_start = static_cast<char*>(elf_data->d_buf);
   const size_t btf_size = elf_data->d_size;
-
-  auto env = std::make_unique<abigail::ir::environment>();
-  auto tab = symtab::load(elf, env.get());
-
-  Structs structs(graph, std::move(env), std::move(tab), verbose);
-  return structs.Process(btf_start, btf_size);
+  return Structs(graph, verbose).Process(btf_start, btf_size);
 }
 
 }  // namespace btf
