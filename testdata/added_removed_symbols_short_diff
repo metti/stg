@@ -1,12 +1,12 @@
 2 symbol(s) removed
-  'b'
-  'f'
+  'int b'
+  'void f()'
 
 2 symbol(s) added
-  'c'
-  'g'
+  'int c'
+  'int g(int)'
 
-symbol 'a' changed
+symbol changed from 'struct A a[5]' to 'struct A a[10]'
   type changed from 'struct A[5]' to 'struct A[10]'
     number of elements changed from 5 to 10
 
