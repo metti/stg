@@ -279,7 +279,7 @@ differences and generating a tree-like report structure.
 ### Tree structure
 
 This requires a DFS over the difference graph. Nodes which are already seen
-should be reported as "being reported" or "already reported" occording to
+should be reported as "being reported" or "already reported" according to
 whether their (first) "visit" is in progress or has already completed.
 
 So each of the cases above can presented in a staightforward fashion.
