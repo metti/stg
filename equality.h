@@ -29,21 +29,6 @@
 
 namespace stg {
 
-using Pair = std::pair<Id, Id>;
-
-struct HashPair {
-  size_t operator()(const Pair& comparison) const {
-    size_t seed = 0;
-    std::hash<Id> h;
-    combine_hash(seed, h(comparison.first));
-    combine_hash(seed, h(comparison.second));
-    return seed;
-  }
-  static void combine_hash(size_t& seed, size_t hash) {
-    seed ^= hash + 0x9e3779b97f4a7c15 + (seed << 12) + (seed >> 4);
-  }
-};
-
 // Node equality algorithm. This only cares about node and edge attributes and
 // is blind to node identity. It is generic over the equality cache which is fed
 // information about equality results and queried for the same. Different
@@ -235,7 +220,7 @@ struct Equals {
 
   const Graph& graph;
   EqualityCache& equality_cache;
-  SCC<Pair, HashPair> scc;
+  SCC<Pair> scc;
 };
 
 }  // namespace stg

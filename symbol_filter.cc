@@ -26,9 +26,13 @@
 #include <cstddef>
 #include <cstring>
 #include <fstream>
+#include <memory>
+#include <ostream>
 #include <queue>
 #include <sstream>
+#include <string>
 #include <string_view>
+#include <utility>
 
 #include "error.h"
 

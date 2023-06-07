@@ -30,7 +30,7 @@ namespace stg {
 // RAII wrapper over file descriptor
 class FileDescriptor {
  public:
-  FileDescriptor() {}
+  FileDescriptor() = default;
   FileDescriptor(const char* filename, int flags, mode_t mode = 0);
   FileDescriptor(const FileDescriptor&) = delete;
   FileDescriptor& operator=(const FileDescriptor&) = delete;

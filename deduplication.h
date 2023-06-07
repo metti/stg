@@ -24,11 +24,12 @@
 #include <unordered_map>
 
 #include "graph.h"
+#include "hashing.h"
 #include "metrics.h"
 
 namespace stg {
 
-using Hashes = std::unordered_map<Id, uint32_t>;
+using Hashes = std::unordered_map<Id, HashValue>;
 
 Id Deduplicate(Graph& graph, Id root, const Hashes& hashes, Metrics& metrics);
 

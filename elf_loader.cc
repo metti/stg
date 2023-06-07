@@ -28,9 +28,11 @@
 #include <cstddef>
 #include <functional>
 #include <iostream>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "error.h"
 #include "graph.h"
@@ -210,11 +212,11 @@ struct SectionInfo {
 };
 
 SectionInfo GetSectionInfo(Elf_Scn* section) {
-  size_t index = elf_ndxscn(section);
+  const size_t index = elf_ndxscn(section);
   GElf_Shdr section_header;
   Check(gelf_getshdr(section, &section_header) != nullptr)
       << "failed to read section (index = " << index << ") header";
-  Elf_Data* data = elf_getdata(section, 0);
+  Elf_Data* data = elf_getdata(section, nullptr);
   Check(data != nullptr) << "section (index = " << index << ") data is invalid";
   return {section_header, data};
 }
@@ -274,6 +276,14 @@ bool IsLinuxKernelBinary(Elf* elf) {
           MaybeGetSectionByName(elf, ".gnu.linkonce.this_module") != nullptr);
 }
 
+bool IsRelocatable(Elf* elf) {
+  GElf_Ehdr elf_header;
+  Check(gelf_getehdr(elf, &elf_header) != nullptr)
+      << "could not get ELF header";
+
+  return elf_header.e_type == ET_REL;
+}
+
 }  // namespace
 
 std::ostream& operator<<(std::ostream& os, SymbolTableEntry::SymbolType type) {
@@ -321,12 +331,13 @@ ElfLoader::ElfLoader(Elf* elf, bool verbose)
 
 void ElfLoader::InitializeElfInformation() {
   is_linux_kernel_binary_ = elf::IsLinuxKernelBinary(elf_);
+  is_relocatable_ = elf::IsRelocatable(elf_);
 }
 
 std::string_view ElfLoader::GetBtfRawData() const {
   Elf_Scn* btf_section = GetSectionByName(elf_, ".BTF");
   Check(btf_section != nullptr) << ".BTF section is invalid";
-  Elf_Data* elf_data = elf_rawdata(btf_section, 0);
+  Elf_Data* elf_data = elf_rawdata(btf_section, nullptr);
   Check(elf_data != nullptr) << ".BTF section data is invalid";
   const char* btf_start = static_cast<char*>(elf_data->d_buf);
   const size_t btf_size = elf_data->d_size;
@@ -384,13 +395,33 @@ ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(
   Check(symbol.value >= header.sh_addr)
       << "CRC symbol value is below CRC section start";
 
-  size_t offset = symbol.value - header.sh_addr;
-  size_t offset_end = offset + sizeof(uint32_t);
+  const size_t offset = symbol.value - header.sh_addr;
+  const size_t offset_end = offset + sizeof(uint32_t);
   Check(offset_end <= data->d_size && offset_end <= header.sh_size)
       << "CRC symbol value is above CRC section end";
 
   return ElfSymbol::CRC{*reinterpret_cast<uint32_t*>(
       reinterpret_cast<char*>(data->d_buf) + offset)};
+}
+
+size_t ElfLoader::GetAbsoluteAddress(const SymbolTableEntry& symbol) const {
+  if (symbol.value_type == SymbolTableEntry::ValueType::ABSOLUTE) {
+    return symbol.value;
+  }
+  Check(symbol.value_type == SymbolTableEntry::ValueType::RELATIVE_TO_SECTION)
+      << "Only absolute and relative to sections symbols are supported";
+  // In relocatable files, st_value holds a section offset for a defined symbol.
+  if (is_relocatable_) {
+    const auto section = GetSectionByIndex(elf_, symbol.section_index);
+    GElf_Shdr header;
+    Check(gelf_getshdr(section, &header) != nullptr)
+        << "failed to get symbol section header";
+    Check(symbol.value + symbol.size <= header.sh_size)
+        << "Symbol should be inside the section";
+    return symbol.value + header.sh_addr;
+  }
+  // In executable and shared object files, st_value holds a virtual address.
+  return symbol.value;
 }
 
 bool ElfLoader::IsLinuxKernelBinary() const {

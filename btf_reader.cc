@@ -30,8 +30,12 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "elf_loader.h"
 #include "error.h"
@@ -408,7 +412,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                             std::nullopt,
                             GetId(t->type),
                             std::nullopt);
-      bool inserted = btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
+      const bool inserted =
+          btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
       Check(inserted) << "duplicate symbol " << name;
       break;
     }
@@ -445,7 +450,8 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
                             std::nullopt,
                             GetId(t->type),
                             std::nullopt);
-      bool inserted = btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
+      const bool inserted =
+          btf_symbols_.insert({name, GetIdRaw(btf_index)}).second;
       Check(inserted) << "duplicate symbol " << name;
       break;
     }
@@ -494,8 +500,8 @@ Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
   struct ElfDeleter {
     void operator()(Elf* elf) { elf_end(elf); }
   };
-  FileDescriptor fd(path.c_str(), O_RDONLY);
-  std::unique_ptr<Elf, ElfDeleter> elf(
+  const FileDescriptor fd(path.c_str(), O_RDONLY);
+  const std::unique_ptr<Elf, ElfDeleter> elf(
       elf_begin(fd.Value(), ELF_C_READ, nullptr));
   if (!elf) {
     const int error_code = elf_errno();
@@ -506,7 +512,7 @@ Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
       Die() << "elf_begin returned error: " << error_code;
     }
   }
-  elf::ElfLoader loader(elf.get());
+  const elf::ElfLoader loader(elf.get());
   return Structs(graph, verbose).Process(loader.GetBtfRawData());
 }
 

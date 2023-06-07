@@ -60,6 +60,7 @@ struct Entry {
   std::optional<uint64_t> MaybeGetUnsignedConstant(uint32_t attribute);
   bool GetFlag(uint32_t attribute);
   std::optional<Entry> MaybeGetReference(uint32_t attribute);
+  std::optional<uint64_t> MaybeGetAddress(uint32_t attribute);
 };
 
 // C++ wrapper over libdw (DWARF library).

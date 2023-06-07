@@ -19,6 +19,7 @@
 
 #include "symbol_filter.h"
 
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>

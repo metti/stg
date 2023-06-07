@@ -23,6 +23,7 @@
 #include <ostream>
 
 #include "comparison.h"
+#include "fidelity.h"
 #include "graph.h"
 #include "naming.h"
 
@@ -44,6 +45,8 @@ struct Reporting {
 };
 
 void Report(const Reporting&, const Comparison&, std::ostream&);
+
+void FidelityDiff(const stg::FidelityDiff&, std::ostream&);
 
 }  // namespace reporting
 }  // namespace stg
