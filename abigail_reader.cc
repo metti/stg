@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2021-2022 Google LLC
+// Copyright 2021-2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -23,18 +23,22 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <iomanip>
 #include <ios>
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -42,58 +46,89 @@
 #include "error.h"
 #include "file_descriptor.h"
 #include "graph.h"
+#include "type_normalisation.h"
 
 namespace stg {
 namespace abixml {
 
 namespace {
 
-const char* FromLibxml(const xmlChar* str) {
+// Cast a libxml string to C string and present it as a string_view.
+std::string_view FromLibxml(const xmlChar* str) {
   return reinterpret_cast<const char*>(str);
 }
 
+// Cast a C string to a libxml string.
 const xmlChar* ToLibxml(const char* str) {
   return reinterpret_cast<const xmlChar*>(str);
 }
 
-std::string GetElementName(xmlNodePtr element) {
-  return std::string(FromLibxml(element->name));
+// Get the name of an XML element.
+std::string_view GetName(xmlNodePtr element) {
+  return FromLibxml(element->name);
 }
 
-void CheckElementName(const char* name, xmlNodePtr element) {
-  const auto element_name = FromLibxml(element->name);
-  if (strcmp(element_name, name) != 0) {
+void CheckName(const char* name, xmlNodePtr element) {
+  const auto element_name = GetName(element);
+  if (element_name != name) {
     Die() << "expected element '" << name
           << "' but got '" << element_name << "'";
   }
 }
 
-xmlNodePtr GetOnlyChild(const std::string& name, xmlNodePtr element) {
-  xmlNodePtr child = xmlFirstElementChild(element);
-  Check(child && !xmlNextElementSibling(child))
-      << name << " with not exactly one child element";
+xmlNodePtr Child(xmlNodePtr node) {
+  return node->children;
+}
+
+xmlNodePtr Next(xmlNodePtr node) {
+  return node->next;
+}
+
+xmlNodePtr GetOnlyChild(xmlNodePtr element) {
+  xmlNodePtr child = Child(element);
+  if (child == nullptr || Next(child) != nullptr) {
+    Die() << "element '" << GetName(element) << "' without exactly one child";
+  }
   return child;
 }
 
+// Get an optional attribute.
 std::optional<std::string> GetAttribute(xmlNodePtr node, const char* name) {
   std::optional<std::string> result;
   xmlChar* attribute = xmlGetProp(node, ToLibxml(name));
   if (attribute) {
-    result = {FromLibxml(attribute)};
+    result.emplace(FromLibxml(attribute));
     xmlFree(attribute);
   }
   return result;
 }
 
+// Get an attribute.
 std::string GetAttributeOrDie(xmlNodePtr node, const char* name) {
   xmlChar* attribute = xmlGetProp(node, ToLibxml(name));
   if (!attribute) {
-    Die() << "element '" << FromLibxml(node->name)
+    Die() << "element '" << GetName(node)
           << "' missing attribute '" << name << "'";
   }
-  std::string result = FromLibxml(attribute);
+  const std::string result(FromLibxml(attribute));
   xmlFree(attribute);
   return result;
+}
+
+// Set an attribute value.
+void SetAttribute(xmlNodePtr node, const char* name, const char* value) {
+  xmlSetProp(node, ToLibxml(name), ToLibxml(value));
+}
+
+// Unset an attribute value.
+void UnsetAttribute(xmlNodePtr node, const char* name) {
+  xmlUnsetProp(node, ToLibxml(name));
+}
+
+// Remove a node and free its storage.
+void RemoveNode(xmlNodePtr node) {
+  xmlUnlinkNode(node);
+  xmlFreeNode(node);
 }
 
 template <typename T>
@@ -179,7 +214,7 @@ T GetParsedValueOrDie(xmlNodePtr element, const char* name,
   if (parse) {
     return *parse;
   }
-  Die() << "element '" << FromLibxml(element->name)
+  Die() << "element '" << GetName(element)
         << "' has attribute '" << name
         << "' with bad value '" << value << "'";
 }
@@ -213,6 +248,417 @@ T ReadAttribute(xmlNodePtr element, const char* name,
                 std::function<std::optional<T>(const std::string&)> parse) {
   const auto value = GetAttributeOrDie(element, name);
   return GetParsedValueOrDie(element, name, value, parse(value));
+}
+
+// Remove non-element nodes, recursively.
+//
+// This simplifies subsequent manipulation. This should only remove comment,
+// text and possibly CDATA nodes.
+void StripNonElements(xmlNodePtr node) {
+  switch (node->type) {
+    case XML_COMMENT_NODE:
+    case XML_TEXT_NODE:
+    case XML_CDATA_SECTION_NODE:
+      RemoveNode(node);
+      break;
+    case XML_ELEMENT_NODE: {
+      xmlNodePtr child = Child(node);
+      while (child) {
+        xmlNodePtr next = Next(child);
+        StripNonElements(child);
+        child = next;
+      }
+      break;
+    }
+    default:
+      Die() << "unexpected XML node type: " << node->type;
+  }
+}
+
+// Determine whether one XML element is a subtree of another, and optionally,
+// actually equal to it.
+bool SubOrEqualTree(bool also_equal, xmlNodePtr left, xmlNodePtr right) {
+  // Node names must match.
+  const auto left_name = GetName(left);
+  const auto right_name = GetName(right);
+  if (left_name != right_name) {
+    return false;
+  }
+
+  // Attributes may be missing on the left, but must match otherwise.
+  size_t left_attributes = 0;
+  for (auto* p = left->properties; p; p = p->next) {
+    ++left_attributes;
+    const auto attribute = FromLibxml(p->name);
+    const char* attribute_name = attribute.data();
+    const auto left_value = GetAttributeOrDie(left, attribute_name);
+    const auto right_value = GetAttribute(right, attribute_name);
+    if (!right_value || left_value != right_value.value()) {
+      return false;
+    }
+  }
+  // To also be equal, we just need to check the counts are the same.
+  if (also_equal) {
+    size_t right_attributes = 0;
+    for (auto* p = right->properties; p; p = p->next) {
+      ++right_attributes;
+    }
+    if (left_attributes != right_attributes) {
+      return false;
+    }
+  }
+
+  // The left subelements must be a subsequence of the right ones and to also be
+  // equal, we must not have skipped any right ones.
+  xmlNodePtr left_child = Child(left);
+  xmlNodePtr right_child = Child(right);
+  while (left_child != nullptr && right_child != nullptr) {
+    if (SubOrEqualTree(also_equal, left_child, right_child)) {
+      left_child = Next(left_child);
+    } else if (also_equal) {
+      return false;
+    }
+    right_child = Next(right_child);
+  }
+  return left_child == nullptr && (right_child == nullptr || !also_equal);
+}
+
+}  // namespace
+
+// Determine whether one XML element is a subtree of another.
+bool SubTree(xmlNodePtr left, xmlNodePtr right) {
+  return SubOrEqualTree(false, left, right);
+}
+
+// Determine whether one XML element is the same as another.
+bool EqualTree(xmlNodePtr left, xmlNodePtr right) {
+  return SubOrEqualTree(true, left, right);
+}
+
+// Find a maximal XML element if one exists.
+std::optional<size_t> MaximalTree(const std::vector<xmlNodePtr>& nodes) {
+  if (nodes.empty()) {
+    return std::nullopt;
+  }
+
+  // Find a potentially maximal candidate by scanning through and retaining the
+  // new node if it's a supertree of the current candidate.
+  const auto count = nodes.size();
+  std::vector<bool> ok(count);
+  size_t candidate = 0;
+  ok[candidate] = true;
+  for (size_t ix = 1; ix < count; ++ix) {
+    if (SubTree(nodes[candidate], nodes[ix])) {
+      candidate = ix;
+      ok[candidate] = true;
+    }
+  }
+
+  // Verify the candidate is indeed maximal by comparing it with the nodes not
+  // already known to be subtrees of it.
+  const auto& candidate_node = nodes[candidate];
+  for (size_t ix = 0; ix < count; ++ix) {
+    const auto& node = nodes[ix];
+    if (!ok[ix] && !SubTree(node, candidate_node)) {
+      return std::nullopt;
+    }
+  }
+
+  return std::make_optional(candidate);
+}
+
+namespace {
+
+// Check if string_view is in an array.
+template<size_t N>
+bool Contains(const std::array<std::string_view, N>& haystack,
+              std::string_view needle) {
+  return std::find(haystack.begin(), haystack.end(), needle) != haystack.end();
+}
+
+// Remove source location attributes.
+//
+// This simplifies element comparison later.
+void StripLocationInfo(xmlNodePtr node) {
+  static const std::array<std::string_view, 7> has_location_info = {
+    "class-decl",
+    "enum-decl",
+    "function-decl",
+    "parameter",
+    "typedef-decl",
+    "union-decl",
+    "var-decl"
+  };
+
+  if (Contains(has_location_info, GetName(node))) {
+    UnsetAttribute(node, "filepath");
+    UnsetAttribute(node, "line");
+    UnsetAttribute(node, "column");
+  }
+  for (auto* child = Child(node); child; child = Next(child)) {
+    StripLocationInfo(child);
+  }
+}
+
+// Remove access attribute.
+//
+// This simplifies element comparison later in a very specific way: libabigail
+// (possibly older versions) uses the access specifier for the type it's trying
+// to "emit in scope", even for its containing types, making deduplicating types
+// trickier. We don't care about access anyway, so just remove it everywhere.
+void StripAccess(xmlNodePtr node) {
+  static const std::array<std::string_view, 5> has_access = {
+    "base-class",
+    "data-member",
+    "member-function",
+    "member-template",
+    "member-type",
+  };
+
+  if (Contains(has_access, GetName(node))) {
+    UnsetAttribute(node, "access");
+  }
+  for (auto* child = Child(node); child; child = Next(child)) {
+    StripAccess(child);
+  }
+}
+
+// Elements corresponding to named types that can be anonymous or marked as
+// unreachable by libabigail, so user-defined types, excepting typedefs.
+const std::array<std::string_view, 3> kNamedTypes = {
+  "class-decl",
+  "enum-decl",
+  "union-decl",
+};
+
+// Remove attributes emitted by abidw --load-all-types.
+//
+// With this invocation and if any user-defined types are deemed unreachable,
+// libabigail will output a tracking-non-reachable-types attribute on top-level
+// elements and an is-non-reachable attribute on each such type element.
+//
+// We have our own graph-theoretic notion of reachability and these attributes
+// have no ABI relevance and can interfere with element comparisons.
+void StripReachabilityAttributes(xmlNodePtr node) {
+  const auto node_name = GetName(node);
+
+  if (node_name == "abi-corpus-group" || node_name == "abi-corpus") {
+    UnsetAttribute(node, "tracking-non-reachable-types");
+  } else if (Contains(kNamedTypes, node_name)) {
+    UnsetAttribute(node, "is-non-reachable");
+  }
+
+  for (auto* child = Child(node); child; child = Next(child)) {
+    StripReachabilityAttributes(child);
+  }
+}
+
+// Tidy anonymous types in various ways.
+//
+// 1. Normalise anonymous type names by dropping the name attribute.
+//
+// Anonymous type names take the form __anonymous_foo__N where foo is one of
+// enum, struct or union and N is an optional numerical suffix. We don't care
+// about these names but they may cause trouble when comparing elements.
+//
+// 2. Reanonymise anonymous types that have been given names.
+//
+// At some point abidw changed its behaviour given an anonymous with a naming
+// typedef. In addition to linking the typedef and type in both directions, the
+// code now gives (some) anonymous types the same name as the typedef. This
+// misrepresents the original types.
+//
+// Such types should be anonymous. We set is-anonymous and drop the name.
+//
+// 3. Discard naming typedef backlinks.
+//
+// The attribute naming-typedef-id is a backwards link from an anonymous type to
+// the typedef that refers to it.
+//
+// We don't care about these attributes and they may cause comparison issues.
+void TidyAnonymousTypes(xmlNodePtr node) {
+  if (Contains(kNamedTypes, GetName(node))) {
+    const bool is_anon = ReadAttribute<bool>(node, "is-anonymous", false);
+    const auto naming_attribute = GetAttribute(node, "naming-typedef-id");
+    if (is_anon) {
+      UnsetAttribute(node, "name");
+    } else if (naming_attribute) {
+      SetAttribute(node, "is-anonymous", "yes");
+      UnsetAttribute(node, "name");
+    }
+    if (naming_attribute) {
+      UnsetAttribute(node, "naming-typedef-id");
+    }
+  }
+
+  for (auto* child = Child(node); child; child = Next(child)) {
+    TidyAnonymousTypes(child);
+  }
+}
+
+// Remove duplicate data members.
+void RemoveDuplicateDataMembers(xmlNodePtr root) {
+  std::vector<xmlNodePtr> types;
+
+  // find all structs and unions
+  std::function<void(xmlNodePtr)> dfs = [&](xmlNodePtr node) {
+    const auto node_name = GetName(node);
+    // preorder in case we delete a nested element
+    for (auto* child = Child(node); child; child = Next(child)) {
+      dfs(child);
+    }
+    if (node_name == "class-decl" || node_name == "union-decl") {
+      types.push_back(node);
+    }
+  };
+  dfs(root);
+
+  for (const auto& node : types) {
+    // filter data members
+    std::vector<xmlNodePtr> data_members;
+    for (auto* child = Child(node); child; child = Next(child)) {
+      if (GetName(child) == "data-member") {
+        data_members.push_back(child);
+      }
+    }
+    // remove identical duplicate data members - O(n^2)
+    for (size_t i = 0; i < data_members.size(); ++i) {
+      xmlNodePtr& i_node = data_members[i];
+      bool duplicate = false;
+      for (size_t j = 0; j < i; ++j) {
+        const xmlNodePtr& j_node = data_members[j];
+        if (j_node != nullptr && EqualTree(i_node, j_node)) {
+          duplicate = true;
+          break;
+        }
+      }
+      if (duplicate) {
+        Warn() << "found duplicate data-member";
+        RemoveNode(i_node);
+        i_node = nullptr;
+      }
+    }
+  }
+}
+
+// Eliminate non-conflicting / report conflicting duplicate definitions.
+//
+// XML elements representing types are sometimes emitted multiple times,
+// identically. Also, member typedefs are sometimes emitted separately from
+// their types, resulting in duplicate XML fragments.
+//
+// Both these issues can be resolved by first detecting duplicate occurrences of
+// a given type id and then checking to see if there's an instance that subsumes
+// the others, which can then be eliminated.
+//
+// This function eliminates exact type duplicates and duplicates where there is
+// at least one maximal definition. It can report the remaining duplicate
+// definitions.
+//
+// If a type has duplicate definitions in multiple namespace scopes or
+// definitions with different effective names, these are considered to be
+// *conflicting* duplicate definitions. TODO: update text
+void HandleDuplicateTypes(xmlNodePtr root) {
+  // Convenience typedef referring to a namespace scope.
+  using namespace_scope = std::vector<std::string>;
+  // map of type-id to pair of set of namespace scopes and vector of
+  // xmlNodes
+  std::unordered_map<
+      std::string,
+      std::pair<
+          std::set<namespace_scope>,
+          std::vector<xmlNodePtr>>> types;
+  namespace_scope namespaces;
+
+  // find all type occurrences
+  std::function<void(xmlNodePtr)> dfs = [&](xmlNodePtr node) {
+    const auto node_name = GetName(node);
+    std::optional<std::string> namespace_name;
+    if (node_name == "namespace-decl") {
+      namespace_name = GetAttribute(node, "name");
+    }
+    if (namespace_name) {
+      namespaces.push_back(namespace_name.value());
+    }
+    if (node_name == "abi-corpus-group"
+        || node_name == "abi-corpus"
+        || node_name == "abi-instr"
+        || namespace_name) {
+      for (auto* child = Child(node); child; child = Next(child)) {
+        dfs(child);
+      }
+    } else {
+      const auto id = GetAttribute(node, "id");
+      if (id) {
+        auto& info = types[id.value()];
+        info.first.insert(namespaces);
+        info.second.push_back(node);
+      }
+    }
+    if (namespace_name) {
+      namespaces.pop_back();
+    }
+  };
+  dfs(root);
+
+  for (const auto& [id, scopes_and_definitions] : types) {
+    const auto& [scopes, definitions] = scopes_and_definitions;
+
+    if (scopes.size() > 1) {
+      Warn() << "conflicting scopes found for type '" << id << '\'';
+      continue;
+    }
+
+    const auto possible_maximal = MaximalTree(definitions);
+    if (!possible_maximal) {
+      Warn() << "unresolvable duplicate definitions found for type '" << id
+             << '\'';
+      continue;
+    }
+
+    // Remove all but the maximal definition.
+    const size_t maximal = possible_maximal.value();
+    for (size_t ix = 0; ix < definitions.size(); ++ix) {
+      if (ix != maximal) {
+        RemoveNode(definitions[ix]);
+      }
+    }
+  }
+}
+
+}  // namespace
+
+// Remove XML nodes and attributes that are neither used or wanted.
+void Clean(xmlNodePtr root) {
+  // Strip non-element nodes to simplify other operations.
+  StripNonElements(root);
+
+  // Strip location information.
+  StripLocationInfo(root);
+
+  // Strip access.
+  StripAccess(root);
+
+  // Strip reachability attributes.
+  StripReachabilityAttributes(root);
+}
+
+namespace {
+
+// Transform XML elements to improve their semantics.
+void Tidy(xmlNodePtr root) {
+  // Normalise anonymous type names.
+  // Reanonymise anonymous types.
+  // Discard naming typedef backlinks.
+  TidyAnonymousTypes(root);
+
+  // Remove duplicate data members.
+  RemoveDuplicateDataMembers(root);
+
+  // Eliminate complete duplicates and extra fragments of types.
+  // Report conflicting duplicate defintions.
+  // Record whether there are conflicting duplicate definitions.
+  HandleDuplicateTypes(root);
 }
 
 std::optional<uint64_t> ParseLength(const std::string& value) {
@@ -276,9 +722,8 @@ Id Abigail::GetVariadic() {
 Function Abigail::MakeFunctionType(xmlNodePtr function) {
   std::vector<Id> parameters;
   std::optional<Id> return_type;
-  for (auto child = xmlFirstElementChild(function); child;
-       child = xmlNextElementSibling(child)) {
-    const auto child_name = GetElementName(child);
+  for (auto* child = Child(function); child; child = Next(child)) {
+    const auto child_name = GetName(child);
     if (return_type) {
       Die() << "unexpected element after return-type";
     }
@@ -288,7 +733,7 @@ Function Abigail::MakeFunctionType(xmlNodePtr function) {
     } else if (child_name == "return") {
       return_type = {GetEdge(child)};
     } else {
-      Die() << "unrecognised " << FromLibxml(function->name)
+      Die() << "unrecognised " << GetName(function)
             << " child element '" << child_name << "'";
     }
   }
@@ -299,7 +744,9 @@ Function Abigail::MakeFunctionType(xmlNodePtr function) {
 }
 
 Id Abigail::ProcessRoot(xmlNodePtr root) {
-  const auto name = GetElementName(root);
+  Clean(root);
+  Tidy(root);
+  const auto name = GetName(root);
   if (name == "abi-corpus-group") {
     ProcessCorpusGroup(root);
   } else if (name == "abi-corpus") {
@@ -307,21 +754,21 @@ Id Abigail::ProcessRoot(xmlNodePtr root) {
   } else {
     Die() << "unrecognised root element '" << name << "'";
   }
-  return BuildSymbols();
+  const Id id = BuildSymbols();
+  RemoveUselessQualifiers(graph_, id);
+  return id;
 }
 
 void Abigail::ProcessCorpusGroup(xmlNodePtr group) {
-  for (auto corpus = xmlFirstElementChild(group); corpus;
-       corpus = xmlNextElementSibling(corpus)) {
-    CheckElementName("abi-corpus", corpus);
+  for (auto* corpus = Child(group); corpus; corpus = Next(corpus)) {
+    CheckName("abi-corpus", corpus);
     ProcessCorpus(corpus);
   }
 }
 
 void Abigail::ProcessCorpus(xmlNodePtr corpus) {
-  for (auto element = xmlFirstElementChild(corpus); element;
-       element = xmlNextElementSibling(element)) {
-    const auto name = GetElementName(element);
+  for (auto* element = Child(corpus); element; element = Next(element)) {
+    const auto name = GetName(element);
     if (name == "elf-function-symbols" || name == "elf-variable-symbols") {
       ProcessSymbols(element);
     } else if (name == "elf-needed") {
@@ -335,9 +782,8 @@ void Abigail::ProcessCorpus(xmlNodePtr corpus) {
 }
 
 void Abigail::ProcessSymbols(xmlNodePtr symbols) {
-  for (auto element = xmlFirstElementChild(symbols); element;
-       element = xmlNextElementSibling(element)) {
-    CheckElementName("elf-symbol", element);
+  for (auto* element = Child(symbols); element; element = Next(element)) {
+    CheckName("elf-symbol", element);
     ProcessSymbol(element);
   }
 }
@@ -376,7 +822,7 @@ void Abigail::ProcessSymbol(xmlNodePtr symbol) {
   }
 }
 
-bool Abigail::ProcessUserDefinedType(const std::string& name, Id id,
+bool Abigail::ProcessUserDefinedType(std::string_view name, Id id,
                                      xmlNodePtr decl) {
   if (name == "typedef-decl") {
     ProcessTypedef(id, decl);
@@ -393,9 +839,8 @@ bool Abigail::ProcessUserDefinedType(const std::string& name, Id id,
 }
 
 void Abigail::ProcessScope(xmlNodePtr scope) {
-  for (auto element = xmlFirstElementChild(scope); element;
-       element = xmlNextElementSibling(element)) {
-    const auto name = GetElementName(element);
+  for (auto* element = Child(scope); element; element = Next(element)) {
+    const auto name = GetName(element);
     const auto type_id = GetAttribute(element, "id");
     // all type elements have "id", all non-types do not
     if (type_id) {
@@ -507,9 +952,8 @@ void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
 
 void Abigail::ProcessArray(Id id, xmlNodePtr array) {
   std::vector<size_t> dimensions;
-  for (auto child = xmlFirstElementChild(array); child;
-       child = xmlNextElementSibling(child)) {
-    CheckElementName("subrange", child);
+  for (auto* child = Child(array); child; child = Next(child)) {
+    CheckName("subrange", child);
     const auto length = ReadAttribute<uint64_t>(child, "length", &ParseLength);
     dimensions.push_back(length);
   }
@@ -557,13 +1001,11 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
 
 void Abigail::ProcessStructUnion(Id id, bool is_struct,
                                  xmlNodePtr struct_union) {
-  // TODO
-  // Libabigail is reporting wrong information for is-declaration-only so it is
-  // not reliable. We are looking at the children of the element instead.
-  // It can be removed once the bug is fixed.
+  // Libabigail sometimes reports is-declaration-only but still provides some
+  // child elements. So we check both things.
   const bool forward =
       ReadAttribute<bool>(struct_union, "is-declaration-only", false)
-      && !xmlFirstElementChild(struct_union);
+      && Child(struct_union) == nullptr;
   const auto kind = is_struct
                     ? StructUnion::Kind::STRUCT
                     : StructUnion::Kind::UNION;
@@ -588,9 +1030,8 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
   std::vector<Id> base_classes;
   std::vector<Id> methods;
   std::vector<Id> members;
-  for (xmlNodePtr child = xmlFirstElementChild(struct_union); child;
-       child = xmlNextElementSibling(child)) {
-    const auto child_name = GetElementName(child);
+  for (auto* child = Child(struct_union); child; child = Next(child)) {
+    const auto child_name = GetName(child);
     if (child_name == "data-member") {
       if (const auto member = ProcessDataMember(is_struct, child)) {
         members.push_back(*member);
@@ -621,15 +1062,15 @@ void Abigail::ProcessEnum(Id id, xmlNodePtr enumeration) {
     return;
   }
 
-  xmlNodePtr underlying = xmlFirstElementChild(enumeration);
+  xmlNodePtr underlying = Child(enumeration);
   Check(underlying) << "enum-decl has no child elements";
-  CheckElementName("underlying-type", underlying);
+  CheckName("underlying-type", underlying);
   const auto type = GetEdge(underlying);
 
   std::vector<std::pair<std::string, int64_t>> enumerators;
-  for (xmlNodePtr enumerator = xmlNextElementSibling(underlying); enumerator;
-       enumerator = xmlNextElementSibling(enumerator)) {
-    CheckElementName("enumerator", enumerator);
+  for (auto* enumerator = Next(underlying); enumerator;
+       enumerator = Next(enumerator)) {
+    CheckName("enumerator", enumerator);
     const auto enumerator_name = GetAttributeOrDie(enumerator, "name");
     // libabigail currently supports anything that fits in an int64_t
     const auto enumerator_value =
@@ -652,8 +1093,8 @@ Id Abigail::ProcessBaseClass(xmlNodePtr base_class) {
 
 std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
                                              xmlNodePtr data_member) {
-  xmlNodePtr decl = GetOnlyChild("data-member", data_member);
-  CheckElementName("var-decl", decl);
+  xmlNodePtr decl = GetOnlyChild(data_member);
+  CheckName("var-decl", decl);
   if (ReadAttribute<bool>(data_member, "static", false)) {
     ProcessDecl(true, decl);
     return {};
@@ -670,8 +1111,8 @@ std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
 }
 
 Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
-  xmlNodePtr decl = GetOnlyChild("member-function", method);
-  CheckElementName("function-decl", decl);
+  xmlNodePtr decl = GetOnlyChild(method);
+  CheckName("function-decl", decl);
   static const std::string missing = "{missing}";
   const auto mangled_name = ReadAttribute(decl, "mangled-name", missing);
   const auto name = GetAttributeOrDie(decl, "name");
@@ -686,14 +1127,14 @@ Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
 }
 
 void Abigail::ProcessMemberType(xmlNodePtr member_type) {
-  xmlNodePtr decl = GetOnlyChild("member-type", member_type);
+  xmlNodePtr decl = GetOnlyChild(member_type);
   const auto type_id = GetAttributeOrDie(decl, "id");
   const auto id = GetNode(type_id);
   if (graph_.Is(id)) {
     Warn() << "duplicate definition of member type '" << type_id << '\'';
     return;
   }
-  const auto name = GetElementName(decl);
+  const auto name = GetName(decl);
   if (!ProcessUserDefinedType(name, id, decl)) {
     Die() << "unrecognised member-type child element '" << name << "'";
   }
@@ -748,27 +1189,30 @@ Id Abigail::BuildSymbols() {
   return graph_.Add<Interface>(symbols);
 }
 
-Id Read(Graph& graph, const std::string& path, Metrics& metrics) {
+Document Read(const std::string& path, Metrics& metrics) {
   // Open input for reading.
   FileDescriptor fd(path.c_str(), O_RDONLY);
 
   // Read the XML.
-  std::unique_ptr<std::remove_pointer<xmlDocPtr>::type, void(*)(xmlDocPtr)>
-      document(nullptr, xmlFreeDoc);
+  Document document(nullptr, xmlFreeDoc);
   {
     Time t(metrics, "abigail.libxml_parse");
     std::unique_ptr<
-        std::remove_pointer<xmlParserCtxtPtr>::type, void(*)(xmlParserCtxtPtr)>
+        std::remove_pointer_t<xmlParserCtxtPtr>, void(*)(xmlParserCtxtPtr)>
         context(xmlNewParserCtxt(), xmlFreeParserCtxt);
     document.reset(
-        xmlCtxtReadFd(context.get(), fd.Value(), nullptr, nullptr, 0));
+        xmlCtxtReadFd(context.get(), fd.Value(), nullptr, nullptr,
+                      XML_PARSE_NONET));
   }
   Check(document != nullptr) << "failed to parse input as XML";
 
-  // Get the root element.
+  return document;
+}
+
+Id Read(Graph& graph, const std::string& path, Metrics& metrics) {
+  const Document document = Read(path, metrics);
   xmlNodePtr root = xmlDocGetRootElement(document.get());
   Check(root) << "XML document has no root element";
-
   return Abigail(graph).ProcessRoot(root);
 }
 

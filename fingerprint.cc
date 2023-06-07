@@ -19,12 +19,15 @@
 
 #include "fingerprint.h"
 
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
+#include "graph.h"
+#include "hashing.h"
 #include "scc.h"
 
 namespace stg {
@@ -136,9 +139,8 @@ struct Hasher {
   }
 
   HashValue operator()(const Interface& x) {
-    for (const auto& [name, symbol] : x.symbols) {
-      todo.insert(symbol);
-    }
+    ToDo(x.symbols);
+    ToDo(x.types);
     return hash('Z');
   }
 
@@ -189,6 +191,12 @@ struct Hasher {
 
   void ToDo(const std::vector<Id>& ids) {
     for (auto id : ids) {
+      todo.insert(id);
+    }
+  }
+
+  void ToDo(const std::map<std::string, Id>& ids) {
+    for (const auto& [_, id] : ids) {
       todo.insert(id);
     }
   }

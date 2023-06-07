@@ -20,6 +20,7 @@
 #include "fidelity.h"
 
 #include <algorithm>
+#include <map>
 #include <ostream>
 #include <set>
 #include <string>
@@ -73,6 +74,7 @@ struct Fidelity {
 
   void operator()(Id);
   void operator()(const std::vector<Id>&);
+  void operator()(const std::map<std::string, Id>&);
   void operator()(const Void&, Id);
   void operator()(const Variadic&, Id);
   void operator()(const PointerReference&, Id);
@@ -105,6 +107,12 @@ void Fidelity::operator()(Id id) {
 
 void Fidelity::operator()(const std::vector<Id>& x) {
   for (auto id : x) {
+    (*this)(id);
+  }
+}
+
+void Fidelity::operator()(const std::map<std::string, Id>& x) {
+  for (const auto& [_, id] : x) {
     (*this)(id);
   }
 }
@@ -188,9 +196,8 @@ void Fidelity::operator()(const ElfSymbol& x, Id) {
 }
 
 void Fidelity::operator()(const Interface& x, Id) {
-  for (const auto& [_, id] : x.symbols) {
-    (*this)(id);
-  }
+  (*this)(x.symbols);
+  (*this)(x.types);
 }
 
 template <typename T>

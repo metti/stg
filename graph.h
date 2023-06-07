@@ -28,6 +28,7 @@
 #include <map>
 #include <optional>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -312,8 +313,12 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc);
 struct Interface {
   explicit Interface(const std::map<std::string, Id>& symbols)
       : symbols(symbols) {}
+  Interface(const std::map<std::string, Id>& symbols,
+            const std::map<std::string, Id>& types)
+      : symbols(symbols), types(types) {}
 
   std::map<std::string, Id> symbols;
+  std::map<std::string, Id> types;
 };
 
 std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding);
@@ -643,6 +648,45 @@ Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) {
   return static_cast<const Graph&>(*this).Apply<Result>(
       adapter, id, std::forward<Args>(args)...);
 }
+
+struct InterfaceKey {
+  explicit InterfaceKey(const Graph& graph) : graph(graph) {}
+
+  std::string operator()(Id id) const {
+    return graph.Apply<std::string>(*this, id);
+  }
+
+  std::string operator()(const stg::Typedef& x) const {
+    return x.name;
+  }
+
+  std::string operator()(const stg::StructUnion& x) const {
+    if (x.name.empty()) {
+      Die() << "anonymous struct/union interface type";
+    }
+    std::ostringstream os;
+    os << x.kind << ' ' << x.name;
+    return os.str();
+  }
+
+  std::string operator()(const stg::Enumeration& x) const {
+    if (x.name.empty()) {
+      Die() << "anonymous enum interface type";
+    }
+    return "enum " + x.name;
+  }
+
+  std::string operator()(const stg::ElfSymbol& x) const {
+    return VersionedSymbolName(x);
+  }
+
+  template <typename Node>
+  std::string operator()(const Node&) const {
+    Die() << "unexpected interface type";
+  }
+
+  const Graph& graph;
+};
 
 }  // namespace stg
 

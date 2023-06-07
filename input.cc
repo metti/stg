@@ -25,11 +25,12 @@
 #include "graph.h"
 #include "metrics.h"
 #include "proto_reader.h"
+#include "reader_options.h"
 
 namespace stg {
 
-Id Read(Graph& graph, InputFormat format, const char* input, bool process_dwarf,
-        bool info, Metrics& metrics) {
+Id Read(Graph& graph, InputFormat format, const char* input,
+        ReadOptions options, Metrics& metrics) {
   switch (format) {
     case InputFormat::ABI: {
       Time read(metrics, "read ABI");
@@ -37,11 +38,11 @@ Id Read(Graph& graph, InputFormat format, const char* input, bool process_dwarf,
     }
     case InputFormat::BTF: {
       Time read(metrics, "read BTF");
-      return btf::ReadFile(graph, input, info);
+      return btf::ReadFile(graph, input, options);
     }
     case InputFormat::ELF: {
       Time read(metrics, "read ELF");
-      return elf::Read(graph, input, process_dwarf, info, metrics);
+      return elf::Read(graph, input, options, metrics);
     }
     case InputFormat::STG: {
       Time read(metrics, "read STG");

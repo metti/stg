@@ -28,7 +28,6 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
-#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -41,6 +40,7 @@
 #include "elf_loader.h"
 #include "error.h"
 #include "file_descriptor.h"
+#include "reader_options.h"
 
 namespace stg {
 
@@ -518,7 +518,7 @@ Id Structs::BuildSymbols() {
   return graph_.Add<Interface>(btf_symbols_);
 }
 
-Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
+Id ReadFile(Graph& graph, const std::string& path, ReadOptions options) {
   Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
   struct ElfDeleter {
     void operator()(Elf* elf) {
@@ -538,7 +538,8 @@ Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
     }
   }
   const elf::ElfLoader loader(elf.get());
-  return Structs(graph, verbose).Process(loader.GetBtfRawData());
+  return Structs(graph, options.Test(ReadOptions::INFO))
+      .Process(loader.GetBtfRawData());
 }
 
 }  // namespace btf
