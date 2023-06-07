@@ -1,0 +1,149 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// -*- mode: C++ -*-
+//
+// Copyright 2022 Google LLC
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions (the
+// "License"); you may not use this file except in compliance with the
+// License.  You may obtain a copy of the License at
+//
+//     https://llvm.org/LICENSE.txt
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Author: Siddharth Nayyar
+
+#include "post_processing.h"
+
+#include <iostream>
+#include <ostream>
+#include <regex>  // NOLINT
+#include <sstream>
+#include <string>
+#include <vector>
+
+namespace stg {
+
+std::vector<std::string> SummariseCRCChanges(
+    const std::vector<std::string>& report, size_t limit) {
+  const std::regex symbol_changed_re("^symbol '[^']*' changed$");
+  const std::regex crc_re("^  CRC changed from [^ ]* to [^ ]*$");
+  const std::regex empty_re("^$");
+  const std::regex section_re("^[^ \\n].*$");
+  const std::regex symbol_re("^symbol .*$");
+
+  std::vector<std::string> new_report;
+  std::vector<std::pair<std::string, std::string>> pending;
+
+  auto emit_pending = [&]() {
+    const size_t crc_only_changes = pending.size();
+    for (size_t ix = 0; ix < std::min(crc_only_changes, limit); ++ix) {
+      new_report.push_back(pending[ix].first);
+      new_report.push_back(pending[ix].second);
+      new_report.push_back({});
+    }
+    if (crc_only_changes > limit) {
+      std::ostringstream os;
+      os << "... " << crc_only_changes - limit << " omitted; "
+         << crc_only_changes << " symbols have only CRC changes";
+      new_report.push_back(os.str());
+      new_report.push_back({});
+    }
+    pending.clear();
+  };
+
+  for (size_t ix = 0; ix < report.size(); ++ix) {
+    if (std::regex_match(report[ix], section_re) &&
+        !std::regex_match(report[ix], symbol_re)) {
+      emit_pending();
+      new_report.push_back(report[ix]);
+    } else if (ix + 2 < report.size() &&
+               std::regex_match(report[ix], symbol_changed_re) &&
+               std::regex_match(report[ix + 1], crc_re) &&
+               std::regex_match(report[ix + 2], empty_re)) {
+      pending.push_back({report[ix], report[ix + 1]});
+      // consumed 3 lines in total => 2 extra lines
+      ix += 2;
+    } else {
+      new_report.push_back(report[ix]);
+    }
+  }
+
+  emit_pending();
+  return new_report;
+}
+
+std::vector<std::string> SummariseOffsetChanges(
+    const std::vector<std::string>& report) {
+  const std::regex re1("^( *)member ('.*') changed$");
+  const std::regex re2("^( *)offset changed from (\\d+) to (\\d+)$");
+  const std::regex re3("^( *).*$");
+
+  std::smatch match1;
+  std::smatch match2;
+  std::smatch match3;
+  int indent = 0;
+  int64_t offset = 0;
+  std::vector<std::string> vars;
+  std::vector<std::string> new_report;
+
+  auto emit_pending = [&]() {
+    if (vars.empty())
+      return;
+    std::ostringstream line1, line2;
+    if (vars.size() == 1) {
+      line1 << std::string(indent, ' ') << "member " << vars.front()
+            << " changed";
+    } else {
+      line1 << std::string(indent, ' ') << vars.size() << " members ("
+            << vars.front() << " .. " << vars.back() << ") changed";
+    }
+    line2 << std::string(indent, ' ') << "  offset changed by " << offset;
+    new_report.push_back(line1.str());
+    new_report.push_back(line2.str());
+    vars.clear();
+  };
+
+  for (size_t ix = 0; ix < report.size(); ++ix) {
+    if (ix + 2 < report.size() && std::regex_match(report[ix], match1, re1) &&
+        std::regex_match(report[ix + 1], match2, re2) &&
+        std::regex_match(report[ix + 2], match3, re3)) {
+      int indent1 = match1[1].length();
+      int indent2 = match2[1].length();
+      int indent3 = match3[1].length();
+      if (indent1 + 2 == indent2 && indent1 >= indent3) {
+        int new_indent = indent1;
+        int64_t new_offset =
+            std::stoll(match2[3].str()) - std::stoll(match2[2].str());
+        if (new_indent != indent || new_offset != offset) {
+          emit_pending();
+          indent = new_indent;
+          offset = new_offset;
+        }
+        vars.push_back(match1[2]);
+        // consumed 2 lines in total => 1 extra line
+        ++ix;
+        continue;
+      }
+    }
+    emit_pending();
+    new_report.push_back(report[ix]);
+  }
+
+  emit_pending();
+  return new_report;
+}
+
+std::vector<std::string> PostProcess(const std::vector<std::string>& report,
+                                     size_t max_crc_only_changes) {
+  std::vector<std::string> new_report;
+  new_report = SummariseCRCChanges(report, max_crc_only_changes);
+  new_report = SummariseOffsetChanges(new_report);
+  return new_report;
+}
+
+}  // namespace stg

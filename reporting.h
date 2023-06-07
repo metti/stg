@@ -26,16 +26,22 @@
 
 namespace stg {
 
+enum class OutputFormat { PLAIN, FLAT, SMALL, SHORT, VIZ };
+
+struct ReportingOptions {
+  const OutputFormat format;
+  const size_t max_crc_only_changes;  // only for SHORT
+};
+
 struct Reporting {
   const Graph& graph;
   const Outcomes& outcomes;
+  const ReportingOptions& options;
   NameCache& names;
 };
 
-enum class OutputFormat { PLAIN, FLAT, SMALL, VIZ };
-
 void Report(Reporting& reporting, const Comparison& comparison,
-            OutputFormat format, std::ostream& output);
+            std::ostream& output);
 
 }  // namespace stg
 

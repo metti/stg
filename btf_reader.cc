@@ -18,13 +18,9 @@
 // Author: Maria Teguiani
 // Author: Giuliano Procida
 // Author: Ignes Simeonova
+// Author: Aleksei Vetrov
 
 #include "btf_reader.h"
-
-#include <fcntl.h>
-#include <unistd.h>
-
-#include <gelf.h>
 
 #include <algorithm>
 #include <array>
@@ -34,6 +30,7 @@
 #include <string_view>
 #include <utility>
 
+#include "elf_loader.h"
 #include "error.h"
 
 namespace stg {
@@ -113,20 +110,23 @@ Id Structs::GetParameterId(uint32_t btf_index) {
 // The verbose output format closely follows bpftool dump format raw.
 static constexpr std::string_view ANON{"(anon)"};
 
-Id Structs::Process(const char* start, size_t size) {
-  Check(sizeof(btf_header) <= size) << "BTF section too small for header";
-  const btf_header* header = reinterpret_cast<const btf_header*>(start);
+Id Structs::Process(std::string_view btf_data) {
+  Check(sizeof(btf_header) <= btf_data.size())
+      << "BTF section too small for header";
+  const btf_header* header =
+      reinterpret_cast<const btf_header*>(btf_data.data());
   if (verbose_)
     PrintHeader(header);
   Check(header->magic == 0xEB9F) << "Magic field must be 0xEB9F for BTF";
 
-  const char* header_limit = start + header->hdr_len;
+  const char* header_limit = btf_data.begin() + header->hdr_len;
   const char* type_start = header_limit + header->type_off;
   const char* type_limit = type_start + header->type_len;
   const char* string_start = header_limit + header->str_off;
   const char* string_limit = string_start + header->str_len;
 
-  Check(start + sizeof(btf_header) <= header_limit) << "header exceeds length";
+  Check(btf_data.begin() + sizeof(btf_header) <= header_limit)
+      << "header exceeds length";
   Check(header_limit <= type_start) << "type section overlaps header";
   Check(type_start <= type_limit) << "type section ill-formed";
   Check(!(header->type_off & (sizeof(uint32_t) - 1)))
@@ -134,7 +134,7 @@ Id Structs::Process(const char* start, size_t size) {
   Check(type_limit <= string_start)
       << "string section does not follow type section";
   Check(string_start <= string_limit) << "string section ill-formed";
-  Check(string_limit <= start + size)
+  Check(string_limit <= btf_data.end())
       << "string section extends beyond end of BTF data";
 
   const MemoryRange type_section{type_start, type_limit};
@@ -476,58 +476,9 @@ Id Structs::BuildSymbols() {
   return graph_.Add(Make<Symbols>(btf_symbols_));
 }
 
-Elf_Scn* GetBtfSection(Elf* elf) {
-  size_t shdr_strtab_index;
-  if (elf_getshdrstrndx(elf, &shdr_strtab_index) < 0)
-    Die() << "Could not get ELF section header string table index";
-
-  Elf_Scn* section = nullptr;
-  GElf_Shdr header;
-  while ((section = elf_nextscn(elf, section)) != nullptr) {
-    Check(gelf_getshdr(section, &header)) << "Could not get ELF section header";
-    const char* name = elf_strptr(elf, shdr_strtab_index, header.sh_name);
-    if (strcmp(name, ".BTF") == 0)
-      break;
-  }
-  return section;
-}
-
-class ElfReader {
- public:
-  ElfReader(const std::string& path)
-      : fd_(-1), elf_(nullptr) {
-    Check(elf_version(EV_CURRENT) != EV_NONE) << "ELF version mismatch";
-    fd_ = open(path.c_str(), O_RDONLY);
-    Check(fd_ >= 0) << "Could not open " << path;
-    elf_ = elf_begin(fd_, ELF_C_READ, nullptr);
-    Check(elf_ != nullptr) << "ELF data not found in " << path;
-  }
-  ElfReader(const ElfReader&) = delete;
-  ElfReader& operator=(const ElfReader&) = delete;
-  ~ElfReader() {
-    if (elf_)
-      elf_end(elf_);
-    if (fd_ >= 0)
-      close(fd_);
-  }
-  operator Elf*() const {
-    return elf_;
-  }
-
- private:
-  int fd_;
-  Elf* elf_;
-};
-
 Id ReadFile(Graph& graph, const std::string& path, bool verbose) {
-  ElfReader elf(path);
-  Elf_Scn* btf_section = GetBtfSection(elf);
-  Check(btf_section != nullptr) << "No .BTF section found in " << path;
-  Elf_Data* elf_data = elf_rawdata(btf_section, 0);
-  Check(elf_data != nullptr) << "The .BTF section is invalid";
-  const char* btf_start = static_cast<char*>(elf_data->d_buf);
-  const size_t btf_size = elf_data->d_size;
-  return Structs(graph, verbose).Process(btf_start, btf_size);
+  elf::ElfLoader elf(path);
+  return Structs(graph, verbose).Process(elf.GetBtfRawData());
 }
 
 }  // namespace btf

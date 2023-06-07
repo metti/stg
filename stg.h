@@ -229,9 +229,15 @@ struct HashComparison {
 
 using Outcomes = std::unordered_map<Comparison, Diff, HashComparison>;
 
+struct CompareOptions {
+  bool ignore_symbol_type_presence_changes = false;
+  bool ignore_type_declaration_status_changes = false;
+};
+
 struct State {
-  explicit State(const Graph& g) : graph(g) {}
+  State(const Graph& g, const CompareOptions& o) : graph(g), options(o) {}
   const Graph& graph;
+  const CompareOptions options;
   std::unordered_map<Comparison, bool, HashComparison> known;
   Outcomes outcomes;
   Outcomes provisional;
