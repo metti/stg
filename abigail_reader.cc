@@ -30,6 +30,7 @@
 #include <iostream>
 #include <map>
 #include <type_traits>
+#include <utility>
 
 #include <libxml/parser.h>
 #include "crc.h"
@@ -145,6 +146,14 @@ std::optional<uint64_t> ParseLength(const std::string& value) {
   if (value == "infinite")
     return {0};
   return Parse<uint64_t>(value);
+}
+
+std::optional<Ptr::Kind> ParseReferenceKind(const std::string& value) {
+  if (value == "lvalue")
+    return {Ptr::Kind::LVALUE_REFERENCE};
+  if (value == "rvalue")
+    return {Ptr::Kind::RVALUE_REFERENCE};
+  return {};
 }
 
 }  // namespace
@@ -326,7 +335,9 @@ void Abigail::ProcessInstr(xmlNodePtr instr) {
       } else if (name == "typedef-decl") {
         ProcessTypedef(id, element);
       } else if (name == "pointer-type-def") {
-        ProcessPointer(id, element);
+        ProcessPointer(id, true, element);
+      } else if (name == "reference-type-def") {
+        ProcessPointer(id, false, element);
       } else if (name == "qualified-type-def") {
         ProcessQualified(id, element);
       } else if (name == "array-type-def") {
@@ -366,8 +377,9 @@ void Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
     // There's a link to an ELF symbol.
     if (verbose_)
       std::cerr << "ELF symbol " << *symbol_id << " of " << type << "\n";
-    const auto [it, inserted] = symbol_ids_.emplace(*symbol_id, type);
-    if (!inserted && it->second.ix_ != type.ix_)
+    const auto [it, inserted] = symbol_id_and_full_name_.emplace(
+        *symbol_id, std::make_pair(type, name));
+    if (!inserted && it->second.first != type)
       Die() << "conflicting types for '" << *symbol_id << "'";
   }
 }
@@ -384,11 +396,14 @@ void Abigail::ProcessTypedef(Id id, xmlNodePtr type_definition) {
     std::cerr << id << " typedef " << name << " of " << type << "\n";
 }
 
-void Abigail::ProcessPointer(Id id, xmlNodePtr pointer) {
+void Abigail::ProcessPointer(Id id, bool isPointer, xmlNodePtr pointer) {
   const auto type = GetEdge(pointer);
-  graph_.Set(id, Make<Ptr>(type));
+  const auto kind = isPointer
+              ? Ptr::Kind::POINTER
+              : ReadAttribute<Ptr::Kind>(pointer, "kind", &ParseReferenceKind);
+  graph_.Set(id, Make<Ptr>(kind, type));
   if (verbose_)
-    std::cerr << id << " pointer to " << type << "\n";
+    std::cerr << id << " " << kind << " to " << type << "\n";
 }
 
 void Abigail::ProcessQualified(Id id, xmlNodePtr qualified) {
@@ -595,11 +610,14 @@ Id Abigail::BuildSymbols() {
   for (const auto& [id, symbol] : id_to_symbol) {
     const auto main = alias_to_main.find(id);
     const auto lookup = main != alias_to_main.end() ? main->second : id;
-    const auto it = symbol_ids_.find(lookup);
+    const auto it = symbol_id_and_full_name_.find(lookup);
     std::optional<Id> type_id;
-    if (it != symbol_ids_.end())
-      type_id = {it->second};
-    symbols.insert({id, graph_.Add(Make<ElfSymbol>(symbol, type_id))});
+    std::optional<std::string> name;
+    if (it != symbol_id_and_full_name_.end()) {
+      type_id = {it->second.first};
+      name = {it->second.second};
+    }
+    symbols.insert({id, graph_.Add(Make<ElfSymbol>(symbol, type_id, name))});
   }
   return graph_.Add(Make<Symbols>(symbols));
 }
