@@ -142,7 +142,148 @@ std::string ElfSectionTypeToString(Elf64_Word elf_section_type) {
   }
 }
 
+std::vector<Elf_Scn*> GetSectionsIf(
+    Elf* elf, std::function<bool(const GElf_Shdr&)> predicate) {
+  std::vector<Elf_Scn*> result;
+  Elf_Scn* section = nullptr;
+  GElf_Shdr header;
+  while ((section = elf_nextscn(elf, section)) != nullptr) {
+    Check(gelf_getshdr(section, &header) != nullptr)
+        << "could not get ELF section header";
+    if (predicate(header))
+      result.push_back(section);
+  }
+  return result;
+}
+
+std::vector<Elf_Scn*> GetSectionsByName(Elf* elf, const std::string& name) {
+  size_t shdr_strtab_index;
+  Check(elf_getshdrstrndx(elf, &shdr_strtab_index) == 0)
+      << "could not get ELF section header string table index";
+  return GetSectionsIf(elf, [&](const GElf_Shdr& header) {
+    const auto* section_name =
+        elf_strptr(elf, shdr_strtab_index, header.sh_name);
+    return section_name != nullptr && section_name == name;
+  });
+}
+
+Elf_Scn* MaybeGetSectionByName(Elf* elf, const std::string& name) {
+  const auto sections = GetSectionsByName(elf, name);
+  if (sections.empty())
+    return nullptr;
+  Check(sections.size() == 1)
+      << "multiple sections found with name '" << name << "'";
+  return sections[0];
+}
+
+Elf_Scn* GetSectionByName(Elf* elf, const std::string& name) {
+  Elf_Scn* section = MaybeGetSectionByName(elf, name);
+  Check(section != nullptr) << "no section found with name '" << name << "'";
+  return section;
+}
+
+Elf_Scn* MaybeGetSectionByType(Elf* elf, Elf64_Word type) {
+  auto sections = GetSectionsIf(
+      elf, [&](const GElf_Shdr& header) { return header.sh_type == type; });
+  if (sections.empty())
+    return nullptr;
+  Check(sections.size() == 1) << "multiple sections found with type " << type;
+  return sections[0];
+}
+
+Elf_Scn* GetSectionByType(Elf* elf, Elf64_Word type) {
+  Elf_Scn* section = MaybeGetSectionByType(elf, type);
+  Check(section != nullptr) << "no section found with type " << type;
+  return section;
+}
+
+struct SectionInfo {
+  GElf_Shdr header;
+  Elf_Data* data;
+};
+
+SectionInfo GetSectionInfo(Elf_Scn* section) {
+  size_t index = elf_ndxscn(section);
+  GElf_Shdr section_header;
+  Check(gelf_getshdr(section, &section_header) != nullptr)
+      << "failed to read section (index = " << index << ") header";
+  Elf_Data* data = elf_getdata(section, 0);
+  Check(data != nullptr) << "section (index = " << index << ") data is invalid";
+  return {section_header, data};
+}
+
+size_t GetNumberOfEntries(const GElf_Shdr& section_header) {
+  Check(section_header.sh_entsize != 0)
+      << "zero table entity size is unexpected for section "
+      << ElfSectionTypeToString(section_header.sh_type);
+  return section_header.sh_size / section_header.sh_entsize;
+}
+
+std::string_view GetString(Elf* elf, uint32_t section, size_t offset) {
+  const auto name = elf_strptr(elf, section, offset);
+
+  Check(name != nullptr) << "string was not found (section: " << section
+                         << ", offset: " << offset << ")";
+  return name;
+}
+
+Elf_Scn* GetSymbolTableSection(Elf* elf, bool verbose) {
+  GElf_Ehdr elf_header;
+  Check(gelf_getehdr(elf, &elf_header) != nullptr)
+      << "could not get ELF header";
+
+  if (verbose)
+    std::cout << "ELF type: " << ElfHeaderTypeToString(elf_header.e_type)
+              << '\n';
+  // TODO: check if vmlinux symbol table type matches ELF type
+  // same way as other binaries
+  if (elf_header.e_type == ET_REL)
+    return GetSectionByType(elf, SHT_SYMTAB);
+  else if (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)
+    return GetSectionByType(elf, SHT_DYNSYM);
+  else
+    Die() << "unsupported ELF type: '"
+          << ElfHeaderTypeToString(elf_header.e_type) << "'";
+}
+
 }  // namespace
+
+std::ostream& operator<<(std::ostream& os, SymbolTableEntry::SymbolType type) {
+  using SymbolType = SymbolTableEntry::SymbolType;
+  switch (type) {
+    case SymbolType::NOTYPE:
+      return os << "notype";
+    case SymbolType::OBJECT:
+      return os << "object";
+    case SymbolType::FUNCTION:
+      return os << "function";
+    case SymbolType::SECTION:
+      return os << "section";
+    case SymbolType::FILE:
+      return os << "file";
+    case SymbolType::COMMON:
+      return os << "common";
+    case SymbolType::TLS:
+      return os << "TLS";
+    case SymbolType::GNU_IFUNC:
+      return os << "indirect function";
+  }
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const SymbolTableEntry::ValueType type) {
+  using ValueType = SymbolTableEntry::ValueType;
+  switch (type) {
+    case ValueType::UNDEFINED:
+      return os << "undefined";
+    case ValueType::ABSOLUTE:
+      return os << "absolute";
+    case ValueType::COMMON:
+      return os << "common";
+    case ValueType::RELATIVE_TO_SECTION:
+      return os << "relative";
+  }
+}
 
 ElfLoader::ElfLoader(const std::string& path, bool verbose)
     : verbose_(verbose), fd_(-1), elf_(nullptr) {
@@ -167,66 +308,8 @@ ElfLoader::~ElfLoader() {
     close(fd_);
 }
 
-std::vector<Elf_Scn*> ElfLoader::GetSectionsIf(
-    std::function<bool(const GElf_Shdr&)> predicate) const {
-  std::vector<Elf_Scn*> result;
-  Elf_Scn* section = nullptr;
-  GElf_Shdr header;
-  while ((section = elf_nextscn(elf_, section)) != nullptr) {
-    Check(gelf_getshdr(section, &header) != nullptr)
-        << "could not get ELF section header";
-    if (predicate(header))
-      result.push_back(section);
-  }
-  return result;
-}
-
-std::vector<Elf_Scn*> ElfLoader::GetSectionsByName(
-    const std::string& name) const {
-  size_t shdr_strtab_index;
-  Check(elf_getshdrstrndx(elf_, &shdr_strtab_index) == 0)
-      << "could not get ELF section header string table index";
-  return GetSectionsIf([&](const GElf_Shdr& header) {
-    return elf_strptr(elf_, shdr_strtab_index, header.sh_name) == name;
-  });
-}
-
-Elf_Scn* ElfLoader::GetSectionByName(const std::string& name) const {
-  const auto sections = GetSectionsByName(name);
-  Check(!sections.empty()) << "no section found with name '" << name << "'";
-  Check(sections.size() == 1)
-      << "multiple sections found with name '" << name << "'";
-  return sections[0];
-}
-
-Elf_Scn* ElfLoader::GetSectionByType(Elf64_Word type) const {
-  auto sections = GetSectionsIf([&](const GElf_Shdr& header) {
-    return header.sh_type == type;
-  });
-  Check(!sections.empty()) << "no section found with type " << type;
-  Check(sections.size() == 1) << "multiple sections found with type " << type;
-  return sections[0];
-}
-
-ElfLoader::SectionInfo ElfLoader::GetSectionInfo(Elf_Scn* section) const {
-  size_t index = elf_ndxscn(section);
-  GElf_Shdr section_header;
-  Check(gelf_getshdr(section, &section_header) != nullptr)
-      << "failed to read section (index = " << index << ") header";
-  Elf_Data* data = elf_getdata(section, 0);
-  Check(data != nullptr) << "section (index = " << index << ") data is invalid";
-  return {section_header, data};
-}
-
-size_t ElfLoader::GetNumberOfEntries(const GElf_Shdr& section_header) const {
-  Check(section_header.sh_entsize != 0)
-      << "zero table entity size is unexpected for section "
-      << ElfSectionTypeToString(section_header.sh_type);
-  return section_header.sh_size / section_header.sh_entsize;
-}
-
 std::string_view ElfLoader::GetBtfRawData() const {
-  Elf_Scn* btf_section = GetSectionByName(".BTF");
+  Elf_Scn* btf_section = GetSectionByName(elf_, ".BTF");
   Check(btf_section != nullptr) << ".BTF section is invalid";
   Elf_Data* elf_data = elf_rawdata(btf_section, 0);
   Check(elf_data != nullptr) << ".BTF section data is invalid";
@@ -235,35 +318,8 @@ std::string_view ElfLoader::GetBtfRawData() const {
   return std::string_view(btf_start, btf_size);
 }
 
-Elf_Scn* ElfLoader::GetSymbolTableSection() const {
-  GElf_Ehdr elf_header;
-  Check(gelf_getehdr(elf_, &elf_header) != nullptr)
-      << "could not get ELF header";
-
-  if (verbose_)
-    std::cout << "ELF type: " << ElfHeaderTypeToString(elf_header.e_type)
-              << '\n';
-  // TODO: check if vmlinux symbol table type matches ELF type
-  // same way as other binaries
-  if (elf_header.e_type == ET_REL)
-    return GetSectionByType(SHT_SYMTAB);
-  else if (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)
-    return GetSectionByType(SHT_DYNSYM);
-  else
-    Die() << "unsupported ELF type: '"
-          << ElfHeaderTypeToString(elf_header.e_type) << "'";
-}
-
-std::string_view ElfLoader::GetString(uint32_t section, size_t offset) const {
-  const auto name = elf_strptr(elf_, section, offset);
-
-  Check(name != nullptr) << "string was not found (section: " << section
-                         << ", offset: " << offset << ")";
-  return name;
-}
-
 std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
-  Elf_Scn* symbol_table_section = GetSymbolTableSection();
+  Elf_Scn* symbol_table_section = GetSymbolTableSection(elf_, verbose_);
   Check(symbol_table_section != nullptr)
       << "failed to find symbol table section";
 
@@ -279,7 +335,8 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
     Check(gelf_getsym(symbol_table_data, i, &symbol) != nullptr)
         << "symbol (i = " << i << ") was not found";
 
-    const auto name = GetString(symbol_table_header.sh_link, symbol.st_name);
+    const auto name =
+        GetString(elf_, symbol_table_header.sh_link, symbol.st_name);
     result.push_back(SymbolTableEntry{
         .name = name,
         .value = symbol.st_value,
