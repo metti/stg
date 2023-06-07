@@ -81,6 +81,11 @@ HashValue StableHash::operator()(const PointerReference& x) {
                              (*this)(x.pointee_type_id));
 }
 
+HashValue StableHash::operator()(const PointerToMember& x) {
+  return DecayHashCombine<16>(hash_('n', (*this)(x.containing_type_id)),
+                              (*this)(x.pointee_type_id));
+}
+
 HashValue StableHash::operator()(const Typedef& x) {
   return hash_('t', x.name);
 }
@@ -157,8 +162,8 @@ HashValue StableHash::operator()(const ElfSymbol& x) {
   return hash;
 }
 
-HashValue StableHash::operator()(const Symbols&) {
-  return hash_("symtab");
+HashValue StableHash::operator()(const Interface&) {
+  return hash_("interface");
 }
 
 }  // namespace stg

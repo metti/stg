@@ -745,7 +745,7 @@ Id Abigail::BuildSymbols() {
     }
     symbols.insert({id, BuildSymbol(symbol_info, type_id, name)});
   }
-  return graph_.Add<Symbols>(symbols);
+  return graph_.Add<Interface>(symbols);
 }
 
 Id Read(Graph& graph, const std::string& path, Metrics& metrics) {

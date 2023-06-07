@@ -118,6 +118,11 @@ struct Equals {
         && (*this)(x1.pointee_type_id, x2.pointee_type_id);
   }
 
+  bool operator()(const PointerToMember& x1, const PointerToMember& x2) {
+    return (*this)(x1.containing_type_id, x2.containing_type_id)
+        && (*this)(x1.pointee_type_id, x2.pointee_type_id);
+  }
+
   bool operator()(const Typedef& x1, const Typedef& x2) {
     return x1.name == x2.name
         && (*this)(x1.referred_type_id, x2.referred_type_id);
@@ -210,7 +215,7 @@ struct Equals {
     return result;
   }
 
-  bool operator()(const Symbols& x1, const Symbols& x2) {
+  bool operator()(const Interface& x1, const Interface& x2) {
     return (*this)(x1.symbols, x2.symbols);
   }
 
