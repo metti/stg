@@ -316,7 +316,7 @@ class Graph {
 
   Id Allocate() {
     const auto ix = indirection_.size();
-    indirection_.push_back({Which::ABSENT, 0});
+    indirection_.emplace_back(Which::ABSENT, 0);
     return Id(ix);
   }
 

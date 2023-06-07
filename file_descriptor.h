@@ -34,7 +34,7 @@ class FileDescriptor {
   FileDescriptor(const char* filename, int flags, mode_t mode = 0);
   FileDescriptor(const FileDescriptor&) = delete;
   FileDescriptor& operator=(const FileDescriptor&) = delete;
-  FileDescriptor(FileDescriptor&& other) {
+  FileDescriptor(FileDescriptor&& other) noexcept {
     std::swap(fd_, other.fd_);
   }
   FileDescriptor& operator=(FileDescriptor&& other) = delete;
