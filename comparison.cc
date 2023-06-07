@@ -243,6 +243,15 @@ Result Compare::operator()(const PointerReference& x1,
   return result;
 }
 
+Result Compare::operator()(const PointerToMember& x1,
+                           const PointerToMember& x2) {
+  Result result;
+  result.MaybeAddEdgeDiff(
+      "containing", (*this)(x1.containing_type_id, x2.containing_type_id));
+  result.MaybeAddEdgeDiff("", (*this)(x1.pointee_type_id, x2.pointee_type_id));
+  return result;
+}
+
 Result Compare::operator()(const Typedef&, const Typedef&) {
   // Compare will never attempt to directly compare Typedefs.
   Die() << "internal error: Compare(Typedef)";
@@ -376,7 +385,16 @@ Result Compare::operator()(const Member& x1, const Member& x2) {
   Result result;
   result.MaybeAddNodeDiff("offset", x1.offset, x2.offset);
   if (!ignore.Test(Ignore::MEMBER_SIZE)) {
-    result.MaybeAddNodeDiff("size", x1.bitsize, x2.bitsize);
+    const bool bitfield1 = x1.bitsize > 0;
+    const bool bitfield2 = x2.bitsize > 0;
+    if (bitfield1 != bitfield2) {
+      std::ostringstream os;
+      os << "was " << (bitfield1 ? "a bit-field" : "not a bit-field")
+         << ", is now " << (bitfield2 ? "a bit-field" : "not a bit-field");
+      result.AddNodeDiff(os.str());
+    } else {
+      result.MaybeAddNodeDiff("bit-field size", x1.bitsize, x2.bitsize);
+    }
   }
   result.MaybeAddEdgeDiff("", (*this)(x1.type_id, x2.type_id));
   return result;
@@ -606,7 +624,7 @@ Result Compare::operator()(const ElfSymbol& x1, const ElfSymbol& x2) {
   return result;
 }
 
-Result Compare::operator()(const Symbols& x1, const Symbols& x2) {
+Result Compare::operator()(const Interface& x1, const Interface& x2) {
   Result result;
   result.diff_.holds_changes = true;
 

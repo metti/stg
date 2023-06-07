@@ -39,8 +39,8 @@ struct Types {
   };
 
   size_t processed_entries = 0;
-  // Container for all Ids allocated during DWARF processing.
-  std::vector<Id> all_ids;
+  // Container for all named type IDs allocated during DWARF processing.
+  std::vector<Id> named_type_ids;
   std::vector<Symbol> symbols;
 };
 

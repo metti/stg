@@ -64,6 +64,7 @@ struct Transform {
   void operator()(const stg::Void&, uint32_t);
   void operator()(const stg::Variadic&, uint32_t);
   void operator()(const stg::PointerReference&, uint32_t);
+  void operator()(const stg::PointerToMember&, uint32_t);
   void operator()(const stg::Typedef&, uint32_t);
   void operator()(const stg::Qualified&, uint32_t);
   void operator()(const stg::Primitive&, uint32_t);
@@ -75,7 +76,7 @@ struct Transform {
   void operator()(const stg::Enumeration&, uint32_t);
   void operator()(const stg::Function&, uint32_t);
   void operator()(const stg::ElfSymbol&, uint32_t);
-  void operator()(const stg::Symbols&, uint32_t);
+  void operator()(const stg::Interface&, uint32_t);
 
   PointerReference::Kind operator()(stg::PointerReference::Kind);
   Qualified::Qualifier operator()(stg::Qualifier);
@@ -130,6 +131,14 @@ void Transform<MapId>::operator()(const stg::PointerReference& x, uint32_t id) {
   pointer_reference.set_id(id);
   pointer_reference.set_kind((*this)(x.kind));
   pointer_reference.set_pointee_type_id((*this)(x.pointee_type_id));
+}
+
+template <typename MapId>
+void Transform<MapId>::operator()(const stg::PointerToMember& x, uint32_t id) {
+  auto& pointer_to_member = *stg.add_pointer_to_member();
+  pointer_to_member.set_id(id);
+  pointer_to_member.set_containing_type_id((*this)(x.containing_type_id));
+  pointer_to_member.set_pointee_type_id((*this)(x.pointee_type_id));
 }
 
 template <typename MapId>
@@ -276,7 +285,7 @@ void Transform<MapId>::operator()(const stg::ElfSymbol& x, uint32_t id) {
 }
 
 template <typename MapId>
-void Transform<MapId>::operator()(const stg::Symbols& x, uint32_t id) {
+void Transform<MapId>::operator()(const stg::Interface& x, uint32_t id) {
   auto& symbols = *stg.mutable_symbols();
   symbols.set_id(id);
   for (const auto& [symbol, id] : x.symbols) {
@@ -428,6 +437,7 @@ void SortNodes(STG& stg) {
   SortNodesById(*stg.mutable_void_());
   SortNodesById(*stg.mutable_variadic());
   SortNodesById(*stg.mutable_pointer_reference());
+  SortNodesById(*stg.mutable_pointer_to_member());
   SortNodesByName(*stg.mutable_typedef_());
   SortNodesById(*stg.mutable_qualified());
   SortNodesById(*stg.mutable_primitive());
@@ -451,6 +461,8 @@ class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
   }
 };
 
+const uint32_t kWrittenFormatVersion = 0;
+
 }  // namespace
 
 void Print(const STG& stg, std::ostream& os) {
@@ -471,6 +483,7 @@ void Writer::Write(const Id& root, std::ostream& os) {
     auto get_id = [](Id id) { return id.ix_; };
     stg.set_root_id(Transform<decltype(get_id)>(graph_, stg, get_id)(root));
   }
+  stg.set_version(kWrittenFormatVersion);
   Print(stg, os);
 }
 

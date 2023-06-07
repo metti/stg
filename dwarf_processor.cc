@@ -242,8 +242,11 @@ size_t GetDataBitOffset(Entry& entry, size_t bit_size,
     const size_t bitfield_adjusment =
         CalculateBitfieldAdjustment(entry, bit_size, is_little_endian_binary);
     return bit_offset + bitfield_adjusment;
+  } else {
+    // If the beginning of the data member is the same as the beginning of the
+    // containing entity then neither attribute is required.
+    return 0;
   }
-  Die() << "Member has no DW_AT_data_bit_offset or DW_AT_data_member_location";
 }
 
 }  // namespace
@@ -293,6 +296,9 @@ class Processor {
         ProcessReference<PointerReference>(
             entry, PointerReference::Kind::RVALUE_REFERENCE);
         break;
+      case DW_TAG_ptr_to_member_type:
+        ProcessPointerToMember(entry);
+        break;
       case DW_TAG_compile_unit:
         ProcessCompileUnit(entry);
         break;
@@ -334,14 +340,13 @@ class Processor {
     }
   }
 
-  std::vector<Id> GetUnresolvedIds() {
-    std::vector<Id> result;
+  void CheckUnresolvedIds() const {
     for (const auto& [offset, id] : id_map_) {
       if (!graph_.Is(id)) {
-        result.push_back(id);
+        Die() << "unresolved id " << id << ", DWARF offset 0x" << std::hex
+              << offset;
       }
     }
-    return result;
   }
 
  private:
@@ -376,13 +381,24 @@ class Processor {
   void ProcessTypedef(Entry& entry) {
     std::string type_name = GetName(entry);
     auto referred_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
-    AddProcessedNode<Typedef>(entry, std::move(type_name), referred_type_id);
+    const Id id = AddProcessedNode<Typedef>(entry, std::move(type_name),
+                                            referred_type_id);
+    AddNamedTypeNode(id);
   }
 
   template<typename Node, typename KindType>
   void ProcessReference(Entry& entry, KindType kind) {
     auto referred_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
     AddProcessedNode<Node>(entry, kind, referred_type_id);
+  }
+
+  void ProcessPointerToMember(Entry& entry) {
+    const Id containing_type_id =
+        GetIdForReferredType(entry.MaybeGetReference(DW_AT_containing_type));
+    const Id pointee_type_id =
+        GetIdForReferredType(MaybeGetReferredType(entry));
+    AddProcessedNode<PointerToMember>(entry, containing_type_id,
+                                      pointee_type_id);
   }
 
   void ProcessStructUnion(Entry& entry, StructUnion::Kind kind) {
@@ -394,7 +410,10 @@ class Processor {
       // However, it is not guaranteed and we should do something if we find an
       // example.
       CheckNoChildren(entry);
-      AddProcessedNode<StructUnion>(entry, kind, std::move(name));
+      const Id id = AddProcessedNode<StructUnion>(entry, kind, name);
+      if (!name.empty()) {
+        AddNamedTypeNode(id);
+      }
       return;
     }
 
@@ -430,10 +449,14 @@ class Processor {
 
     // TODO: support base classes
     // TODO: support methods
-    AddProcessedNode<StructUnion>(entry, kind, std::move(name), byte_size,
-                                  /* base_classes = */ std::vector<Id>{},
-                                  /* methods = */ std::vector<Id>{},
-                                  std::move(members));
+    const Id id = AddProcessedNode<StructUnion>(
+        entry, kind, name, byte_size,
+        /* base_classes = */ std::vector<Id>{},
+        /* methods = */ std::vector<Id>{},
+        std::move(members));
+    if (!name.empty()) {
+      AddNamedTypeNode(id);
+    }
   }
 
   void ProcessMember(Entry& entry) {
@@ -483,7 +506,10 @@ class Processor {
       // However, it is not guaranteed and we should do something if we find an
       // example.
       CheckNoChildren(entry);
-      AddProcessedNode<Enumeration>(entry, name);
+      const Id id = AddProcessedNode<Enumeration>(entry, name);
+      if (!name.empty()) {
+        AddNamedTypeNode(id);
+      }
       return;
     }
     auto underlying_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
@@ -504,8 +530,11 @@ class Processor {
       enumerators.emplace_back(enumerator_name,
                                static_cast<int64_t>(*value_optional));
     }
-    AddProcessedNode<Enumeration>(entry, std::move(name), underlying_type_id,
-                                  std::move(enumerators));
+    const Id id = AddProcessedNode<Enumeration>(entry, name, underlying_type_id,
+                                                std::move(enumerators));
+    if (!name.empty()) {
+      AddNamedTypeNode(id);
+    }
   }
 
   void ProcessVariable(Entry& entry) {
@@ -566,7 +595,7 @@ class Processor {
               << EntryToString(child);
       }
     }
-    auto id = AddProcessedNode<Function>(entry, return_type_id, parameters);
+    const Id id = AddProcessedNode<Function>(entry, return_type_id, parameters);
 
     if (entry.GetFlag(DW_AT_external)) {
       auto address = entry.MaybeGetAddress(DW_AT_low_pc);
@@ -602,8 +631,11 @@ class Processor {
   Id AddProcessedNode(Entry& entry, Args&&... args) {
     auto id = GetIdForEntry(entry);
     graph_.Set<Node>(id, std::forward<Args>(args)...);
-    result_.all_ids.push_back(id);
     return id;
+  }
+
+  void AddNamedTypeNode(Id id) {
+    result_.named_type_ids.push_back(id);
   }
 
   Graph& graph_;
@@ -624,7 +656,7 @@ Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
   for (auto& entry : entries) {
     processor.Process(entry);
   }
-  Check(processor.GetUnresolvedIds().empty()) << "unresolved ids";
+  processor.CheckUnresolvedIds();
 
   return result;
 }

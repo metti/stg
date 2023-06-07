@@ -57,11 +57,11 @@ TEST_CASE("ownership transfer on move") {
   const auto fd_val = fd.Value();
 
   auto fd2(std::move(fd));
-  CHECK_THROWS(fd.Value());  // NOLINT(bugprone-use-after-move)
+  CHECK_THROWS(fd.Value());
   CHECK(fd_val == fd2.Value());
 
   auto fd3(std::move(fd2));
-  CHECK_THROWS(fd2.Value());  // NOLINT(bugprone-use-after-move)
+  CHECK_THROWS(fd2.Value());
   CHECK(fd_val == fd3.Value());
 }
 
