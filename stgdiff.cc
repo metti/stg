@@ -77,6 +77,9 @@ std::vector<std::pair<const char*, uint64_t>> Time::times_;
 enum class InputFormat { ABI, BTF };
 enum class OutputFormat { PLAIN, FLAT, SMALL, VIZ };
 
+using Inputs = std::vector<std::pair<InputFormat, const char*>>;
+using Outputs = std::vector<std::pair<OutputFormat, const char*>>;
+
 void ReportPlain(const stg::Comparison& comparison,
                  const stg::Outcomes& outcomes,
                  stg::NameCache& names, std::ostream& output) {
@@ -121,6 +124,69 @@ void ReportViz(const stg::Comparison& comparison, const stg::Outcomes& outcomes,
   output << "}\n";
 }
 
+bool Report(const Inputs& inputs, const Outputs& outputs) {
+  // Read inputs.
+  std::vector<std::unique_ptr<stg::Graph>> graphs;
+  for (const auto& [format, filename] : inputs) {
+    graphs.push_back({});
+    auto& graph = graphs.back();
+    switch (format) {
+      case InputFormat::ABI: {
+        Time read("read ABI");
+        graph = stg::abixml::Read(filename);
+        break;
+      }
+      case InputFormat::BTF: {
+        Time read("read BTF");
+        graph = stg::btf::ReadFile(filename);
+        break;
+      }
+    }
+  }
+
+  // Compute differences.
+  stg::State state;
+  std::pair<bool, std::optional<stg::Comparison>> result;
+  {
+    Time compute("compute diffs");
+    const stg::Type& lhs = graphs[0]->GetSymbols();
+    const stg::Type& rhs = graphs[1]->GetSymbols();
+    result = stg::Type::Compare(lhs, rhs, state);
+  }
+  stg::Check(state.scc.Empty()) << "internal error: SCC state broken";
+  const auto& [equals, comparison] = result;
+
+  // Write reports.
+  for (const auto& [format, filename] : outputs) {
+    stg::NameCache names;
+    std::ofstream output(filename);
+    if (comparison) {
+      Time report("report diffs");
+      const auto& outcomes = state.outcomes;
+      switch (format) {
+        case OutputFormat::PLAIN: {
+          ReportPlain(*comparison, outcomes, names, output);
+          break;
+        }
+        case OutputFormat::FLAT:
+        case OutputFormat::SMALL: {
+          bool full = format == OutputFormat::FLAT;
+          ReportFlat(full, *comparison, outcomes, names, output);
+          break;
+        }
+        case OutputFormat::VIZ: {
+          ReportViz(*comparison, outcomes, names, output);
+          break;
+        }
+      }
+      output << std::flush;
+    }
+    if (!output)
+      stg::Die() << "error writing to " << '\'' << filename << '\'';
+  }
+  return equals;
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -128,8 +194,8 @@ int main(int argc, char* argv[]) {
   bool opt_times = false;
   InputFormat opt_input_format = InputFormat::ABI;
   OutputFormat opt_output_format = OutputFormat::PLAIN;
-  std::vector<std::pair<InputFormat, const char*>> inputs;
-  std::vector<std::pair<OutputFormat, const char*>> outputs;
+  Inputs inputs;
+  Outputs outputs;
   static option opts[] = {
       {"times",  no_argument,       nullptr, 't'},
       {"abi",    no_argument,       nullptr, 'a'},
@@ -143,8 +209,11 @@ int main(int argc, char* argv[]) {
               << " [-t|--times]\n"
               << " [-a|--abi|-b|--btf] file1\n"
               << " [-a|--abi|-b|--btf] file2\n"
-              << " [-f|--format (plain|flat|small|viz)]"
-              << " [-o|--output filename] ...\n";
+              << " [{-f|--format} {plain|flat|small|viz}]\n"
+              << " [{-o|--output} {filename|-}] ...\n"
+              << "   implicit defaults: --abi --format plain\n"
+              << "   format and output can appear multiple times\n"
+              << "\n";
     return 1;
   };
   while (true) {
@@ -152,6 +221,7 @@ int main(int argc, char* argv[]) {
     int c = getopt_long(argc, argv, "-tabf:o:", opts, &ix);
     if (c == -1)
       break;
+    const char* argument = optarg;
     switch (c) {
       case 't':
         opt_times = true;
@@ -163,22 +233,24 @@ int main(int argc, char* argv[]) {
         opt_input_format = InputFormat::BTF;
         break;
       case 1:
-        inputs.push_back({opt_input_format, optarg});
+        if (strcmp(argument, "-") == 0)
+          argument = "/dev/stdout";
+        inputs.push_back({opt_input_format, argument});
         break;
       case 'f':
-        if (strcmp(optarg, "plain") == 0)
+        if (strcmp(argument, "plain") == 0)
           opt_output_format = OutputFormat::PLAIN;
-        else if (strcmp(optarg, "flat") == 0)
+        else if (strcmp(argument, "flat") == 0)
           opt_output_format = OutputFormat::FLAT;
-        else if (strcmp(optarg, "small") == 0)
+        else if (strcmp(argument, "small") == 0)
           opt_output_format = OutputFormat::SMALL;
-        else if (strcmp(optarg, "viz") == 0)
+        else if (strcmp(argument, "viz") == 0)
           opt_output_format = OutputFormat::VIZ;
         else
           return usage();
         break;
       case 'o':
-        outputs.push_back({opt_output_format, optarg});
+        outputs.push_back({opt_output_format, argument});
         break;
       default:
         return usage();
@@ -186,83 +258,11 @@ int main(int argc, char* argv[]) {
   }
   if (inputs.size() != 2)
     return usage();
-  if (outputs.empty())
-    outputs.push_back({opt_output_format, nullptr});
 
   try {
-    // Read inputs.
-    std::vector<std::unique_ptr<stg::Graph>> graphs;
-    for (const auto& [format, filename] : inputs) {
-      graphs.push_back({});
-      auto& graph = graphs.back();
-      switch (format) {
-        case InputFormat::ABI: {
-          Time read("read ABI");
-          graph = stg::abixml::Read(filename);
-          break;
-        }
-        case InputFormat::BTF: {
-          Time read("read BTF");
-          graph = stg::btf::ReadFile(filename);
-          break;
-        }
-      }
-    }
-
-    // Compute differences.
-    stg::State state;
-    std::pair<bool, std::optional<stg::Comparison>> result;
-    {
-      Time compute("compute diffs");
-      const stg::Type& lhs = graphs[0]->GetSymbols();
-      const stg::Type& rhs = graphs[1]->GetSymbols();
-      result = stg::Type::Compare(lhs, rhs, state);
-    }
-    stg::Check(state.scc.Empty()) << "internal error: SCC state broken";
-    const auto& [equals, comparison] = result;
-
-    // Write reports.
-    for (const auto& [format, filename] : outputs) {
-      stg::NameCache names;
-      std::unique_ptr<std::ostream> output_holder;
-      if (filename)
-        output_holder = std::make_unique<std::ofstream>(filename);
-      std::ostream& output = filename ? *output_holder : std::cout;
-      if (comparison) {
-        Time report("report diffs");
-        const auto& outcomes = state.outcomes;
-        switch (format) {
-          case OutputFormat::PLAIN: {
-            ReportPlain(*comparison, outcomes, names, output);
-            break;
-          }
-          case OutputFormat::FLAT:
-          case OutputFormat::SMALL: {
-            bool full = format == OutputFormat::FLAT;
-            ReportFlat(full, *comparison, outcomes, names, output);
-            break;
-          }
-          case OutputFormat::VIZ: {
-            ReportViz(*comparison, outcomes, names, output);
-            break;
-          }
-        }
-        output << std::flush;
-      }
-      if (!output) {
-        std::cerr << "error writing to ";
-        if (filename)
-          std::cerr << '\'' << filename << '\'';
-        else
-          std::cerr << "stdout";
-        std::cerr  << "\n";
-        return 1;
-      }
-    }
-
+    const bool equals = Report(inputs, outputs);
     if (opt_times)
       Time::report();
-
     return equals ? 0 : kAbiChange;
   } catch (const stg::Exception& e) {
     std::cerr << e.what() << '\n';
