@@ -262,8 +262,11 @@ crazy behaviour would have been to decorate the return type instead.
 
 Mainly for `Equals`.
 
-* `AddDiff` - add node/edge label difference, unconditionally
-* `MaybeAddDiff` - add matching edge recursive difference, conditionally
+* `MarkIncomparable` - nodes are just different
+* `AddNodeDiff` - add node difference, unconditionally
+* `AddEdgeDiff` - add edge difference (addition or removal), unconditionally
+* `MaybeAddNodeDiff` - add node difference (label change), conditionally
+* `MaybeAddEdgeDiff` - add matching edge recursive difference, conditionally
 
 Variants are possible where text is generated lazily on a recursive diff being
 found, as are ones where labels are compared and serialised only if different.
@@ -316,7 +319,7 @@ Note: This should be done at *presention time*. It is better not to fold M, A
 and B into the same *data structure element* as that would preclude switching
 over to producing a diff graph as the A/B comparison could no longer be shared.
 
-#### Can nodes and edges be collaped further?
+#### Can nodes and edges be collapsed further?
 
 Another presentation optimisation is possible when dealing with normal diffs
 where there will always be exactly one, recursive, diff per node.
