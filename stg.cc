@@ -37,6 +37,7 @@
 #include "metrics.h"
 #include "proto_reader.h"
 #include "proto_writer.h"
+#include "symbol_filter.h"
 
 namespace stg {
 namespace {
@@ -74,7 +75,7 @@ struct GetSymbols {
 
   template <typename Node>
   const Symbols& operator()(const Node&) {
-    Die() << "merge can only merge Symbols nodes";
+    Die() << "expected a Symbols root node";
   }
 };
 
@@ -90,6 +91,18 @@ Id Merge(Graph& graph, const std::vector<Id>& roots) {
     graph.Remove(root);
   }
   return graph.Add<Symbols>(symbols);
+}
+
+void Filter(Graph& graph, Id root, const SymbolFilter& filter) {
+  std::map<std::string, Id> symbols;
+  GetSymbols get;
+  for (const auto& x : graph.Apply<const Symbols&>(get, root).symbols) {
+    if (filter(x.first)) {
+      symbols.insert(x);
+    }
+  }
+  graph.Unset(root);
+  graph.Set<Symbols>(root, symbols);
 }
 
 void Write(const Graph& graph, Id root, const char* output, bool stable) {
@@ -118,6 +131,7 @@ int main(int argc, char* argv[]) {
   bool opt_info = false;
   bool opt_keep_duplicates = false;
   bool opt_unstable = false;
+  std::unique_ptr<stg::SymbolFilter> opt_symbols;
   bool opt_process_dwarf = false;
   stg::InputFormat opt_input_format = stg::InputFormat::ABI;
   std::vector<const char*> inputs;
@@ -127,6 +141,7 @@ int main(int argc, char* argv[]) {
       {"info",            no_argument,       nullptr, 'i'          },
       {"keep-duplicates", no_argument,       nullptr, 'd'          },
       {"unstable",        no_argument,       nullptr, 'u'          },
+      {"symbols",         required_argument, nullptr, 'S'          },
       {"abi",             no_argument,       nullptr, 'a'          },
       {"btf",             no_argument,       nullptr, 'b'          },
       {"elf",             no_argument,       nullptr, 'e'          },
@@ -141,15 +156,17 @@ int main(int argc, char* argv[]) {
               << "  [-i|--info]\n"
               << "  [-d|--keep-duplicates]\n"
               << "  [-u|--unstable]\n"
+              << "  [-S|--symbols <filter>]\n"
               << "  [--process-dwarf]\n"
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...\n"
               << "  [{-o|--output} {filename|-}] ...\n"
               << "implicit defaults: --abi\n";
+    stg::SymbolFilterUsage(std::cerr);
     return 1;
   };
   while (true) {
     int ix;
-    int c = getopt_long(argc, argv, "-miduabeso:", opts, &ix);
+    int c = getopt_long(argc, argv, "-miduS:abeso:", opts, &ix);
     if (c == -1)
       break;
     const char* argument = optarg;
@@ -165,6 +182,9 @@ int main(int argc, char* argv[]) {
         break;
       case 'u':
         opt_unstable = true;
+        break;
+      case 'S':
+        opt_symbols = stg::MakeSymbolFilter(argument);
         break;
       case 'a':
         opt_input_format = stg::InputFormat::ABI;
@@ -203,6 +223,9 @@ int main(int argc, char* argv[]) {
                                 opt_process_dwarf, opt_info, stg::metrics));
     }
     stg::Id root = roots.size() == 1 ? roots[0] : stg::Merge(graph, roots);
+    if (opt_symbols) {
+      stg::Filter(graph, root, *opt_symbols);
+    }
     if (!opt_keep_duplicates) {
       const auto hashes = stg::Fingerprint(graph, root, stg::metrics);
       root = stg::Deduplicate(graph, root, hashes, stg::metrics);
