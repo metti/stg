@@ -414,7 +414,7 @@ class Member : public Type {
 
 class StructUnion : public Type {
  public:
-  enum class Kind { STRUCT, UNION };
+  enum class Kind { CLASS, STRUCT, UNION };
   struct Definition {
     const uint64_t bytesize;
     const std::vector<Id> members;
