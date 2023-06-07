@@ -29,7 +29,6 @@
 #include <string_view>
 #include <vector>
 
-#include "file_descriptor.h"
 #include "graph.h"
 
 namespace stg {
@@ -63,6 +62,7 @@ struct SymbolTableEntry {
   SymbolType symbol_type;
   Binding binding;
   Visibility visibility;
+  size_t section_index;
   ValueType value_type;
 };
 
@@ -73,25 +73,18 @@ std::ostream& operator<<(std::ostream& os,
 
 class ElfLoader final {
  public:
-  explicit ElfLoader(const std::string& path, bool verbose = false);
-  ElfLoader(char* data, size_t size, bool verbose = false);
+  explicit ElfLoader(Elf* elf, bool verbose = false);
 
   std::string_view GetBtfRawData() const;
   std::vector<SymbolTableEntry> GetElfSymbols() const;
+  ElfSymbol::CRC GetElfSymbolCRC(const SymbolTableEntry& symbol) const;
   bool IsLinuxKernelBinary() const;
 
  private:
-  struct ElfDeleter {
-    void operator()(Elf* elf) { elf_end(elf); }
-  };
-
   void InitializeElfInformation();
 
   const bool verbose_;
-  // The order of the following two fields is important because Elf uses a
-  // value from FileDescriptor without owning it.
-  FileDescriptor fd_;
-  std::unique_ptr<Elf, ElfDeleter> elf_;
+  Elf* elf_;
   bool is_linux_kernel_binary_;
 };
 

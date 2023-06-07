@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2020-2022 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -17,35 +17,21 @@
 //
 // Author: Giuliano Procida
 
-#ifndef STG_REPORTING_H_
-#define STG_REPORTING_H_
+#ifndef STG_DEDUPLICATION_H_
+#define STG_DEDUPLICATION_H_
 
-#include <ostream>
+#include <cstdint>
+#include <unordered_map>
 
-#include "comparison.h"
 #include "graph.h"
-#include "naming.h"
+#include "metrics.h"
 
 namespace stg {
-namespace reporting {
 
-enum class OutputFormat { PLAIN, FLAT, SMALL, SHORT, VIZ };
+using Hashes = std::unordered_map<Id, uint32_t>;
 
-struct Options {
-  const OutputFormat format;
-  const size_t max_crc_only_changes;  // only for SHORT
-};
+Id Deduplicate(Graph& graph, Id root, const Hashes& hashes, Metrics& metrics);
 
-struct Reporting {
-  const Graph& graph;
-  const Outcomes& outcomes;
-  const Options& options;
-  NameCache& names;
-};
-
-void Report(const Reporting&, const Comparison&, std::ostream&);
-
-}  // namespace reporting
 }  // namespace stg
 
-#endif  // STG_REPORTING_H_
+#endif  // STG_DEDUPLICATION_H_
