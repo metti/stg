@@ -35,8 +35,9 @@ namespace Test {
 // Safe for small k!
 size_t Factorial(size_t k) {
   size_t count = 1;
-  for (size_t i = 1; i <= k; ++i)
+  for (size_t i = 1; i <= k; ++i) {
     count *= i;
+  }
   return count;
 }
 
@@ -53,8 +54,9 @@ TEST_CASE("hand-curated permutation") {
 template <typename G>
 std::vector<size_t> MakePermutation(size_t k, G& gen) {
   std::vector<size_t> result(k);
-  for (size_t i = 0; i < k; ++i)
+  for (size_t i = 0; i < k; ++i) {
     result[i] = i;
+  }
   for (size_t i = 0; i < k; ++i) {
     // pick one of [i, k)
     std::uniform_int_distribution<size_t> toss(i, k - 1);
@@ -75,8 +77,9 @@ TEST_CASE("randomly-generated permutations") {
     const auto count = Factorial(k);
     INFO("testing with " << count << " permutations of size " << k);
     std::vector<size_t> identity(k);
-    for (size_t i = 0; i < k; ++i)
+    for (size_t i = 0; i < k; ++i) {
       identity[i] = i;
+    }
     for (size_t n = 0; n < count; ++n, ++seed) {
       gen.seed(seed);
       auto permutation = MakePermutation(k, gen);
@@ -140,8 +143,9 @@ TEST_CASE("randomly-generating ordering sequences, disjoint") {
       const auto order1 = MakePermutation(k, gen);
       auto order1_copy = order1;
       auto order2 = MakePermutation(k, gen);
-      for (size_t i = 0; i < k; ++i)
+      for (size_t i = 0; i < k; ++i) {
         order2[i] += k;
+      }
       const auto order2_copy = order2;
       std::ostringstream os;
       os << "orderings of " << k << " numbers generated using seed " << seed;
@@ -172,8 +176,9 @@ TEST_CASE("randomly-generating ordering sequences, single overlap") {
       const auto order1 = MakePermutation(k, gen);
       auto order1_copy = order1;
       auto order2 = MakePermutation(k, gen);
-      for (size_t i = 0; i < k; ++i)
+      for (size_t i = 0; i < k; ++i) {
         order2[i] += k - 1;
+      }
       const auto pivot = k - 1;
       const auto order2_copy = order2;
       std::ostringstream os;
@@ -185,17 +190,21 @@ TEST_CASE("randomly-generating ordering sequences, single overlap") {
         size_t ix = 0;
         size_t ix1 = 0;
         size_t ix2 = 0;
-        while (order2[ix2] != pivot)
+        while (order2[ix2] != pivot) {
           CHECK(order1_copy[ix++] == order2[ix2++]);
-        while (order1[ix1] != pivot)
+        }
+        while (order1[ix1] != pivot) {
           CHECK(order1_copy[ix++] == order1[ix1++]);
+        }
         ++ix2;
         ++ix1;
         CHECK(order1_copy[ix++] == pivot);
-        while (ix2 < k)
+        while (ix2 < k) {
           CHECK(order1_copy[ix++] == order2[ix2++]);
-        while (ix1 < k)
+        }
+        while (ix1 < k) {
           CHECK(order1_copy[ix++] == order1[ix1++]);
+        }
       }
     }
   }

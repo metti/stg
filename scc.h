@@ -94,8 +94,9 @@ class SCC {
     auto ix = it->second;
     if (!inserted) {
       // Pop indices to nodes which cannot be the root of their SCC.
-      while (root_index_.back() > ix)
+      while (root_index_.back() > ix) {
         root_index_.pop_back();
+      }
       return {};
     }
     // Unvisited, record open node and record root index.
@@ -112,8 +113,9 @@ class SCC {
       root_index_.pop_back();
       const auto begin = open_.begin() + ix;
       const auto end = open_.end();
-      for (auto it = begin; it != end; ++it)
+      for (auto it = begin; it != end; ++it) {
         is_open_.erase(*it);
+      }
       scc.reserve(end - begin);
       std::move(begin, end, std::back_inserter(scc));
       open_.erase(begin, end);

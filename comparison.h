@@ -130,8 +130,9 @@ struct Result {
                         const std::pair<bool, std::optional<Comparison>>& p) {
     equals_ &= p.first;
     const auto& comparison = p.second;
-    if (comparison)
+    if (comparison) {
       diff_.Add(text, comparison);
+    }
   }
 
   // Used when an edge to a possible comparison is present, lazy version.

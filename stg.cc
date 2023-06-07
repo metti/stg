@@ -168,8 +168,9 @@ int main(int argc, char* argv[]) {
   while (true) {
     int ix;
     int c = getopt_long(argc, argv, "-miduS:abeso:", opts, &ix);
-    if (c == -1)
+    if (c == -1) {
       break;
+    }
     const char* argument = optarg;
     switch (c) {
       case 'm':
@@ -203,8 +204,9 @@ int main(int argc, char* argv[]) {
         inputs.push_back(argument);
         break;
       case 'o':
-        if (strcmp(argument, "-") == 0)
+        if (strcmp(argument, "-") == 0) {
           argument = "/dev/stdout";
+        }
         outputs.push_back(argument);
         break;
       case kSkipDwarf:

@@ -3,8 +3,8 @@
 `stg` is used to extract and process ABI representations from libabigail XML,
 BTF and ELF/DWARF.
 
-NOTE: This is a work in progress and should be considered *experimental*. All
-arguments and behaviour are subject to change.
+NOTE: This tool is a work in progress. Its arguments and behaviour are subject
+to change at short notice.
 
 ## Synopsis
 
@@ -57,8 +57,7 @@ The tool can be passed any number of inputs to combine into a unified ABI.
 
     Read ABI information from a `.stg` file.
 
-    NOTE: There are currently no format stability guarantees and this should be
-    considered *completely experimental*.
+    NOTE: The `.stg` format is still novel and subject to change.
 
 ### Options
 
@@ -114,8 +113,7 @@ nodes that are recursively equal. By default, duplicate nodes are eliminated.
 
     The output will be an ABI representation in STG's native format.
 
-    NOTE: There are currently no format stability guarantees and this should be
-    considered *completely experimental*.
+    NOTE: The `.stg` format is still novel and subject to change.
 
 *   `-u|--unstable`: Use internal node ids in the ABI representation, instead of
     stabilised external node ids.

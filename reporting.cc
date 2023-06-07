@@ -45,8 +45,9 @@ std::string GetResolvedDescription(
     const Graph& graph, NameCache& names, Id id) {
   std::ostringstream os;
   const auto [resolved, typedefs] = ResolveTypedefs(graph, id);
-  for (const auto& td : typedefs)
+  for (const auto& td : typedefs) {
     os << '\'' << td << "' = ";
+  }
   os << '\'' << Describe(graph, names)(resolved) << '\''
      << DescribeExtra(graph)(resolved);
   return os.str();
@@ -88,10 +89,11 @@ bool PrintComparison(const Reporting& reporting, const Comparison& comparison,
   const auto description2 =
       GetResolvedDescription(reporting.graph, reporting.names, *id2);
   os << DescribeKind(reporting.graph)(*id1) << ' ';
-  if (description1 == description2)
+  if (description1 == description2) {
     os << description1 << " changed\n";
-  else
+  } else {
     os << "changed from " << description1 << " to " << description2 << '\n';
+  }
   return false;
 }
 
@@ -272,8 +274,9 @@ void VizPrint(const Reporting& reporting, const Comparison& comparison,
               std::unordered_set<Comparison, HashComparison>& seen,
               std::unordered_map<Comparison, size_t, HashComparison>& ids,
               std::ostream& os) {
-  if (!seen.insert(comparison).second)
+  if (!seen.insert(comparison).second) {
     return;
+  }
 
   const auto node = VizId(ids, comparison);
 
@@ -303,12 +306,13 @@ void VizPrint(const Reporting& reporting, const Comparison& comparison,
       GetResolvedDescription(reporting.graph, reporting.names, *id1);
   const auto description2 =
       GetResolvedDescription(reporting.graph, reporting.names, *id2);
-  if (description1 == description2)
+  if (description1 == description2) {
     os << "  \"" << node << "\" [" << colour << shape << "label=\""
        << description1 << "\"]\n";
-  else
+  } else {
     os << "  \"" << node << "\" [" << colour << shape << "label=\""
        << description1 << " -> " << description2 << "\"]\n";
+  }
 
   size_t index = 0;
   for (const auto& detail : diff.details) {
@@ -367,8 +371,9 @@ void Report(const Reporting& reporting, const Comparison& comparison,
       Flat(reporting, false, report).Report(comparison);
       std::vector<std::string> report_lines;
       std::string line;
-      while (std::getline(report, line))
+      while (std::getline(report, line)) {
         report_lines.push_back(line);
+      }
       report_lines = stg::PostProcess(report_lines,
                                       reporting.options.max_crc_only_changes);
       for (const auto& line : report_lines) {

@@ -161,8 +161,9 @@ std::vector<std::string> GroupRemovedAddedSymbols(
           std::ostringstream os;
           os << pending_symbols.size() << ' ' << kind << " symbol(s) " << which;
           new_report.push_back(os.str());
-          for (const auto& symbol : std::exchange(pending_symbols, {}))
+          for (const auto& symbol : std::exchange(pending_symbols, {})) {
             new_report.push_back("  " + symbol);
+          }
           new_report.push_back({});
         }
       }

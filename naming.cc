@@ -34,16 +34,18 @@ Name Name::Add(Side side, Precedence precedence,
 
   // Bits on the left need (sometimes) to be separated by whitespace.
   left << left_;
-  if (bracket)
+  if (bracket) {
     left << '(';
-  else if (side == Side::LEFT && precedence == Precedence::ATOMIC)
+  } else if (side == Side::LEFT && precedence == Precedence::ATOMIC)  {
     left << ' ';
+  }
 
   (side == Side::LEFT ? left : right) << text;
 
   // Bits on the right are arrays [] and functions () and need no whitespace.
-  if (bracket)
+  if (bracket) {
     right << ')';
+  }
   right << right_;
 
   return Name{left.str(), precedence, right.str()};
@@ -155,17 +157,20 @@ Name Describe::operator()(const BaseClass& x) {
 
 Name Describe::operator()(const Member& x) {
   auto description = (*this)(x.type_id);
-  if (!x.name.empty())
+  if (!x.name.empty()) {
     description = description.Add(Side::LEFT, Precedence::ATOMIC, x.name);
-  if (x.bitsize)
+  }
+  if (x.bitsize) {
     description = description.Add(
         Side::RIGHT, Precedence::ATOMIC, " : " + std::to_string(x.bitsize));
+  }
   return description;
 }
 
 Name Describe::operator()(const Method& x) {
-  if (x.mangled_name == x.name)
+  if (x.mangled_name == x.name) {
     return Name{x.name};
+  }
   return Name{x.name + " {" + x.mangled_name + "}"};
 }
 
@@ -176,8 +181,9 @@ Name Describe::operator()(const StructUnion& x) {
     os << x.name;
   } else if (x.definition) {
     os << "{ ";
-    for (const auto& member : x.definition->members)
+    for (const auto& member : x.definition->members) {
       os << (*this)(member) << "; ";
+    }
     os << '}';
   }
   return Name{os.str()};
@@ -190,8 +196,9 @@ Name Describe::operator()(const Enumeration& x) {
     os << x.name;
   } else if (x.definition) {
     os << "{ ";
-    for (const auto& e : x.definition->enumerators)
+    for (const auto& e : x.definition->enumerators) {
       os << e.first << " = " << e.second << ", ";
+    }
     os << '}';
   }
   return Name{os.str()};
@@ -202,10 +209,11 @@ Name Describe::operator()(const Function& x) {
   os << '(';
   bool sep = false;
   for (const Id p : x.parameters) {
-    if (sep)
+    if (sep) {
       os << ", ";
-    else
+    } else {
       sep = true;
+    }
     os << (*this)(p);
   }
   os << ')';
