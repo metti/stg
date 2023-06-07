@@ -37,6 +37,7 @@
 
 #include "abigail_reader.h"
 #include "btf_reader.h"
+#include "error.h"
 
 namespace {
 
@@ -188,77 +189,83 @@ int main(int argc, char* argv[]) {
   if (outputs.empty())
     outputs.push_back({opt_output_format, nullptr});
 
-  // Read inputs.
-  std::vector<std::unique_ptr<stg::Graph>> graphs;
-  for (const auto& [format, filename] : inputs) {
-    graphs.push_back({});
-    auto& graph = graphs.back();
-    switch (format) {
-      case InputFormat::ABI: {
-        Time read("read ABI");
-        graph = stg::abixml::Read(filename);
-        break;
-      }
-      case InputFormat::BTF: {
-        Time read("read BTF");
-        graph = stg::btf::ReadFile(filename);
-        break;
-      }
-    }
-  }
-
-  // Compute differences.
-  stg::State state;
-  std::pair<bool, std::optional<stg::Comparison>> result;
-  {
-    Time compute("compute diffs");
-    const stg::Type& lhs = graphs[0]->GetSymbols();
-    const stg::Type& rhs = graphs[1]->GetSymbols();
-    result = stg::Type::Compare(lhs, rhs, state);
-  }
-  const auto& [equals, comparison] = result;
-
-  // Write reports.
-  for (const auto& [format, filename] : outputs) {
-    stg::NameCache names;
-    std::unique_ptr<std::ostream> output_holder;
-    if (filename)
-      output_holder = std::make_unique<std::ofstream>(filename);
-    std::ostream& output = filename ? *output_holder : std::cout;
-    if (comparison) {
-      Time report("report diffs");
-      const auto& outcomes = state.outcomes;
+  try {
+    // Read inputs.
+    std::vector<std::unique_ptr<stg::Graph>> graphs;
+    for (const auto& [format, filename] : inputs) {
+      graphs.push_back({});
+      auto& graph = graphs.back();
       switch (format) {
-        case OutputFormat::PLAIN: {
-          ReportPlain(*comparison, outcomes, names, output);
+        case InputFormat::ABI: {
+          Time read("read ABI");
+          graph = stg::abixml::Read(filename);
           break;
         }
-        case OutputFormat::FLAT:
-        case OutputFormat::SMALL: {
-          bool full = format == OutputFormat::FLAT;
-          ReportFlat(full, *comparison, outcomes, names, output);
-          break;
-        }
-        case OutputFormat::VIZ: {
-          ReportViz(*comparison, outcomes, names, output);
+        case InputFormat::BTF: {
+          Time read("read BTF");
+          graph = stg::btf::ReadFile(filename);
           break;
         }
       }
-      output << std::flush;
     }
-    if (!output) {
-      std::cerr << "error writing to ";
+
+    // Compute differences.
+    stg::State state;
+    std::pair<bool, std::optional<stg::Comparison>> result;
+    {
+      Time compute("compute diffs");
+      const stg::Type& lhs = graphs[0]->GetSymbols();
+      const stg::Type& rhs = graphs[1]->GetSymbols();
+      result = stg::Type::Compare(lhs, rhs, state);
+    }
+    stg::Check(state.scc.Empty()) << "internal error: SCC state broken";
+    const auto& [equals, comparison] = result;
+
+    // Write reports.
+    for (const auto& [format, filename] : outputs) {
+      stg::NameCache names;
+      std::unique_ptr<std::ostream> output_holder;
       if (filename)
-        std::cerr << '\'' << filename << '\'';
-      else
-        std::cerr << "stdout";
-      std::cerr  << "\n";
-      return 1;
+        output_holder = std::make_unique<std::ofstream>(filename);
+      std::ostream& output = filename ? *output_holder : std::cout;
+      if (comparison) {
+        Time report("report diffs");
+        const auto& outcomes = state.outcomes;
+        switch (format) {
+          case OutputFormat::PLAIN: {
+            ReportPlain(*comparison, outcomes, names, output);
+            break;
+          }
+          case OutputFormat::FLAT:
+          case OutputFormat::SMALL: {
+            bool full = format == OutputFormat::FLAT;
+            ReportFlat(full, *comparison, outcomes, names, output);
+            break;
+          }
+          case OutputFormat::VIZ: {
+            ReportViz(*comparison, outcomes, names, output);
+            break;
+          }
+        }
+        output << std::flush;
+      }
+      if (!output) {
+        std::cerr << "error writing to ";
+        if (filename)
+          std::cerr << '\'' << filename << '\'';
+        else
+          std::cerr << "stdout";
+        std::cerr  << "\n";
+        return 1;
+      }
     }
+
+    if (opt_times)
+      Time::report();
+
+    return equals ? 0 : kAbiChange;
+  } catch (const stg::Exception& e) {
+    std::cerr << e.what() << '\n';
+    return 1;
   }
-
-  if (opt_times)
-    Time::report();
-
-  return equals ? 0 : kAbiChange;
 }

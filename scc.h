@@ -17,10 +17,9 @@
 //
 // Author: Giuliano Procida
 
-#ifndef SCC_H_
-#define SCC_H_
+#ifndef STG_SCC_H_
+#define STG_SCC_H_
 
-#include <cassert>
 #include <cstddef>
 #include <iterator>
 #include <memory>
@@ -28,6 +27,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include "error.h"
 
 namespace stg {
 
@@ -76,14 +77,15 @@ namespace stg {
  * as a vector of nodes. If any processing needs to be done (such as recording
  * the nodes as visited), this should be done now. Otherwise, an empty vector
  * will be returned.
+ *
+ * After a top-level DFS has completed, the SCC finder should be carrying no
+ * state. This can be verified by calling Empty.
  */
 template <typename Node, typename Hash = std::hash<Node>>
 class SCC {
  public:
-  ~SCC() {
-    assert(open_.empty());
-    assert(is_open_.empty());
-    assert(root_index_.empty());
+  bool Empty() const {
+    return open_.empty() && is_open_.empty() && root_index_.empty();
   }
 
   std::optional<size_t> Open(const Node& node) {
@@ -104,7 +106,7 @@ class SCC {
 
   std::vector<Node> Close(size_t ix) {
     std::vector<Node> scc;
-    assert(ix < open_.size());
+    Check(ix < open_.size()) << "internal error: illegal SCC node index";
     if (ix == root_index_.back()) {
       // Close SCC.
       for (size_t o = ix; o < open_.size(); ++o)
@@ -124,4 +126,4 @@ class SCC {
 
 }  // namespace stg
 
-#endif  // SCC_H_
+#endif  // STG_SCC_H_

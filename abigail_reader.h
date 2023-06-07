@@ -17,8 +17,8 @@
 //
 // Author: Giuliano Procida
 
-#ifndef ABIGAIL_READER_H_
-#define ABIGAIL_READER_H_
+#ifndef STG_ABIGAIL_READER_H_
+#define STG_ABIGAIL_READER_H_
 
 #include <cstddef>
 #include <memory>
@@ -127,11 +127,7 @@ class Abigail : public Graph {
 
 std::unique_ptr<Abigail> Read(const std::string& path, bool verbose = false);
 
-#ifdef FOR_FUZZING
-class AbigailReaderException : std::exception {};
-#endif
+}  // namespace abixml
+}  // namespace stg
 
-}  // end namespace abixml
-}  // end namespace stg
-
-#endif  // ABIGAIL_READER_H_
+#endif  // STG_ABIGAIL_READER_H_
