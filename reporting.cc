@@ -41,13 +41,17 @@ bool PrintComparison(Reporting& reporting, const Comparison& comparison,
   if (!id2) {
     os << node1->GetKindDescription() << " '"
        << GetDescription(reporting.graph, reporting.names, *id1)
-       << "' was removed\n";
+       << "'"
+       << node1->ExtraDescription()
+       << " was removed\n";
     return true;
   }
   if (!id1) {
     os << node2->GetKindDescription() << " '"
        << GetDescription(reporting.graph, reporting.names, *id2)
-       << "' was added\n";
+       << "'"
+       << node2->ExtraDescription()
+       << " was added\n";
     return true;
   }
 
@@ -228,12 +232,16 @@ void VizPrint(Reporting& reporting, const Comparison& comparison,
   const auto id2 = comparison.second;
   if (!id2) {
     os << "  \"" << node << "\" [color=red, label=\"" << "removed("
-       << GetDescription(reporting.graph, reporting.names, *id1) << ")\"]\n";
+       << GetDescription(reporting.graph, reporting.names, *id1)
+       << reporting.graph.Get(*id1).ExtraDescription()
+       << ")\"]\n";
     return;
   }
   if (!id1) {
     os << "  \"" << node << "\" [color=red, label=\"" << "added("
-       << GetDescription(reporting.graph, reporting.names, *id2) << ")\"]\n";
+       << GetDescription(reporting.graph, reporting.names, *id2)
+       << reporting.graph.Get(*id2).ExtraDescription()
+       << ")\"]\n";
     return;
   }
 
