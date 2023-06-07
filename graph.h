@@ -103,6 +103,15 @@ struct PointerReference {
 
 std::ostream& operator<<(std::ostream& os, PointerReference::Kind kind);
 
+struct PointerToMember {
+  PointerToMember(Id containing_type_id, Id pointee_type_id)
+      : containing_type_id(containing_type_id), pointee_type_id(pointee_type_id)
+  {}
+
+  Id containing_type_id;
+  Id pointee_type_id;
+};
+
 struct Typedef {
   Typedef(const std::string& name, Id referred_type_id)
       : name(name), referred_type_id(referred_type_id) {}
@@ -300,8 +309,8 @@ std::string VersionedSymbolName(const ElfSymbol&);
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc);
 
-struct Symbols {
-  explicit Symbols(const std::map<std::string, Id>& symbols)
+struct Interface {
+  explicit Interface(const std::map<std::string, Id>& symbols)
       : symbols(symbols) {}
 
   std::map<std::string, Id> symbols;
@@ -398,6 +407,9 @@ class Graph {
     } else if constexpr (std::is_same_v<Node, PointerReference>) {
       reference = {Which::POINTER_REFERENCE, pointer_reference_.size()};
       pointer_reference_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, PointerToMember>) {
+      reference = {Which::POINTER_TO_MEMBER, pointer_to_member_.size()};
+      pointer_to_member_.emplace_back(std::forward<Args>(args)...);
     } else if constexpr (std::is_same_v<Node, Typedef>) {
       reference = {Which::TYPEDEF, typedef_.size()};
       typedef_.emplace_back(std::forward<Args>(args)...);
@@ -431,9 +443,9 @@ class Graph {
     } else if constexpr (std::is_same_v<Node, ElfSymbol>) {
       reference = {Which::ELF_SYMBOL, elf_symbol_.size()};
       elf_symbol_.emplace_back(std::forward<Args>(args)...);
-    } else if constexpr (std::is_same_v<Node, Symbols>) {
-      reference = {Which::SYMBOLS, symbols_.size()};
-      symbols_.emplace_back(std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<Node, Interface>) {
+      reference = {Which::INTERFACE, interface_.size()};
+      interface_.emplace_back(std::forward<Args>(args)...);
     } else {
       // unfortunately we cannot static_assert(false, "missing case")
       static_assert(std::is_same<Node, Node*>::value, "missing case");
@@ -477,6 +489,7 @@ class Graph {
     VOID,
     VARIADIC,
     POINTER_REFERENCE,
+    POINTER_TO_MEMBER,
     TYPEDEF,
     QUALIFIED,
     PRIMITIVE,
@@ -488,7 +501,7 @@ class Graph {
     ENUMERATION,
     FUNCTION,
     ELF_SYMBOL,
-    SYMBOLS,
+    INTERFACE,
   };
 
   std::vector<std::pair<Which, size_t>> indirection_;
@@ -496,6 +509,7 @@ class Graph {
   std::vector<Void> void_;
   std::vector<Variadic> variadic_;
   std::vector<PointerReference> pointer_reference_;
+  std::vector<PointerToMember> pointer_to_member_;
   std::vector<Typedef> typedef_;
   std::vector<Qualified> qualified_;
   std::vector<Primitive> primitive_;
@@ -507,7 +521,7 @@ class Graph {
   std::vector<Enumeration> enumeration_;
   std::vector<Function> function_;
   std::vector<ElfSymbol> elf_symbol_;
-  std::vector<Symbols> symbols_;
+  std::vector<Interface> interface_;
 };
 
 template <typename Result, typename FunctionObject, typename... Args>
@@ -522,6 +536,8 @@ Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) const {
       return function(variadic_[ix], std::forward<Args>(args)...);
     case Which::POINTER_REFERENCE:
       return function(pointer_reference_[ix], std::forward<Args>(args)...);
+    case Which::POINTER_TO_MEMBER:
+      return function(pointer_to_member_[ix], std::forward<Args>(args)...);
     case Which::TYPEDEF:
       return function(typedef_[ix], std::forward<Args>(args)...);
     case Which::QUALIFIED:
@@ -544,8 +560,8 @@ Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) const {
       return function(function_[ix], std::forward<Args>(args)...);
     case Which::ELF_SYMBOL:
       return function(elf_symbol_[ix], std::forward<Args>(args)...);
-    case Which::SYMBOLS:
-      return function(symbols_[ix], std::forward<Args>(args)...);
+    case Which::INTERFACE:
+      return function(interface_[ix], std::forward<Args>(args)...);
   }
 }
 
@@ -568,6 +584,9 @@ Result Graph::Apply2(
                       std::forward<Args>(args)...);
     case Which::POINTER_REFERENCE:
       return function(pointer_reference_[ix1], pointer_reference_[ix2],
+                      std::forward<Args>(args)...);
+    case Which::POINTER_TO_MEMBER:
+      return function(pointer_to_member_[ix1], pointer_to_member_[ix2],
                       std::forward<Args>(args)...);
     case Which::TYPEDEF:
       return function(typedef_[ix1], typedef_[ix2],
@@ -602,8 +621,8 @@ Result Graph::Apply2(
     case Which::ELF_SYMBOL:
       return function(elf_symbol_[ix1], elf_symbol_[ix2],
                       std::forward<Args>(args)...);
-    case Which::SYMBOLS:
-      return function(symbols_[ix1], symbols_[ix2],
+    case Which::INTERFACE:
+      return function(interface_[ix1], interface_[ix2],
                       std::forward<Args>(args)...);
   }
 }

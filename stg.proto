@@ -63,6 +63,12 @@ message PointerReference {
   fixed32 pointee_type_id = 3;
 }
 
+message PointerToMember {
+  fixed32 id = 1;
+  fixed32 containing_type_id = 2;
+  fixed32 pointee_type_id = 3;
+}
+
 message Typedef {
   fixed32 id = 1;
   string name = 2;
@@ -234,20 +240,22 @@ message Symbols {
 }
 
 message STG {
-  fixed32 root_id = 1;
-  repeated Void void = 2;
-  repeated Variadic variadic = 3;
-  repeated PointerReference pointer_reference = 4;
-  repeated Typedef typedef = 5;
-  repeated Qualified qualified = 6;
-  repeated Primitive primitive = 7;
-  repeated Array array = 8;
-  repeated BaseClass base_class = 9;
-  repeated Method method = 10;
-  repeated Member member = 11;
-  repeated StructUnion struct_union = 12;
-  repeated Enumeration enumeration = 13;
-  repeated Function function = 14;
-  repeated ElfSymbol elf_symbol = 15;
-  optional Symbols symbols = 16;
+  uint32 version = 1;
+  fixed32 root_id = 2;
+  repeated Void void = 3;
+  repeated Variadic variadic = 4;
+  repeated PointerReference pointer_reference = 5;
+  repeated PointerToMember pointer_to_member = 6;
+  repeated Typedef typedef = 7;
+  repeated Qualified qualified = 8;
+  repeated Primitive primitive = 9;
+  repeated Array array = 10;
+  repeated BaseClass base_class = 11;
+  repeated Method method = 12;
+  repeated Member member = 13;
+  repeated StructUnion struct_union = 14;
+  repeated Enumeration enumeration = 15;
+  repeated Function function = 16;
+  repeated ElfSymbol elf_symbol = 17;
+  optional Symbols symbols = 18;
 }

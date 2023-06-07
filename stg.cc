@@ -44,41 +44,43 @@ namespace {
 
 Metrics metrics;
 
-struct GetSymbols {
-  const Symbols& operator()(const Symbols& x) {
-    return x;
+struct GetInterface {
+  const std::map<std::string, Id>& operator()(const Interface& x) {
+    return x.symbols;
   }
 
   template <typename Node>
-  const Symbols& operator()(const Node&) {
-    Die() << "expected a Symbols root node";
+  const std::map<std::string, Id>& operator()(const Node&) {
+    Die() << "expected an Interface root node";
   }
 };
 
 Id Merge(Graph& graph, const std::vector<Id>& roots) {
   std::map<std::string, Id> symbols;
-  GetSymbols get;
+  GetInterface get;
   for (auto root : roots) {
-    for (const auto& x : graph.Apply<const Symbols&>(get, root).symbols) {
+    for (const auto& x :
+         graph.Apply<const std::map<std::string, Id>&>(get, root)) {
       if (!symbols.insert(x).second) {
         Die() << "merge failed with duplicate symbol: " << x.first;
       }
     }
     graph.Remove(root);
   }
-  return graph.Add<Symbols>(symbols);
+  return graph.Add<Interface>(symbols);
 }
 
 void Filter(Graph& graph, Id root, const SymbolFilter& filter) {
   std::map<std::string, Id> symbols;
-  GetSymbols get;
-  for (const auto& x : graph.Apply<const Symbols&>(get, root).symbols) {
+  GetInterface get;
+  for (const auto& x :
+       graph.Apply<const std::map<std::string, Id>&>(get, root)) {
     if (filter(x.first)) {
       symbols.insert(x);
     }
   }
   graph.Unset(root);
-  graph.Set<Symbols>(root, symbols);
+  graph.Set<Interface>(root, symbols);
 }
 
 void Write(const Graph& graph, Id root, const char* output, bool stable) {
