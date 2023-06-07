@@ -382,8 +382,9 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
 
 ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(
     const SymbolTableEntry& symbol) const {
+  const auto address = GetAbsoluteAddress(symbol);
   if (symbol.value_type == SymbolTableEntry::ValueType::ABSOLUTE) {
-    return ElfSymbol::CRC{static_cast<uint32_t>(symbol.value)};
+    return ElfSymbol::CRC{static_cast<uint32_t>(address)};
   }
   Check(symbol.value_type == SymbolTableEntry::ValueType::RELATIVE_TO_SECTION)
       << "CRC symbol is expected to be absolute or relative to a section";
@@ -392,13 +393,13 @@ ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(
   const auto [header, data] = GetSectionInfo(section);
   Check(data->d_buf != nullptr) << "Section has no data buffer";
 
-  Check(symbol.value >= header.sh_addr)
-      << "CRC symbol value is below CRC section start";
+  Check(address >= header.sh_addr)
+      << "CRC symbol address is below CRC section start";
 
-  const size_t offset = symbol.value - header.sh_addr;
+  const size_t offset = address - header.sh_addr;
   const size_t offset_end = offset + sizeof(uint32_t);
   Check(offset_end <= data->d_size && offset_end <= header.sh_size)
-      << "CRC symbol value is above CRC section end";
+      << "CRC symbol address is above CRC section end";
 
   return ElfSymbol::CRC{*reinterpret_cast<uint32_t*>(
       reinterpret_cast<char*>(data->d_buf) + offset)};
