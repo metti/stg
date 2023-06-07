@@ -28,6 +28,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "dwarf_processor.h"
@@ -38,11 +39,20 @@
 
 namespace stg {
 namespace elf {
+namespace internal {
 
 namespace {
 
-using SymbolTable = std::vector<SymbolTableEntry>;
-using CRCValuesMap = std::unordered_map<std::string, ElfSymbol::CRC>;
+template <typename M, typename K>
+std::optional<typename M::mapped_type> MaybeGet(const M& map, const K& key) {
+  const auto it = map.find(key);
+  if (it == map.end()) {
+    return {};
+  }
+  return {it->second};
+}
+
+}  // namespace
 
 ElfSymbol::SymbolType ConvertSymbolType(
     SymbolTableEntry::SymbolType symbol_type) {
@@ -58,6 +68,18 @@ ElfSymbol::SymbolType ConvertSymbolType(
     default:
       Die() << "Unsupported ELF symbol type: " << symbol_type;
   }
+}
+
+SymbolNameList GetKsymtabSymbols(const SymbolTable& symbols) {
+  constexpr std::string_view kKsymtabPrefix = "__ksymtab_";
+  SymbolNameList result;
+  result.reserve(symbols.size() / 2);
+  for (const auto& symbol : symbols) {
+    if (symbol.name.substr(0, kKsymtabPrefix.size()) == kKsymtabPrefix) {
+      result.emplace(symbol.name.substr(kKsymtabPrefix.size()));
+    }
+  }
+  return result;
 }
 
 CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols, const ElfLoader& elf) {
@@ -77,32 +99,6 @@ CRCValuesMap GetCRCValuesMap(const SymbolTable& symbols, const ElfLoader& elf) {
   }
 
   return crc_values;
-}
-
-template <typename M, typename K>
-std::optional<typename M::mapped_type> MaybeGet(const M& map, const K& key) {
-  const auto it = map.find(key);
-  if (it == map.end()) {
-    return {};
-  }
-  return {it->second};
-}
-
-ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol,
-                                      const CRCValuesMap& crc_values) {
-  return ElfSymbol(
-      /* symbol_name = */ std::string(symbol.name),
-      /* version_info = */ std::nullopt,
-      /* is_defined = */ symbol.value_type !=
-          SymbolTableEntry::ValueType::UNDEFINED,
-      /* symbol_type = */ ConvertSymbolType(symbol.symbol_type),
-      /* binding = */ symbol.binding,
-      /* visibility = */ symbol.visibility,
-      /* crc = */ MaybeGet(crc_values, std::string(symbol.name)),
-      /* ns = */ std::nullopt,        // TODO: Linux namespace
-      /* type_id = */ std::nullopt,   // TODO: fill type ids
-      /* full_name = */ std::nullopt  // TODO: fill full names
-  );
 }
 
 bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
@@ -145,12 +141,15 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   return true;
 }
 
+namespace {
+
 class Typing {
  public:
-  Typing(Graph& graph, dwarf::Types types)
-      : graph_(graph), types_(std::move(types)) {
-  }
+  Typing(Graph& graph) : graph_(graph) {}
 
+  void GetTypesFromDwarf(dwarf::Handler& dwarf) {
+    types_ = dwarf::Process(dwarf, graph_);
+  }
 
   Id JoinAllIds() {
     return graph_.Add<Function>(graph_.Add<Void>(), types_.all_ids);
@@ -183,7 +182,8 @@ class Reader {
         dwarf_(path),
         elf_(dwarf_.GetElf(), verbose),
         process_dwarf_(process_dwarf),
-        verbose_(verbose) {}
+        verbose_(verbose),
+        typing_(graph_) {}
 
   Reader(Graph& graph, char* data, size_t size, bool process_dwarf,
          bool verbose)
@@ -191,9 +191,11 @@ class Reader {
         dwarf_(data, size),
         elf_(dwarf_.GetElf(), verbose),
         process_dwarf_(process_dwarf),
-        verbose_(verbose) {}
+        verbose_(verbose),
+        typing_(graph_) {}
 
   Id Read();
+  ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) const;
 
  private:
   Graph& graph_;
@@ -203,6 +205,10 @@ class Reader {
   elf::ElfLoader elf_;
   bool process_dwarf_;
   bool verbose_;
+
+  // Data extracted from ELF
+  CRCValuesMap crc_values_;
+  Typing typing_;
 };
 
 Id Reader::Read() {
@@ -211,16 +217,23 @@ Id Reader::Read() {
     std::cout << "Parsed " << all_symbols.size() << " symbols\n";
   }
 
+  const bool is_linux_kernel = elf_.IsLinuxKernelBinary();
+  const SymbolNameList ksymtab_symbols =
+      is_linux_kernel ? GetKsymtabSymbols(all_symbols) : SymbolNameList();
+
   std::vector<SymbolTableEntry> public_functions_and_variables;
   public_functions_and_variables.reserve(all_symbols.size());
-  std::copy_if(all_symbols.begin(), all_symbols.end(),
-               std::back_inserter(public_functions_and_variables),
-               IsPublicFunctionOrVariable);
+  for (const auto& symbol : all_symbols) {
+    if (IsPublicFunctionOrVariable(symbol) &&
+        (!is_linux_kernel || ksymtab_symbols.count(symbol.name))) {
+      public_functions_and_variables.push_back(symbol);
+    }
+  }
   public_functions_and_variables.shrink_to_fit();
 
-  const CRCValuesMap crc_values = elf_.IsLinuxKernelBinary()
-                                      ? GetCRCValuesMap(all_symbols, elf_)
-                                      : CRCValuesMap{};
+  if (elf_.IsLinuxKernelBinary()) {
+    crc_values_ = GetCRCValuesMap(all_symbols, elf_);
+  }
 
   if (verbose_) {
     std::cout << "File has " << public_functions_and_variables.size()
@@ -233,8 +246,9 @@ Id Reader::Read() {
     }
   }
 
-  Typing typing(
-      graph_, process_dwarf_ ? dwarf::Process(dwarf_, graph_) : dwarf::Types{});
+  if (process_dwarf_) {
+    typing_.GetTypesFromDwarf(dwarf_);
+  }
 
   std::map<std::string, Id> symbols_map;
   for (const auto& symbol : public_functions_and_variables) {
@@ -243,22 +257,40 @@ Id Reader::Read() {
     // for version info
     symbols_map.emplace(
         std::string(symbol.name),
-        graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol, crc_values)));
+        graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
   }
-  typing.AddFakeSymbols(symbols_map);
+  typing_.AddFakeSymbols(symbols_map);
   return graph_.Add<Symbols>(std::move(symbols_map));
 }
 
+ElfSymbol Reader::SymbolTableEntryToElfSymbol(
+    const SymbolTableEntry& symbol) const {
+  return ElfSymbol(
+      /* symbol_name = */ std::string(symbol.name),
+      /* version_info = */ std::nullopt,
+      /* is_defined = */ symbol.value_type !=
+          SymbolTableEntry::ValueType::UNDEFINED,
+      /* symbol_type = */ ConvertSymbolType(symbol.symbol_type),
+      /* binding = */ symbol.binding,
+      /* visibility = */ symbol.visibility,
+      /* crc = */ MaybeGet(crc_values_, std::string(symbol.name)),
+      /* ns = */ std::nullopt,        // TODO: Linux namespace
+      /* type_id = */ std::nullopt,   // TODO: fill type ids
+      /* full_name = */ std::nullopt  // TODO: fill full names
+  );
+}
+
 }  // namespace
+}  // namespace internal
 
 Id Read(Graph& graph, const std::string& path, bool process_dwarf,
         bool verbose) {
-  return Reader(graph, path, process_dwarf, verbose).Read();
+  return internal::Reader(graph, path, process_dwarf, verbose).Read();
 }
 
 Id Read(Graph& graph, char* data, size_t size, bool process_dwarf,
         bool verbose) {
-  return Reader(graph, data, size, process_dwarf, verbose).Read();
+  return internal::Reader(graph, data, size, process_dwarf, verbose).Read();
 }
 
 }  // namespace elf
