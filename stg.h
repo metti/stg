@@ -266,6 +266,7 @@ struct Node {
   virtual std::string MatchingKey(const Graph& graph) const;
 
   virtual Name MakeDescription(const Graph& graph, NameCache& names) const = 0;
+  virtual std::string ExtraDescription() const;
   virtual std::string GetKindDescription() const;
 
   virtual Result Equals(State& state, const Node& other) const = 0;
@@ -492,6 +493,7 @@ struct ElfSymbol : Node {
         full_name(full_name) {}
   std::string GetKindDescription() const final;
   Name MakeDescription(const Graph& graph, NameCache& names) const final;
+  std::string ExtraDescription() const final;
   Result Equals(State& state, const Node& other) const final;
 
   const std::string symbol_name;
