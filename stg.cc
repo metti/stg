@@ -151,21 +151,19 @@ std::string Typedef::GetResolvedDescription(NameCache& names) const {
   return os.str();
 }
 
-static constexpr size_t INDENT_INCREMENT = 2;
-
-void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
-           NameCache& names, std::ostream& os, size_t indent) {
+bool PrintComparison(const Comparison& comparison, NameCache& names,
+                     std::ostream& os) {
   const auto* node1 = comparison.first;
   const auto* node2 = comparison.second;
   if (!node2) {
     os << node1->GetKindDescription() << " '" << node1->GetDescription(names)
        << "' was removed\n";
-    return;
+    return true;
   }
   if (!node1) {
     os << node2->GetKindDescription() << " '" << node2->GetDescription(names)
        << "' was added\n";
-    return;
+    return true;
   }
 
   const auto description1 = node1->GetResolvedDescription(names);
@@ -175,22 +173,39 @@ void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
     os << description1 << " changed";
   else
     os << "changed from " << description1 << " to " << description2;
+  return false;
+}
+
+static constexpr size_t INDENT_INCREMENT = 2;
+
+void Print(const Comparison& comparison, const Outcomes& outcomes, Seen& seen,
+           NameCache& names, std::ostream& os, size_t indent) {
+  if (PrintComparison(comparison, names, os))
+    return;
 
   const auto it = outcomes.find(comparison);
   Check(it != outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
-  auto insertion = seen.insert({comparison, false});
-  if (!insertion.second) {
+
+  const bool holds_changes = diff.holds_changes;
+  std::pair<Seen::iterator, bool> insertion;
+
+  if (holds_changes)
+    insertion = seen.insert({comparison, false});
+
+  if (holds_changes && !insertion.second) {
     if (!insertion.first->second)
-      os << " (being reported)";
+      os << " (being reported)\n";
     else if (!diff.details.empty())
-      os << " (already reported)";
+      os << " (already reported)\n";
+    return;
   }
+
   os << '\n';
-  if (insertion.second) {
-    Print(diff.details, outcomes, seen, names, os, indent + INDENT_INCREMENT);
+  Print(diff.details, outcomes, seen, names, os, indent + INDENT_INCREMENT);
+
+  if (holds_changes)
     insertion.first->second = true;
-  }
 }
 
 void Print(const std::vector<DiffDetail>& details, const Outcomes& outcomes,
@@ -219,35 +234,17 @@ bool FlatPrint(const Comparison& comparison, const Outcomes& outcomes,
                std::unordered_set<Comparison, HashComparison>& seen,
                std::deque<Comparison>& todo, bool full, bool stop,
                NameCache& names, std::ostream& os, size_t indent) {
-  const auto* node1 = comparison.first;
-  const auto* node2 = comparison.second;
   // Nodes that represent additions or removal are always interesting and no
   // recursion is possible.
-  if (!node2) {
-    os << node1->GetKindDescription() << " '" << node1->GetDescription(names)
-       << "' was removed\n";
+  if (PrintComparison(comparison, names, os))
     return true;
-  }
-  if (!node1) {
-    os << node2->GetKindDescription() << " '" << node2->GetDescription(names)
-       << "' was added\n";
-    return true;
-  }
-
-  const auto description1 = node1->GetResolvedDescription(names);
-  const auto description2 = node2->GetResolvedDescription(names);
-  // Generate a node description.
-  os << node1->GetKindDescription() << ' ';
-  if (description1 == description2)
-    os << description1 << " changed";
-  else
-    os << "changed from " << description1 << " to " << description2;
-  os << '\n';
 
   // Look up the diff (including node and edge changes).
   const auto it = outcomes.find(comparison);
   Check(it != outcomes.end()) << "internal error: missing comparison";
   const auto& diff = it->second;
+
+  os << '\n';
 
   // Check the stopping condition.
   if (diff.holds_changes && stop) {
@@ -452,8 +449,8 @@ std::pair<bool, std::optional<Comparison>> Type::Compare(
     if (&unqualified1 != &resolved1 || &unqualified2 != &resolved2) {
       // 3.2 Typedef difference.
       const auto comp = Compare(resolved1, resolved2, state);
-      result.diff_.holds_changes = true;
-      // TODO: Should we make this "have changes" (perhaps if names change)?
+      result.diff_.holds_changes = !typedefs1.empty() && !typedefs2.empty()
+                                   && typedefs1[0] == typedefs2[0];
       result.MaybeAddEdgeDiff("resolved", comp);
     } else if (typeid(unqualified1) != typeid(unqualified2)) {
       // 4. Incomparable.
