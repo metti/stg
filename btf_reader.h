@@ -27,6 +27,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -41,7 +42,7 @@ namespace btf {
 class Structs {
  public:
   Structs(Graph& graph, const bool verbose = false);
-  Id Process(const char* start, size_t size);
+  Id Process(std::string_view data);
 
  private:
   struct MemoryRange {
