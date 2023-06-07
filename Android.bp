@@ -79,9 +79,21 @@ cc_library_host_static {
 }
 
 cc_library_host_static {
+    name: "elf_loader",
+    defaults: ["defaults"],
+    srcs: ["elf_loader.cc"],
+}
+
+cc_library_host_static {
     name: "elf_reader",
     defaults: ["defaults"],
     srcs: ["elf_reader.cc"],
+}
+
+cc_library_host_static {
+    name: "post_processing",
+    defaults: ["defaults"],
+    srcs: ["post_processing.cc"],
 }
 
 cc_library_host_static {
@@ -97,20 +109,25 @@ cc_binary_host {
     static_libs: [
         "abigail_reader",
         "btf_reader",
+        "elf_loader",
         "elf_reader",
+        "post_processing",
         "reporting",
         "stg",
     ],
 }
 
 cc_binary_host {
-    name: "btfinfo",
+    name: "stginfo",
     defaults: ["defaults"],
     srcs: [
-        "btfinfo.cc",
+        "stginfo.cc",
     ],
     static_libs: [
+        "abigail_reader",
         "btf_reader",
+        "elf_loader",
+        "elf_reader",
         "stg",
     ],
 }
