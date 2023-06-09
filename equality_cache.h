@@ -26,7 +26,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include "equality.h"
 #include "graph.h"
 #include "hashing.h"
 #include "metrics.h"

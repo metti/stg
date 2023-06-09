@@ -205,6 +205,7 @@ message ElfSymbol {
     FUNCTION = 2;
     COMMON = 3;
     TLS = 4;
+    GNU_IFUNC = 5;
   }
 
   enum Binding {

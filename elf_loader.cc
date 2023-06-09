@@ -320,7 +320,7 @@ std::ostream& operator<<(std::ostream& os, SymbolTableEntry::SymbolType type) {
     case SymbolType::TLS:
       return os << "TLS";
     case SymbolType::GNU_IFUNC:
-      return os << "indirect function";
+      return os << "indirect (ifunc) function";
   }
 }
 

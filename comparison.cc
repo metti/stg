@@ -42,13 +42,14 @@ struct IgnoreDescriptor {
   Ignore::Value value;
 };
 
-static constexpr std::array<IgnoreDescriptor, 6> kIgnores{{
+static constexpr std::array<IgnoreDescriptor, 7> kIgnores{{
   {"type_declaration_status", Ignore::TYPE_DECLARATION_STATUS},
   {"symbol_type_presence",    Ignore::SYMBOL_TYPE_PRESENCE   },
   {"primitive_type_encoding", Ignore::PRIMITIVE_TYPE_ENCODING},
   {"member_size",             Ignore::MEMBER_SIZE            },
   {"enum_underlying_type",    Ignore::ENUM_UNDERLYING_TYPE   },
   {"qualifier",               Ignore::QUALIFIER              },
+  {"interface_addition",      Ignore::INTERFACE_ADDITION     },
 }};
 
 std::optional<Ignore::Value> ParseIgnore(std::string_view ignore) {
@@ -374,7 +375,8 @@ void CompareNodes(Result& result, Compare& compare, const std::vector<Id>& ids1,
 
 void CompareNodes(Result& result, Compare& compare,
                   const std::map<std::string, Id>& x1,
-                  const std::map<std::string, Id>& x2) {
+                  const std::map<std::string, Id>& x2,
+                  bool ignore_added) {
   // Group diffs into removed, added and changed symbols for readability.
   std::vector<Id> removed;
   std::vector<Id> added;
@@ -391,7 +393,9 @@ void CompareNodes(Result& result, Compare& compare,
       ++it1;
     } else if (it1 == end1 || (it2 != end2 && it1->first > it2->first)) {
       // added
-      added.push_back(it2->second);
+      if (!ignore_added) {
+        added.push_back(it2->second);
+      }
       ++it2;
     } else {
       // in both
@@ -668,8 +672,9 @@ Result Compare::operator()(const ElfSymbol& x1, const ElfSymbol& x2) {
 Result Compare::operator()(const Interface& x1, const Interface& x2) {
   Result result;
   result.diff_.holds_changes = true;
-  CompareNodes(result, *this, x1.symbols, x2.symbols);
-  CompareNodes(result, *this, x1.types, x2.types);
+  const bool ignore_added = ignore.Test(Ignore::INTERFACE_ADDITION);
+  CompareNodes(result, *this, x1.symbols, x2.symbols, ignore_added);
+  CompareNodes(result, *this, x1.types, x2.types, ignore_added);
   return result;
 }
 

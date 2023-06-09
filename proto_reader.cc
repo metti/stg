@@ -377,6 +377,8 @@ stg::ElfSymbol::SymbolType Transformer::Transform(ElfSymbol::SymbolType x) {
       return stg::ElfSymbol::SymbolType::COMMON;
     case ElfSymbol::TLS:
       return stg::ElfSymbol::SymbolType::TLS;
+    case ElfSymbol::GNU_IFUNC:
+      return stg::ElfSymbol::SymbolType::GNU_IFUNC;
     default:
       Die() << "Encountered unsupported value for ElfSymbol Type " << x << '\n';
   }
