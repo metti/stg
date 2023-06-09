@@ -164,7 +164,44 @@ TEST_CASE("ignore") {
            "qualifier_1.stg",
            stg::Ignore(stg::Ignore::QUALIFIER),
            "empty",
-           true}));
+           true}),
+      IgnoreTestCase(
+          {"interface addition",
+           stg::InputFormat::STG,
+           "interface_addition_0.stg",
+           stg::InputFormat::STG,
+           "interface_addition_1.stg",
+           stg::Ignore(),
+           "interface_addition_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"type addition",
+           stg::InputFormat::STG,
+           "type_addition_0.stg",
+           stg::InputFormat::STG,
+           "type_addition_1.stg",
+           stg::Ignore(),
+           "type_addition_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"interface addition ignored",
+           stg::InputFormat::STG,
+           "interface_addition_0.stg",
+           stg::InputFormat::STG,
+           "interface_addition_1.stg",
+           stg::Ignore(stg::Ignore::INTERFACE_ADDITION),
+           "empty",
+           true}),
+      IgnoreTestCase(
+          {"type addition ignored",
+           stg::InputFormat::STG,
+           "type_addition_0.stg",
+           stg::InputFormat::STG,
+           "type_addition_1.stg",
+           stg::Ignore(stg::Ignore::INTERFACE_ADDITION),
+           "empty",
+           true})
+      );
 
   SECTION(test.name) {
     stg::Metrics metrics;
