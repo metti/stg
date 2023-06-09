@@ -1,0 +1,11 @@
+version: 0x00000001
+root_id: 0x84ea5130
+struct_union {
+  id: 0xa8a0bc6a
+  kind: UNION
+  name: "U"
+}
+interface {
+  id: 0x84ea5130
+  type_id: 0xa8a0bc6a
+}
