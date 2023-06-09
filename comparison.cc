@@ -42,7 +42,7 @@ struct IgnoreDescriptor {
   Ignore::Value value;
 };
 
-static constexpr std::array<IgnoreDescriptor, 7> kIgnores{{
+static constexpr std::array<IgnoreDescriptor, 8> kIgnores{{
   {"type_declaration_status", Ignore::TYPE_DECLARATION_STATUS},
   {"symbol_type_presence",    Ignore::SYMBOL_TYPE_PRESENCE   },
   {"primitive_type_encoding", Ignore::PRIMITIVE_TYPE_ENCODING},
@@ -50,6 +50,7 @@ static constexpr std::array<IgnoreDescriptor, 7> kIgnores{{
   {"enum_underlying_type",    Ignore::ENUM_UNDERLYING_TYPE   },
   {"qualifier",               Ignore::QUALIFIER              },
   {"interface_addition",      Ignore::INTERFACE_ADDITION     },
+  {"linux_symbol_crc",        Ignore::SYMBOL_CRC             },
 }};
 
 std::optional<Ignore::Value> ParseIgnore(std::string_view ignore) {
@@ -649,7 +650,9 @@ Result Compare::operator()(const ElfSymbol& x1, const ElfSymbol& x2) {
   result.MaybeAddNodeDiff("symbol type", x1.symbol_type, x2.symbol_type);
   result.MaybeAddNodeDiff("binding", x1.binding, x2.binding);
   result.MaybeAddNodeDiff("visibility", x1.visibility, x2.visibility);
-  result.MaybeAddNodeDiff("CRC", x1.crc, x2.crc);
+  if (!ignore.Test(Ignore::SYMBOL_CRC)) {
+    result.MaybeAddNodeDiff("CRC", x1.crc, x2.crc);
+  }
   result.MaybeAddNodeDiff("namespace", x1.ns, x2.ns);
 
   if (x1.type_id && x2.type_id) {
