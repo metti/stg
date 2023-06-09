@@ -15,30 +15,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author: Siddharth Nayyar
+// Author: Ignes Simeonova
 
-#ifndef STG_PROTO_WRITER_H_
-#define STG_PROTO_WRITER_H_
+#ifndef STG_SCOPE_H_
+#define STG_SCOPE_H_
 
-#include <ostream>
-
-#include "graph.h"
-#include "stg.pb.h"
+#include <cstddef>
+#include <string>
 
 namespace stg {
-namespace proto {
 
-class Writer {
+class PushScopeName {
  public:
-  explicit Writer(const stg::Graph& graph)
-      : graph_(graph) {}
-  void Write(const Id&, std::ostream&);
+  PushScopeName(std::string& scope_name, const std::string& name)
+      : scope_name_(scope_name), old_size_(scope_name.size()) {
+    scope_name_ += name;
+    scope_name_ += "::";
+  }
+  PushScopeName(const PushScopeName& other) = delete;
+  PushScopeName& operator=(const PushScopeName& other) = delete;
+  ~PushScopeName() {
+    scope_name_.resize(old_size_);
+  }
 
  private:
-  const stg::Graph& graph_;
+  std::string& scope_name_;
+  const size_t old_size_;
 };
 
-}  // namespace proto
 }  // namespace stg
 
-#endif  // STG_PROTO_WRITER_H_
+#endif  // STG_SCOPE_H_

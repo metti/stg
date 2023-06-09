@@ -388,6 +388,8 @@ ElfSymbol::SymbolType Transform<MapId>::operator()(
       return ElfSymbol::COMMON;
     case stg::ElfSymbol::SymbolType::TLS:
       return ElfSymbol::TLS;
+    case stg::ElfSymbol::SymbolType::GNU_IFUNC:
+      return ElfSymbol::GNU_IFUNC;
   }
 }
 

@@ -89,6 +89,8 @@ ElfSymbol::SymbolType ConvertSymbolType(
       return ElfSymbol::SymbolType::COMMON;
     case SymbolTableEntry::SymbolType::TLS:
       return ElfSymbol::SymbolType::TLS;
+    case SymbolTableEntry::SymbolType::GNU_IFUNC:
+      return ElfSymbol::SymbolType::GNU_IFUNC;
     default:
       Die() << "Unsupported ELF symbol type: " << symbol_type;
   }
@@ -156,7 +158,8 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   // Reject symbols that are not functions or variables.
   if (symbol_type != SymbolTableEntry::SymbolType::FUNCTION &&
       symbol_type != SymbolTableEntry::SymbolType::OBJECT &&
-      symbol_type != SymbolTableEntry::SymbolType::TLS) {
+      symbol_type != SymbolTableEntry::SymbolType::TLS &&
+      symbol_type != SymbolTableEntry::SymbolType::GNU_IFUNC) {
     return false;
   }
 
