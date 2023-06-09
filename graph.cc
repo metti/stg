@@ -84,6 +84,8 @@ std::ostream& operator<<(std::ostream& os, ElfSymbol::SymbolType type) {
       return os << "common";
     case ElfSymbol::SymbolType::TLS:
       return os << "TLS";
+    case ElfSymbol::SymbolType::GNU_IFUNC:
+      return os << "indirect (ifunc) function";
   }
 }
 

@@ -164,6 +164,8 @@ std::optional<ElfSymbol::SymbolType> Parse<ElfSymbol::SymbolType>(
     return {ElfSymbol::SymbolType::COMMON};
   } else if (value == "tls-type") {
     return {ElfSymbol::SymbolType::TLS};
+  } else if (value == "gnu-ifunc-type") {
+    return {ElfSymbol::SymbolType::GNU_IFUNC};
   }
   return {};
 }
