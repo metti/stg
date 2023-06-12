@@ -186,8 +186,7 @@ struct NamedTypes {
   Counter declarations;
 };
 
-// Keep track of which type nodes have been unified together, avoiding mapping
-// definitions to declarations.
+// Keep track of which type nodes have been substituted.
 class UnificationCache {
  public:
   UnificationCache(Graph::DenseIdMapping& mapping, Metrics& metrics)
@@ -242,15 +241,15 @@ class UnificationCache {
 // caching and handling of StructUnion and Enum nodes.
 //
 // During unification, keep track of which pairs of types need to be equal, but
-// do not add them to the cache. The caller will do that iff unification
-// succeeds.
+// do not add them immediately to the cache. The caller can do that if the whole
+// unification succeeds.
 //
 // A declaration and definition of the same named type can be unified. This is
 // forward declaration resolution.
-struct Unify {
+struct Unifier {
   enum Winner { Neither, Right, Left };  // makes p ? Right : Neither a no-op
 
-  Unify(const Graph& graph, UnificationCache& cache)
+  Unifier(const Graph& graph, UnificationCache& cache)
       : graph(graph), cache(cache) {}
 
   bool operator()(Id id1, Id id2) {
@@ -463,6 +462,18 @@ struct Unify {
 
 }  // namespace
 
+bool Unify(const Graph& graph, UnificationCache& cache, Id id1, Id id2) {
+  Unifier unifier(graph, cache);
+  if (unifier(id1, id2)) {
+    // commit
+    for (const auto& s : unifier.mapping) {
+      cache.Union(s.first, s.second);
+    }
+    return true;
+  }
+  return false;
+}
+
 void ResolveTypes(Graph& graph,
                   const std::vector<std::reference_wrapper<Id>>& roots,
                   Metrics& metrics) {
@@ -493,12 +504,8 @@ void ResolveTypes(Graph& graph,
         std::vector<Id> todo;
         distinct_definitions.push_back(candidate);
         for (size_t i = 1; i < definitions.size(); ++i) {
-          Unify unify(graph, cache);
-          if (unify(definitions[i], candidate)) {
-            // unification succeeded, commit the mappings
-            for (const auto& s : unify.mapping) {
-              cache.Union(s.first, s.second);
-            }
+          if (Unify(graph, cache, definitions[i], candidate)) {
+            // unification succeeded
             ++definition_unified;
           } else {
             // unification failed, conflicting definitions
