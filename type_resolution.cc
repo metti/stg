@@ -188,29 +188,30 @@ struct NamedTypes {
 
 // Keep track of which type nodes have been unified together, avoiding mapping
 // definitions to declarations.
-struct UnificationCache {
+class UnificationCache {
+ public:
   UnificationCache(Graph::DenseIdMapping& mapping, Metrics& metrics)
-      : mapping(mapping),
-        find_query(metrics, "cache.find_query"),
-        find_halved(metrics, "cache.find_halved"),
-        union_known(metrics, "cache.union_known"),
-        union_unknown(metrics, "cache.union_unknown") {}
+      : mapping_(mapping),
+        find_query_(metrics, "cache.find_query"),
+        find_halved_(metrics, "cache.find_halved"),
+        union_known_(metrics, "cache.union_known"),
+        union_unknown_(metrics, "cache.union_unknown") {}
 
   Id Find(Id id) {
-    ++find_query;
+    ++find_query_;
     // path halving - tiny performance gain
     while (true) {
       // note: safe to take references as mapping cannot grow after this
-      auto& parent = mapping[id];
+      auto& parent = mapping_[id];
       if (parent == id) {
         return id;
       }
-      auto& parent_parent = mapping[parent];
+      auto& parent_parent = mapping_[parent];
       if (parent_parent == parent) {
         return parent;
       }
       id = parent = parent_parent;
-      ++find_halved;
+      ++find_halved_;
     }
   }
 
@@ -220,18 +221,19 @@ struct UnificationCache {
     const Id fid1 = Find(id1);
     const Id fid2 = Find(id2);
     if (fid1 == fid2) {
-      ++union_known;
+      ++union_known_;
       return;
     }
-    mapping[fid1] = fid2;
-    ++union_unknown;
+    mapping_[fid1] = fid2;
+    ++union_unknown_;
   }
 
-  Graph::DenseIdMapping& mapping;
-  Counter find_query;
-  Counter find_halved;
-  Counter union_known;
-  Counter union_unknown;
+ private:
+  Graph::DenseIdMapping& mapping_;
+  Counter find_query_;
+  Counter find_halved_;
+  Counter union_known_;
+  Counter union_unknown_;
 };
 
 // Type Unification
