@@ -140,7 +140,6 @@ struct NamedTypes {
     } else {
       Check(named) << "anonymous forward declaration";
       info.declarations.push_back(id);
-      incomplete.insert(id);
       ++declarations;
     }
   }
@@ -157,7 +156,6 @@ struct NamedTypes {
     } else {
       Check(named) << "anonymous forward declaration";
       info.declarations.push_back(id);
-      incomplete.insert(id);
       ++declarations;
     }
   }
@@ -182,7 +180,6 @@ struct NamedTypes {
   // ordered map for consistency and sequential processing of related types
   std::map<Type, Info> type_info;
   Graph::DenseIdSet seen;
-  std::unordered_set<Id> incomplete;
   Counter nodes;
   Counter types;
   Counter definitions;
