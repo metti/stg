@@ -491,12 +491,11 @@ class Processor {
     // TODO: support kind
     const Method::Kind kind = Method::Kind::NON_VIRTUAL;
     // TODO: support vtable_offset
-    if (!subprogram.linkage_name) {
-      Die() << "Method should have linkage name";
-    }
-    AddProcessedNode<Method>(entry, *subprogram.linkage_name, subprogram.name,
-                             kind, /* vtable_offset = */ std::nullopt,
-                             id);
+    // TODO: proper handling of missing linkage name
+    static const std::string missing = "{missing}";
+    AddProcessedNode<Method>(
+        entry, subprogram.linkage_name ? *subprogram.linkage_name : missing,
+        subprogram.name, kind, /* vtable_offset = */ std::nullopt, id);
   }
 
   void ProcessArray(Entry& entry) {

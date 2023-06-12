@@ -20,7 +20,7 @@ stgdiff
 implicit defaults: --abi --format plain
 --exact (node equality) cannot be combined with --output
 output formats: plain flat small short viz
-ignore options: type_declaration_status symbol_type_presence primitive_type_encoding member_size enum_underlying_type qualifier interface_addition
+ignore options: type_declaration_status symbol_type_presence primitive_type_encoding member_size enum_underlying_type qualifier interface_addition linux_symbol_crc
 ```
 
 ## Input
@@ -118,6 +118,12 @@ in how much (DWARF) information they preserve.
 
     Ignore interface additions during comparison. This can be useful for ABI
     comparisons where symbol / type additions are allowed.
+
+*   `linux_symbol_crc`
+
+    Ignore Linux kernel symbol CRC changes during comparison. This can be
+    useful for ABI comparisons across different toolchains, where CRC changes
+    are often large and not useful.
 
 ### Fidelity Reporting
 
