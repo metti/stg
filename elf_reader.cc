@@ -233,7 +233,7 @@ class Typing {
   // In general, we want to handle as many of the following cases as possible.
   // In practice, determining the correct ELF-DWARF match may be impossible.
   //
-  // * compiler-driven aliasing - mutliple symbols with same address
+  // * compiler-driven aliasing - multiple symbols with same address
   // * zero-size symbol false aliasing - multiple symbols and types with same
   //   address
   // * weak/strong linkage symbols - multiple symbols and types with same
