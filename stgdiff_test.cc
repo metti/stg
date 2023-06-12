@@ -200,6 +200,24 @@ TEST_CASE("ignore") {
            "type_addition_1.stg",
            stg::Ignore(stg::Ignore::INTERFACE_ADDITION),
            "empty",
+           true}),
+      IgnoreTestCase(
+          {"CRC change",
+           stg::InputFormat::STG,
+           "crc_change_0.stg",
+           stg::InputFormat::STG,
+           "crc_change_1.stg",
+           stg::Ignore(),
+           "crc_change_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"CRC change ignored",
+           stg::InputFormat::STG,
+           "crc_change_0.stg",
+           stg::InputFormat::STG,
+           "crc_change_1.stg",
+           stg::Ignore(stg::Ignore::SYMBOL_CRC),
+           "empty",
            true})
       );
 
