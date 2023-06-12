@@ -192,16 +192,12 @@ struct NamedTypes {
 // Keep track of which type nodes have been unified together, avoiding mapping
 // definitions to declarations.
 struct UnificationCache {
-  UnificationCache(const std::unordered_set<Id>& incomplete,
-                   Graph::DenseIdMapping& mapping, Metrics& metrics)
-      : incomplete(incomplete),
-        mapping(mapping),
+  UnificationCache(Graph::DenseIdMapping& mapping, Metrics& metrics)
+      : mapping(mapping),
         find_query(metrics, "cache.find_query"),
         find_halved(metrics, "cache.find_halved"),
         union_known(metrics, "cache.union_known"),
-        union_unknown(metrics, "cache.union_unknown"),
-        union_unknown_forced1(metrics, "cache.union_unknown_forced1"),
-        union_unknown_forced2(metrics, "cache.union_unknown_forced2") {}
+        union_unknown(metrics, "cache.union_unknown") {}
 
   Id Find(Id id) {
     ++find_query;
@@ -222,35 +218,23 @@ struct UnificationCache {
   }
 
   void Union(Id id1, Id id2) {
-    // no union by rank - overheads result in a performance loss
+    // id2 will always be preferred as a parent node; interpreted as a
+    // substitution, id1 will be replaced by id2
     const Id fid1 = Find(id1);
     const Id fid2 = Find(id2);
     if (fid1 == fid2) {
       ++union_known;
       return;
     }
-    const bool prefer1 = incomplete.find(fid1) == incomplete.end();
-    const bool prefer2 = incomplete.find(fid2) == incomplete.end();
-    if (prefer1 == prefer2) {
-      mapping[fid1] = fid2;
-      ++union_unknown;
-    } else if (prefer1 < prefer2) {
-      mapping[fid1] = fid2;
-      ++union_unknown_forced1;
-    } else {
-      mapping[fid2] = fid1;
-      ++union_unknown_forced2;
-    }
+    mapping[fid1] = fid2;
+    ++union_unknown;
   }
 
-  const std::unordered_set<Id>& incomplete;
   Graph::DenseIdMapping& mapping;
   Counter find_query;
   Counter find_halved;
   Counter union_known;
   Counter union_unknown;
-  Counter union_unknown_forced1;
-  Counter union_unknown_forced2;
 };
 
 // Type Unification
@@ -495,7 +479,7 @@ void ResolveTypes(Graph& graph,
   }
 
   Graph::DenseIdMapping mapping = graph.MakeDenseIdMapping();
-  UnificationCache cache(named_types.incomplete, mapping, metrics);
+  UnificationCache cache(mapping, metrics);
   {
     const Time time(metrics, "resolve.unification");
     Counter definition_unified(metrics, "resolve.definition.unified");
