@@ -221,6 +221,7 @@ struct StructUnion {
 };
 
 std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind);
+std::string& operator+=(std::string& os, StructUnion::Kind kind);
 
 struct Enumeration {
   using Enumerators = std::vector<std::pair<std::string, int64_t>>;

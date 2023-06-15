@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // -*- mode: C++ -*-
 //
-// Copyright 2022 Google LLC
+// Copyright 2022-2023 Google LLC
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions (the
 // "License"); you may not use this file except in compliance with the
@@ -16,6 +16,7 @@
 // limitations under the License.
 //
 // Author: Ignes Simeonova
+// Author: Aleksei Vetrov
 
 #ifndef STG_SCOPE_H_
 #define STG_SCOPE_H_
@@ -25,13 +26,23 @@
 
 namespace stg {
 
+using Scope = std::string;
+
 class PushScopeName {
  public:
-  PushScopeName(std::string& scope_name, const std::string& name)
-      : scope_name_(scope_name), old_size_(scope_name.size()) {
-    scope_name_ += name;
-    scope_name_ += "::";
+  template <typename Kind>
+  PushScopeName(Scope& scope_, Kind&& kind, const std::string& name)
+      : scope_name_(scope_), old_size_(scope_name_.size()) {
+    if (name.empty()) {
+      scope_name_ += "<unnamed ";
+      scope_name_ += kind;
+      scope_name_ += ">::";
+    } else {
+      scope_name_ += name;
+      scope_name_ += "::";
+    }
   }
+
   PushScopeName(const PushScopeName& other) = delete;
   PushScopeName& operator=(const PushScopeName& other) = delete;
   ~PushScopeName() {
