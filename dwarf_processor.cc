@@ -33,6 +33,7 @@
 #include "dwarf_wrappers.h"
 #include "error.h"
 #include "graph.h"
+#include "scope.h"
 
 namespace stg {
 namespace dwarf {
@@ -379,10 +380,9 @@ class Processor {
   }
 
   void ProcessTypedef(Entry& entry) {
-    std::string type_name = GetName(entry);
+    const std::string type_name = scope_ + GetName(entry);
     auto referred_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
-    const Id id = AddProcessedNode<Typedef>(entry, std::move(type_name),
-                                            referred_type_id);
+    const Id id = AddProcessedNode<Typedef>(entry, type_name, referred_type_id);
     AddNamedTypeNode(id);
   }
 
@@ -402,16 +402,17 @@ class Processor {
   }
 
   void ProcessStructUnion(Entry& entry, StructUnion::Kind kind) {
-    // TODO: add scoping
     std::string name = GetNameOrEmpty(entry);
+    const std::string full_name = name.empty() ? std::string() : scope_ + name;
+    const PushScopeName push_scope_name(scope_, kind, name);
 
     if (entry.GetFlag(DW_AT_declaration)) {
       // It is expected to have only name and no children in declaration.
       // However, it is not guaranteed and we should do something if we find an
       // example.
       CheckNoChildren(entry);
-      const Id id = AddProcessedNode<StructUnion>(entry, kind, name);
-      if (!name.empty()) {
+      const Id id = AddProcessedNode<StructUnion>(entry, kind, full_name);
+      if (!full_name.empty()) {
         AddNamedTypeNode(id);
       }
       return;
@@ -452,10 +453,10 @@ class Processor {
 
     // TODO: support base classes
     const Id id = AddProcessedNode<StructUnion>(
-        entry, kind, name, byte_size,
+        entry, kind, full_name, byte_size,
         /* base_classes = */ std::vector<Id>{},
         std::move(methods), std::move(members));
-    if (!name.empty()) {
+    if (!full_name.empty()) {
       AddNamedTypeNode(id);
     }
   }
@@ -682,6 +683,8 @@ class Processor {
   bool is_little_endian_binary_;
   Types& result_;
   std::unordered_map<Dwarf_Off, Id> id_map_;
+  // Current scope.
+  Scope scope_;
 };
 
 Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
