@@ -23,6 +23,7 @@
 #include <exception>
 #include <iostream>
 #include <optional>
+#include <ostream>
 #include <sstream>
 #include <string>
 
@@ -95,8 +96,13 @@ class Warn {
   std::ostringstream os_;
 };
 
-inline std::string ErrnoToString(int error) {
-  return std::system_error(error, std::generic_category()).what();
+struct Error {
+  explicit Error(int number) : number(number) {}
+  int number;
+};
+
+inline std::ostream& operator<<(std::ostream& os, Error error) {
+  return os << std::system_error(error.number, std::generic_category()).what();
 }
 
 }  // namespace stg
