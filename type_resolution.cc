@@ -189,8 +189,8 @@ struct NamedTypes {
 // Keep track of which type nodes have been substituted.
 class UnificationCache {
  public:
-  UnificationCache(Graph::DenseIdMapping& mapping, Metrics& metrics)
-      : mapping_(mapping),
+  UnificationCache(const Graph& graph, Metrics& metrics)
+      : mapping_(graph.MakeDenseIdMapping()),
         find_query_(metrics, "cache.find_query"),
         find_halved_(metrics, "cache.find_halved"),
         union_known_(metrics, "cache.union_known"),
@@ -237,7 +237,7 @@ class UnificationCache {
   }
 
  private:
-  Graph::DenseIdMapping& mapping_;
+  Graph::DenseIdMapping mapping_;
   Counter find_query_;
   Counter find_halved_;
   Counter union_known_;
@@ -497,8 +497,7 @@ void ResolveTypes(Graph& graph,
     }
   }
 
-  Graph::DenseIdMapping mapping = graph.MakeDenseIdMapping();
-  UnificationCache cache(mapping, metrics);
+  UnificationCache cache(graph, metrics);
   {
     const Time time(metrics, "resolve.unification");
     Counter definition_unified(metrics, "resolve.definition.unified");
