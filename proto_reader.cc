@@ -273,7 +273,7 @@ std::map<std::string, Id> Transformer::Transform(
     const Id stg_id = GetId(id);
     const auto [it, inserted] = result.emplace(get_key(stg_id), stg_id);
     if (!inserted) {
-      Die() << "found conflicting interface nodes: " << it->first << '\n';
+      Die() << "conflicting interface nodes: " << it->first;
     }
   }
   return result;
@@ -288,8 +288,7 @@ stg::PointerReference::Kind Transformer::Transform(PointerReference::Kind x) {
     case PointerReference::RVALUE_REFERENCE:
       return stg::PointerReference::Kind::RVALUE_REFERENCE;
     default:
-      Die() << "Encountered unsupported value for PointerReference Kind " << x
-            << '\n';
+      Die() << "unknown PointerReference::Kind " << x;
   }
 }
 
@@ -302,7 +301,7 @@ stg::Qualifier Transformer::Transform(Qualified::Qualifier x) {
     case Qualified::RESTRICT:
       return stg::Qualifier::RESTRICT;
     default:
-      Die() << "Encountered unsupported value for Qualifier " << x << '\n';
+      Die() << "unknown Qualified::Qualifier " << x;
   }
 }
 
@@ -325,8 +324,7 @@ stg::Primitive::Encoding Transformer::Transform(Primitive::Encoding x) {
     case Primitive::UTF:
       return stg::Primitive::Encoding::UTF;
     default:
-      Die() << "Encountered unsupported value for Primitive type Encoding " << x
-            << '\n';
+      Die() << "unknown Primitive::Encoding " << x;
   }
 }
 
@@ -337,8 +335,7 @@ stg::BaseClass::Inheritance Transformer::Transform(BaseClass::Inheritance x) {
     case BaseClass::VIRTUAL:
       return stg::BaseClass::Inheritance::VIRTUAL;
     default:
-      Die() << "Encountered unsupported value for BaseClass Inheritance " << x
-            << '\n';
+      Die() << "unknown BaseClass::Inheritance " << x;
   }
 }
 
@@ -351,7 +348,7 @@ stg::Method::Kind Transformer::Transform(Method::Kind x) {
     case Method::VIRTUAL:
       return stg::Method::Kind::VIRTUAL;
     default:
-      Die() << "Encountered unsupported value for Method Kind " << x << '\n';
+      Die() << "unknown Method::Kind " << x;
   }
 }
 
@@ -362,8 +359,7 @@ stg::StructUnion::Kind Transformer::Transform(StructUnion::Kind x) {
     case StructUnion::UNION:
       return stg::StructUnion::Kind::UNION;
     default:
-      Die() << "Encountered unsupported value for StructUnion Kind " << x
-            << '\n';
+      Die() << "unknown StructUnion::Kind " << x;
   }
 }
 
@@ -380,7 +376,7 @@ stg::ElfSymbol::SymbolType Transformer::Transform(ElfSymbol::SymbolType x) {
     case ElfSymbol::GNU_IFUNC:
       return stg::ElfSymbol::SymbolType::GNU_IFUNC;
     default:
-      Die() << "Encountered unsupported value for ElfSymbol Type " << x << '\n';
+      Die() << "unknown ElfSymbol::SymbolType " << x;
   }
 }
 
@@ -395,8 +391,7 @@ stg::ElfSymbol::Binding Transformer::Transform(ElfSymbol::Binding x) {
     case ElfSymbol::GNU_UNIQUE:
       return stg::ElfSymbol::Binding::GNU_UNIQUE;
     default:
-      Die() << "Encountered unsupported value for ElfSymbol Binding " << x
-            << '\n';
+      Die() << "unknown ElfSymbol::Binding " << x;
   }
 }
 
@@ -411,8 +406,7 @@ stg::ElfSymbol::Visibility Transformer::Transform(ElfSymbol::Visibility x) {
     case ElfSymbol::INTERNAL:
       return stg::ElfSymbol::Visibility::INTERNAL;
     default:
-      Die() << "Encountered unsupported value for ElfSymbol Visibility " << x
-            << '\n';
+      Die() << "unknown ElfSymbol::Visibility " << x;
   }
 }
 
