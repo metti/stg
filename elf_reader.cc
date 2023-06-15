@@ -253,8 +253,8 @@ class Typing {
         // TODO: allow "compatible" duplicates, for example
         // "void foo(int bar)" vs "void foo(const int bar)"
         if (!IsEqual(symbol, other)) {
-          Die() << "Duplicate DWARF symbol: address=0x" << std::hex
-                << symbol.address << std::dec << ", name=" << symbol.name;
+          Die() << "Duplicate DWARF symbol: address=" << Hex(symbol.address)
+                << ", name=" << symbol.name;
         }
       }
     }

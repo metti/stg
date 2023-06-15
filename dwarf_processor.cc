@@ -42,7 +42,7 @@ namespace {
 
 std::string EntryToString(Entry& entry) {
   std::ostringstream os;
-  os << "DWARF entry <0x" << std::hex << entry.GetOffset() << ">";
+  os << "DWARF entry <" << Hex(entry.GetOffset()) << ">";
   return os.str();
 }
 
@@ -108,7 +108,7 @@ Primitive::Encoding GetEncoding(Entry& entry) {
     case DW_ATE_UTF:
       return Primitive::Encoding::UTF;
     default:
-      Die() << "Unknown encoding 0x" << std::hex << *dwarf_encoding << " for "
+      Die() << "Unknown encoding " << Hex(*dwarf_encoding) << " for "
             << EntryToString(entry);
   }
 }
@@ -344,8 +344,7 @@ class Processor {
   void CheckUnresolvedIds() const {
     for (const auto& [offset, id] : id_map_) {
       if (!graph_.Is(id)) {
-        Die() << "unresolved id " << id << ", DWARF offset 0x" << std::hex
-              << offset;
+        Die() << "unresolved id " << id << ", DWARF offset " << Hex(offset);
       }
     }
   }

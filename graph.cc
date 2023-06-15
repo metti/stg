@@ -140,7 +140,7 @@ std::string VersionedSymbolName(const ElfSymbol& symbol) {
 }
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc) {
-  return os << "0x" << std::hex << crc.number;
+  return os << Hex(crc.number);
 }
 
 std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding) {

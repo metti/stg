@@ -82,7 +82,7 @@ void CheckOrDwflError(bool condition, const char* caller) {
     const char* errmsg = dwfl_errmsg(dwfl_error);
     if (errmsg == nullptr) {
       // There are some cases when DWFL fails to produce an error message.
-      Die() << caller << " returned error code 0x" << std::hex << dwfl_error;
+      Die() << caller << " returned error code " << Hex(dwfl_error);
     }
     Die() << caller << " returned error: " << errmsg;
   }
