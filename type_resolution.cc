@@ -227,6 +227,15 @@ class UnificationCache {
     ++union_unknown_;
   }
 
+  // update id to representative id
+  void Update(Id& id) {
+    const Id fid = Find(id);
+    // avoid silent stores
+    if (fid != id) {
+      id = fid;
+    }
+  }
+
  private:
   Graph::DenseIdMapping& mapping_;
   Counter find_query_;
@@ -531,11 +540,7 @@ void ResolveTypes(Graph& graph,
     Counter removed(metrics, "resolve.removed");
     Counter retained(metrics, "resolve.retained");
     auto remap = [&cache](Id& id) {
-      // update id to representative id, avoiding silent stores
-      const Id fid = cache.Find(id);
-      if (fid != id) {
-        id = fid;
-      }
+      cache.Update(id);
     };
     Substitute<decltype(remap)> substitute(graph, remap);
     named_types.seen.ForEach([&](Id id) {
