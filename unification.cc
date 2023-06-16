@@ -31,16 +31,16 @@ namespace {
 // caching and handling of StructUnion and Enum nodes.
 //
 // During unification, keep track of which pairs of types need to be equal, but
-// do not add them immediately to the cache. The caller can do that if the whole
-// unification succeeds.
+// do not add them immediately to the unification substitutions. The caller can
+// do that if the whole unification succeeds.
 //
 // A declaration and definition of the same named type can be unified. This is
 // forward declaration resolution.
 struct Unifier {
   enum Winner { Neither, Right, Left };  // makes p ? Right : Neither a no-op
 
-  Unifier(const Graph& graph, UnificationCache& cache)
-      : graph(graph), cache(cache) {}
+  Unifier(const Graph& graph, Unification& unification)
+      : graph(graph), unification(unification) {}
 
   bool operator()(Id id1, Id id2) {
     Id fid1 = Find(id1);
@@ -234,7 +234,7 @@ struct Unifier {
 
   Id Find(Id id) {
     while (true) {
-      id = cache.Find(id);
+      id = unification.Find(id);
       auto it = mapping.find(id);
       if (it != mapping.end()) {
         id = it->second;
@@ -245,19 +245,19 @@ struct Unifier {
   }
 
   const Graph& graph;
-  UnificationCache& cache;
+  Unification& unification;
   std::unordered_set<Pair> seen;
   std::unordered_map<Id, Id> mapping;
 };
 
 }  // namespace
 
-bool Unify(const Graph& graph, UnificationCache& cache, Id id1, Id id2) {
-  Unifier unifier(graph, cache);
+bool Unify(const Graph& graph, Unification& unification, Id id1, Id id2) {
+  Unifier unifier(graph, unification);
   if (unifier(id1, id2)) {
     // commit
     for (const auto& s : unifier.mapping) {
-      cache.Union(s.first, s.second);
+      unification.Union(s.first, s.second);
     }
     return true;
   }

@@ -201,7 +201,7 @@ void ResolveTypes(Graph& graph,
     }
   }
 
-  UnificationCache cache(graph, metrics);
+  Unification unification(graph, metrics);
   {
     const Time time(metrics, "resolve.unification");
     Counter definition_unified(metrics, "resolve.definition.unified");
@@ -216,7 +216,7 @@ void ResolveTypes(Graph& graph,
         std::vector<Id> todo;
         distinct_definitions.push_back(candidate);
         for (size_t i = 1; i < definitions.size(); ++i) {
-          if (Unify(graph, cache, definitions[i], candidate)) {
+          if (Unify(graph, unification, definitions[i], candidate)) {
             // unification succeeded
             ++definition_unified;
           } else {
@@ -231,7 +231,7 @@ void ResolveTypes(Graph& graph,
       if (distinct_definitions.size() == 1) {
         const Id candidate = distinct_definitions[0];
         for (auto id : info.declarations) {
-          cache.Union(id, candidate);
+          unification.Union(id, candidate);
           ++declaration_unified;
         }
       }
@@ -242,12 +242,12 @@ void ResolveTypes(Graph& graph,
     const Time time(metrics, "resolve.rewrite");
     Counter removed(metrics, "resolve.removed");
     Counter retained(metrics, "resolve.retained");
-    auto remap = [&cache](Id& id) {
-      cache.Update(id);
+    auto remap = [&unification](Id& id) {
+      unification.Update(id);
     };
     Substitute<decltype(remap)> substitute(graph, remap);
     named_types.seen.ForEach([&](Id id) {
-      const Id fid = cache.Find(id);
+      const Id fid = unification.Find(id);
       if (fid != id) {
         graph.Remove(id);
         ++removed;

@@ -29,14 +29,14 @@
 namespace stg {
 
 // Keep track of which nodes have been substituted.
-class UnificationCache {
+class Unification {
  public:
-  UnificationCache(const Graph& graph, Metrics& metrics)
+  Unification(const Graph& graph, Metrics& metrics)
       : mapping_(graph.MakeDenseIdMapping()),
-        find_query_(metrics, "cache.find_query"),
-        find_halved_(metrics, "cache.find_halved"),
-        union_known_(metrics, "cache.union_known"),
-        union_unknown_(metrics, "cache.union_unknown") {}
+        find_query_(metrics, "unification.find_query"),
+        find_halved_(metrics, "unification.find_halved"),
+        union_known_(metrics, "unification.union_known"),
+        union_unknown_(metrics, "unification.union_unknown") {}
 
   Id Find(Id id) {
     ++find_query_;
@@ -86,7 +86,7 @@ class UnificationCache {
   Counter union_unknown_;
 };
 
-bool Unify(const Graph& graph, UnificationCache& cache, Id id1, Id id2);
+bool Unify(const Graph& graph, Unification& unification, Id id1, Id id2);
 
 }  // namespace stg
 
