@@ -58,6 +58,7 @@ std::optional<Dwarf_Attribute> GetAttribute(Dwarf_Die* die,
   // DW_AT_specification references, fetching the attribute from the linked DIE.
   //
   // libdw has infinite loop protection, as it stops after 16 dereferences.
+  // TODO: don't use dwarf_attr_integrate by default
   if (!dwarf_attr_integrate(die, attribute, &result.value())) {
     result.reset();
   }
@@ -67,7 +68,7 @@ std::optional<Dwarf_Attribute> GetAttribute(Dwarf_Die* die,
 // Get the attribute directly from DIE without following DW_AT_specification and
 // DW_AT_abstract_origin references.
 std::optional<Dwarf_Attribute> GetDirectAttribute(Dwarf_Die* die,
-                                                  int attribute) {
+                                                  uint32_t attribute) {
   // Create an optional with default-initialized value already inside
   std::optional<Dwarf_Attribute> result(std::in_place);
   if (!dwarf_attr(die, attribute, &result.value())) {
@@ -185,7 +186,20 @@ std::optional<std::string> Entry::MaybeGetString(uint32_t attribute) {
   }
 
   const char* value = dwarf_formstring(&dwarf_attribute.value());
-  Check(value) << "dwarf_formstring returned error";
+  Check(value != nullptr) << "dwarf_formstring returned error";
+  result.emplace(value);
+  return result;
+}
+
+std::optional<std::string> Entry::MaybeGetDirectString(uint32_t attribute) {
+  std::optional<std::string> result;
+  auto dwarf_attribute = GetDirectAttribute(&die, attribute);
+  if (!dwarf_attribute) {
+    return result;
+  }
+
+  const char* value = dwarf_formstring(&dwarf_attribute.value());
+  Check(value != nullptr) << "dwarf_formstring returned error";
   result.emplace(value);
   return result;
 }
