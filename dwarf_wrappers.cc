@@ -204,19 +204,16 @@ std::optional<std::string> Entry::MaybeGetDirectString(uint32_t attribute) {
   return result;
 }
 
-std::optional<uint64_t> Entry::MaybeGetUnsignedConstant(
-    uint32_t attribute) {
-  std::optional<uint64_t> result;
+std::optional<uint64_t> Entry::MaybeGetUnsignedConstant(uint32_t attribute) {
   auto dwarf_attribute = GetAttribute(&die, attribute);
   if (!dwarf_attribute) {
-    return result;
+    return {};
   }
 
-  // Place default-initialized value inside to be filled with dwarf_formudata
-  result.emplace();
-  Check(dwarf_formudata(&dwarf_attribute.value(), &result.value()) == kReturnOk)
+  uint64_t value;
+  Check(dwarf_formudata(&dwarf_attribute.value(), &value) == kReturnOk)
       << "dwarf_formudata returned error";
-  return result;
+  return value;
 }
 
 bool Entry::GetFlag(uint32_t attribute) {
@@ -248,8 +245,7 @@ std::optional<Entry> Entry::MaybeGetReference(uint32_t attribute) {
 
 namespace {
 
-void GetAddressFromLocation(Dwarf_Attribute& attribute,
-                            std::optional<uint64_t>& result) {
+std::optional<uint64_t> GetAddressFromLocation(Dwarf_Attribute& attribute) {
   Dwarf_Op* expr = nullptr;
   size_t expr_len = 0;
 
@@ -261,55 +257,51 @@ void GetAddressFromLocation(Dwarf_Attribute& attribute,
   Dwarf_Attribute result_attribute;
   if (dwarf_getlocation_attr(&attribute, expr, &result_attribute) ==
       kReturnOk) {
-    result.emplace();
-    Check(dwarf_formaddr(&result_attribute, &result.value()) == kReturnOk)
+    uint64_t addr;
+    Check(dwarf_formaddr(&result_attribute, &addr) == kReturnOk)
         << "dwarf_formaddr returned error";
-  } else if (expr_len == 1 && expr->atom == DW_OP_addr) {
+    return addr;
+  }
+  if (expr_len == 1 && expr->atom == DW_OP_addr) {
     // DW_OP_addr is unsupported by dwarf_getlocation_attr, so we need to
     // manually extract the address from expression.
-    result.emplace(expr->number);
-  } else {
-    Die() << "Unsupported data location expression";
+    return expr->number;
   }
+
+  Die() << "Unsupported data location expression";
 }
 
 }  // namespace
 
 std::optional<uint64_t> Entry::MaybeGetAddress(uint32_t attribute) {
-  std::optional<uint64_t> result;
   auto dwarf_attribute = GetAttribute(&die, attribute);
   if (!dwarf_attribute) {
-    return result;
+    return {};
   }
   if (attribute == DW_AT_location) {
-    GetAddressFromLocation(*dwarf_attribute, result);
-    return result;
+    return GetAddressFromLocation(*dwarf_attribute);
   }
 
-  result.emplace();
-  Check(dwarf_formaddr(&dwarf_attribute.value(), &result.value()) == kReturnOk)
+  uint64_t addr;
+  Check(dwarf_formaddr(&dwarf_attribute.value(), &addr) == kReturnOk)
       << "dwarf_formaddr returned error";
-  return result;
+  return addr;
 }
 
 std::optional<uint64_t> Entry::MaybeGetMemberByteOffset() {
-  std::optional<uint64_t> result;
   auto attribute = GetAttribute(&die, DW_AT_data_member_location);
   if (!attribute) {
-    return result;
+    return {};
   }
 
-  result.emplace();
+  uint64_t offset;
   // Try to interpret attribute as an unsigned integer constant
-  if (dwarf_formudata(&attribute.value(), &result.value()) == kReturnOk) {
-    return result;
-  } else {
-    Die() << "dwarf_formudata returned error, " << std::hex << GetOffset();
+  if (dwarf_formudata(&attribute.value(), &offset) == kReturnOk) {
+    return offset;
   }
 
   // TODO: support location expressions
-
-  return std::nullopt;
+  Die() << "dwarf_formudata returned error, " << std::hex << GetOffset();
 }
 
 }  // namespace dwarf
