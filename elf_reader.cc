@@ -361,7 +361,7 @@ Id Reader::Read() {
   }
   public_functions_and_variables.shrink_to_fit();
 
-  if (elf_.IsLinuxKernelBinary()) {
+  if (is_linux_kernel) {
     crc_values_ = GetCRCValuesMap(all_symbols, elf_);
     namespaces_ = GetNamespacesMap(all_symbols, elf_);
   }
