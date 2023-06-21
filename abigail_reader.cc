@@ -739,6 +739,11 @@ Id Abigail::ProcessRoot(xmlNodePtr root) {
   } else {
     Die() << "unrecognised root element '" << name << "'";
   }
+  for (const auto& [type_id, id] : type_ids_) {
+    if (!graph_.Is(id)) {
+      Warn() << "no definition found for type '" << type_id << "'";
+    }
+  }
   const Id id = BuildSymbols();
   RemoveUselessQualifiers(graph_, id);
   return id;
