@@ -20,7 +20,10 @@
 #include "dwarf_processor.h"
 
 #include <dwarf.h>
+#include <elfutils/libdw.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <ios>
 #include <iostream>
 #include <optional>
@@ -33,6 +36,7 @@
 #include "dwarf_wrappers.h"
 #include "error.h"
 #include "graph.h"
+#include "scope.h"
 
 namespace stg {
 namespace dwarf {
@@ -41,7 +45,7 @@ namespace {
 
 std::string EntryToString(Entry& entry) {
   std::ostringstream os;
-  os << "DWARF entry <0x" << std::hex << entry.GetOffset() << ">";
+  os << "DWARF entry <" << Hex(entry.GetOffset()) << ">";
   return os.str();
 }
 
@@ -107,7 +111,7 @@ Primitive::Encoding GetEncoding(Entry& entry) {
     case DW_ATE_UTF:
       return Primitive::Encoding::UTF;
     default:
-      Die() << "Unknown encoding 0x" << std::hex << *dwarf_encoding << " for "
+      Die() << "Unknown encoding " << Hex(*dwarf_encoding) << " for "
             << EntryToString(entry);
   }
 }
@@ -343,9 +347,28 @@ class Processor {
   void CheckUnresolvedIds() const {
     for (const auto& [offset, id] : id_map_) {
       if (!graph_.Is(id)) {
-        Die() << "unresolved id " << id << ", DWARF offset 0x" << std::hex
-              << offset;
+        Die() << "unresolved id " << id << ", DWARF offset " << Hex(offset);
       }
+    }
+  }
+
+  void ResolveSymbolSpecifications() {
+    std::sort(unresolved_symbol_specifications_.begin(),
+              unresolved_symbol_specifications_.end());
+    std::sort(scoped_names_.begin(), scoped_names_.end());
+    auto symbols_it = unresolved_symbol_specifications_.begin();
+    auto names_it = scoped_names_.begin();
+    while (symbols_it != unresolved_symbol_specifications_.end()) {
+      while (names_it != scoped_names_.end() &&
+             names_it->first < symbols_it->first) {
+        ++names_it;
+      }
+      if (names_it == scoped_names_.end() ||
+          names_it->first != symbols_it->first) {
+        Die() << "Scoped name not found for entry " << Hex(symbols_it->first);
+      }
+      result_.symbols[symbols_it->second].name = names_it->second;
+      ++symbols_it;
     }
   }
 
@@ -379,10 +402,9 @@ class Processor {
   }
 
   void ProcessTypedef(Entry& entry) {
-    std::string type_name = GetName(entry);
+    const std::string type_name = scope_ + GetName(entry);
     auto referred_type_id = GetIdForReferredType(MaybeGetReferredType(entry));
-    const Id id = AddProcessedNode<Typedef>(entry, std::move(type_name),
-                                            referred_type_id);
+    const Id id = AddProcessedNode<Typedef>(entry, type_name, referred_type_id);
     AddNamedTypeNode(id);
   }
 
@@ -402,16 +424,17 @@ class Processor {
   }
 
   void ProcessStructUnion(Entry& entry, StructUnion::Kind kind) {
-    // TODO: add scoping
     std::string name = GetNameOrEmpty(entry);
+    const std::string full_name = name.empty() ? std::string() : scope_ + name;
+    const PushScopeName push_scope_name(scope_, kind, name);
 
     if (entry.GetFlag(DW_AT_declaration)) {
       // It is expected to have only name and no children in declaration.
       // However, it is not guaranteed and we should do something if we find an
       // example.
       CheckNoChildren(entry);
-      const Id id = AddProcessedNode<StructUnion>(entry, kind, name);
-      if (!name.empty()) {
+      const Id id = AddProcessedNode<StructUnion>(entry, kind, full_name);
+      if (!full_name.empty()) {
         AddNamedTypeNode(id);
       }
       return;
@@ -452,10 +475,10 @@ class Processor {
 
     // TODO: support base classes
     const Id id = AddProcessedNode<StructUnion>(
-        entry, kind, name, byte_size,
+        entry, kind, full_name, byte_size,
         /* base_classes = */ std::vector<Id>{},
         std::move(methods), std::move(members));
-    if (!name.empty()) {
+    if (!full_name.empty()) {
       AddNamedTypeNode(id);
     }
   }
@@ -481,8 +504,10 @@ class Processor {
     if (subprogram.external && subprogram.address) {
       // Only external functions with address are useful for ABI monitoring
       // TODO: cover virtual methods
+      const auto new_symbol_idx = result_.symbols.size();
       result_.symbols.push_back(Types::Symbol{
-          .name = subprogram.name,
+          .name = GetScopedNameForSymbol(
+              new_symbol_idx, subprogram.name_with_context),
           .linkage_name = subprogram.linkage_name,
           .address = *subprogram.address,
           .id = id});
@@ -491,11 +516,18 @@ class Processor {
     // TODO: support kind
     const Method::Kind kind = Method::Kind::NON_VIRTUAL;
     // TODO: support vtable_offset
+    if (!subprogram.name_with_context.unscoped_name) {
+      Die() << "Method " << EntryToString(entry) << " should have name";
+    }
+    if (subprogram.name_with_context.specification) {
+      Die() << "Method " << EntryToString(entry)
+            << " shouldn't have specification";
+    }
     // TODO: proper handling of missing linkage name
-    static const std::string missing = "{missing}";
-    AddProcessedNode<Method>(
-        entry, subprogram.linkage_name ? *subprogram.linkage_name : missing,
-        subprogram.name, kind, /* vtable_offset = */ std::nullopt, id);
+    AddProcessedNode<Method>(entry,
+                             subprogram.linkage_name.value_or("{missing}"),
+                             *subprogram.name_with_context.unscoped_name, kind,
+                             /* vtable_offset = */ std::nullopt, id);
   }
 
   void ProcessArray(Entry& entry) {
@@ -561,6 +593,85 @@ class Processor {
     }
   }
 
+  struct NameWithContext {
+    std::optional<Dwarf_Off> specification;
+    std::optional<std::string> unscoped_name;
+    std::optional<std::string> scoped_name;
+  };
+
+  NameWithContext GetNameWithContext(Entry& entry) {
+    NameWithContext result;
+    // Leaf of specification tree is usually a declaration (of a function or a
+    // method). Then goes definition, which references declaration by
+    // DW_AT_specification. And on top we have instantiation, which references
+    // definition by DW_AT_abstract_origin. In the worst case we have:
+    // * instantiation
+    //     >-DW_AT_abstract_origin-> definition
+    //         >-DW_AT_specification-> declaration
+    //
+    // By using attribute integration we fold all information from definition to
+    // instantiation, flattening hierarchy:
+    // * instantiation + definition
+    //     >-DW_AT_specification-> declaration
+    // NB: DW_AT_abstract_origin attribute is also visible, but it should be
+    // ignored, since we already used it during integration.
+    //
+    // We also need to support this case, when we don't have separate
+    // declaration:
+    // * instantiation +
+    //     >-DW_AT_abstract_origin -> definition
+    //
+    // So the final algorithm is to get final DW_AT_specification through the
+    // whole chain, or use DW_AT_abstract_origin if there is no
+    // DW_AT_specification.
+    if (auto specification = entry.MaybeGetReference(DW_AT_specification)) {
+      result.specification = specification->GetOffset();
+    } else if (auto abstract_origin =
+                   entry.MaybeGetReference(DW_AT_abstract_origin)) {
+      result.specification = abstract_origin->GetOffset();
+    }
+    result.unscoped_name = entry.MaybeGetDirectString(DW_AT_name);
+    if (!result.unscoped_name && !result.specification) {
+      // If there is no name and specification, then this entry is anonymous.
+      // Anonymous entries are modelled as the empty string and not nullopt.
+      // This allows us to fill and register scoped_name (also empty string) to
+      // be used in references.
+      result.unscoped_name = std::string();
+    }
+    if (result.unscoped_name) {
+      result.scoped_name = scope_ + *result.unscoped_name;
+      scoped_names_.emplace_back(
+          entry.GetOffset(), *result.scoped_name);
+    }
+    return result;
+  }
+
+  std::string GetScopedNameForSymbol(size_t symbol_idx,
+                                     const NameWithContext& name) {
+    // This method is designed to resolve this topology:
+    //   A: specification=B
+    //   B: name="foo"
+    // Any other topologies are rejected:
+    //   * Name and specification in one DIE: checked right below.
+    //   * Chain of specifications will result in symbol referencing another
+    //     specification, which will not be in scoped_names_, because "name and
+    //     specification in one DIE" is rejected.
+    if (name.scoped_name) {
+      if (name.specification) {
+        Die() << "Entry has name " << *name.scoped_name
+              << " and specification " << Hex(*name.specification);
+      }
+      return *name.scoped_name;
+    }
+    if (name.specification) {
+      unresolved_symbol_specifications_.emplace_back(*name.specification,
+                                                     symbol_idx);
+      // Name will be filled in ResolveSymbolSpecifications
+      return {};
+    }
+    Die() << "Entry should have either name or specification";
+  }
+
   void ProcessVariable(Entry& entry) {
     // Skip:
     //  * anonymous variables (for example, anonymous union)
@@ -591,8 +702,10 @@ class Processor {
     const Id id = AddProcessedNode<Function>(entry, std::move(subprogram.node));
     if (subprogram.external && subprogram.address) {
       // Only external functions with address are useful for ABI monitoring
+      const auto new_symbol_idx = result_.symbols.size();
       result_.symbols.push_back(Types::Symbol{
-          .name = std::move(subprogram.name),
+          .name = GetScopedNameForSymbol(
+              new_symbol_idx, subprogram.name_with_context),
           .linkage_name = std::move(subprogram.linkage_name),
           .address = *subprogram.address,
           .id = id});
@@ -601,7 +714,7 @@ class Processor {
 
   struct Subprogram {
     Function node;
-    std::string name;
+    NameWithContext name_with_context;
     std::optional<std::string> linkage_name;
     std::optional<size_t> address;
     bool external;
@@ -642,7 +755,7 @@ class Processor {
     }
 
     return Subprogram{.node = Function(return_type_id, parameters),
-                      .name = GetNameOrEmpty(entry),
+                      .name_with_context = GetNameWithContext(entry),
                       .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
                       .address = entry.MaybeGetAddress(DW_AT_low_pc),
                       .external = entry.GetFlag(DW_AT_external)};
@@ -682,6 +795,10 @@ class Processor {
   bool is_little_endian_binary_;
   Types& result_;
   std::unordered_map<Dwarf_Off, Id> id_map_;
+  // Current scope.
+  Scope scope_;
+  std::vector<std::pair<Dwarf_Off, std::string>> scoped_names_;
+  std::vector<std::pair<Dwarf_Off, size_t>> unresolved_symbol_specifications_;
 };
 
 Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
@@ -695,6 +812,7 @@ Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
     processor.Process(entry);
   }
   processor.CheckUnresolvedIds();
+  processor.ResolveSymbolSpecifications();
 
   return result;
 }

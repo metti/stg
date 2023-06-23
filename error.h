@@ -21,8 +21,10 @@
 #define STG_ERROR_H_
 
 #include <exception>
+#include <ios>
 #include <iostream>
 #include <optional>
+#include <ostream>
 #include <sstream>
 #include <string>
 
@@ -95,8 +97,30 @@ class Warn {
   std::ostringstream os_;
 };
 
-inline std::string ErrnoToString(int error) {
-  return std::system_error(error, std::generic_category()).what();
+struct Error {
+  explicit Error(int number) : number(number) {}
+  int number;
+};
+
+inline std::ostream& operator<<(std::ostream& os, Error error) {
+  return os << std::system_error(error.number, std::generic_category()).what();
+}
+
+template <typename T>
+struct Hex {
+  explicit Hex(const T& value) : value(value) {}
+  const T& value;
+};
+
+template <typename T> Hex(const T&) -> Hex<T>;
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const Hex<T>& hex_value) {
+  // not quite right if an exception is thrown
+  const auto flags = os.flags();
+  os << std::hex << std::showbase << hex_value.value;
+  os.flags(flags);
+  return os;
 }
 
 }  // namespace stg

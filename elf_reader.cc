@@ -233,7 +233,7 @@ class Typing {
   // In general, we want to handle as many of the following cases as possible.
   // In practice, determining the correct ELF-DWARF match may be impossible.
   //
-  // * compiler-driven aliasing - mutliple symbols with same address
+  // * compiler-driven aliasing - multiple symbols with same address
   // * zero-size symbol false aliasing - multiple symbols and types with same
   //   address
   // * weak/strong linkage symbols - multiple symbols and types with same
@@ -253,8 +253,8 @@ class Typing {
         // TODO: allow "compatible" duplicates, for example
         // "void foo(int bar)" vs "void foo(const int bar)"
         if (!IsEqual(symbol, other)) {
-          Die() << "Duplicate DWARF symbol: address=0x" << std::hex
-                << symbol.address << std::dec << ", name=" << symbol.name;
+          Die() << "Duplicate DWARF symbol: address=" << Hex(symbol.address)
+                << ", name=" << symbol.name;
         }
       }
     }
@@ -361,7 +361,7 @@ Id Reader::Read() {
   }
   public_functions_and_variables.shrink_to_fit();
 
-  if (elf_.IsLinuxKernelBinary()) {
+  if (is_linux_kernel) {
     crc_values_ = GetCRCValuesMap(all_symbols, elf_);
     namespaces_ = GetNamespacesMap(all_symbols, elf_);
   }

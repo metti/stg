@@ -47,7 +47,7 @@ SymbolSet ReadAbigail(const std::string& filename) {
   SymbolSet symbols;
   std::ifstream file(filename);
   Check(file.good()) << "error opening symbol file '" << filename << ": "
-                     << ErrnoToString(errno);
+                     << Error(errno);
   bool in_symbol_section = false;
   std::string line;
   while (std::getline(file, line)) {
@@ -89,7 +89,7 @@ SymbolSet ReadAbigail(const std::string& filename) {
     }
   }
   Check(file.eof()) << "error reading symbol file '" << filename << ": "
-                    << ErrnoToString(errno);
+                    << Error(errno);
   return symbols;
 }
 

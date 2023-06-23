@@ -25,6 +25,7 @@
 #include <limits>
 #include <ostream>
 #include <string>
+#include <string_view>
 
 namespace stg {
 
@@ -54,13 +55,25 @@ std::ostream& operator<<(std::ostream& os, Method::Kind kind) {
   }
 }
 
-std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind) {
+namespace {
+
+std::string_view ToString(StructUnion::Kind kind) {
   switch (kind) {
     case StructUnion::Kind::STRUCT:
-      return os << "struct";
+      return "struct";
     case StructUnion::Kind::UNION:
-      return os << "union";
+      return "union";
   }
+}
+
+}  // namespace
+
+std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind) {
+  return os << ToString(kind);
+}
+
+std::string& operator+=(std::string& os, StructUnion::Kind kind) {
+  return os += ToString(kind);
 }
 
 std::ostream& operator<<(std::ostream& os, Qualifier qualifier) {
@@ -127,7 +140,7 @@ std::string VersionedSymbolName(const ElfSymbol& symbol) {
 }
 
 std::ostream& operator<<(std::ostream& os, ElfSymbol::CRC crc) {
-  return os << "0x" << std::hex << crc.number;
+  return os << Hex(crc.number);
 }
 
 std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding) {

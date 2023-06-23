@@ -90,6 +90,7 @@ cc_library_host_static {
         "stg.proto",
         "type_normalisation.cc",
         "type_resolution.cc",
+        "unification.cc",
     ],
     proto: {
         export_proto_headers: true,
