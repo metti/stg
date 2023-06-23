@@ -42,8 +42,6 @@
 
 namespace {
 
-stg::Metrics metrics;
-
 const int kAbiChange = 4;
 const int kFidelityChange = 8;
 const size_t kMaxCrcOnlyChanges = 3;
@@ -270,6 +268,7 @@ int main(int argc, char* argv[]) {
   }
 
   try {
+    stg::Metrics metrics;
     const int status = opt_exact ? RunExact(inputs, opt_read_options, metrics)
                                  : Run(inputs, outputs, opt_ignore,
                                        opt_read_options, opt_fidelity, metrics);

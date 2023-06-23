@@ -33,14 +33,14 @@ namespace stg {
 FileDescriptor::FileDescriptor(const char* filename, int flags, mode_t mode)
     : fd_(open(filename, flags, mode)) {
   if (fd_ < 0) {
-    Die() << "open failed: " << ErrnoToString(errno);
+    Die() << "open failed: " << Error(errno);
   }
 }
 
 FileDescriptor::~FileDescriptor() noexcept(false) {
   // If we're unwinding, ignore any close failure.
   if (fd_ >= 0 && close(fd_) != 0 && std::uncaught_exceptions() == 0) {
-    Die() << "close failed: " << ErrnoToString(errno);
+    Die() << "close failed: " << Error(errno);
   }
   fd_ = -1;
 }

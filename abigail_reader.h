@@ -33,6 +33,7 @@
 #include <libxml/tree.h>
 #include "graph.h"
 #include "metrics.h"
+#include "scope.h"
 
 namespace stg {
 namespace abixml {
@@ -105,7 +106,7 @@ class Abigail {
       symbol_id_and_full_name_;
 
   // Full name of the current scope.
-  std::string scope_name_;
+  Scope scope_name_;
 
   Id GetNode(const std::string& type_id);
   Id GetEdge(xmlNodePtr element);

@@ -221,6 +221,7 @@ struct StructUnion {
 };
 
 std::ostream& operator<<(std::ostream& os, StructUnion::Kind kind);
+std::string& operator+=(std::string& os, StructUnion::Kind kind);
 
 struct Enumeration {
   using Enumerators = std::vector<std::pair<std::string, int64_t>>;
@@ -402,7 +403,9 @@ class Graph {
   template <typename Node, typename... Args>
   void Set(Id id, Args&&... args) {
     auto& reference = indirection_[id.ix_];
-    Check(reference.first == Which::ABSENT) << "node value already set";
+    if (reference.first != Which::ABSENT) {
+      Die() << "node value already set: " << id;
+    }
     if constexpr (std::is_same_v<Node, Void>) {
       reference = {Which::VOID, void_.size()};
       void_.emplace_back(std::forward<Args>(args)...);
@@ -470,7 +473,9 @@ class Graph {
 
   void Unset(Id id) {
     auto& reference = indirection_[id.ix_];
-    Check(reference.first != Which::ABSENT) << "node value already unset";
+    if (reference.first == Which::ABSENT) {
+      Die() << "node value already unset: " << id;
+    }
     reference = {Which::ABSENT, 0};
   }
 
@@ -534,7 +539,7 @@ Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) const {
   const auto& [which, ix] = indirection_[id.ix_];
   switch (which) {
     case Which::ABSENT:
-      Die() << "undefined node";
+      Die() << "undefined node: " << id;
     case Which::VOID:
       return function(void_[ix], std::forward<Args>(args)...);
     case Which::VARIADIC:
@@ -580,7 +585,7 @@ Result Graph::Apply2(
   }
   switch (which1) {
     case Which::ABSENT:
-      Die() << "undefined node";
+      Die() << "undefined nodes: " << id1 << ", " << id2;
     case Which::VOID:
       return function(void_[ix1], void_[ix2],
                       std::forward<Args>(args)...);

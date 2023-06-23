@@ -739,6 +739,11 @@ Id Abigail::ProcessRoot(xmlNodePtr root) {
   } else {
     Die() << "unrecognised root element '" << name << "'";
   }
+  for (const auto& [type_id, id] : type_ids_) {
+    if (!graph_.Is(id)) {
+      Warn() << "no definition found for type '" << type_id << "'";
+    }
+  }
   const Id id = BuildSymbols();
   RemoveUselessQualifiers(graph_, id);
   return id;
@@ -869,7 +874,7 @@ void Abigail::ProcessInstr(xmlNodePtr instr) {
 
 void Abigail::ProcessNamespace(xmlNodePtr scope) {
   const auto name = GetAttributeOrDie(scope, "name");
-  PushScopeName push_scope_name(scope_name_, name);
+  const PushScopeName push_scope_name(scope_name_, "namespace", name);
   ProcessScope(scope);
 }
 
@@ -994,17 +999,13 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
   const auto kind = is_struct
                     ? StructUnion::Kind::STRUCT
                     : StructUnion::Kind::UNION;
-  const auto name = ReadAttribute<bool>(struct_union, "is-anonymous", false)
-                    ? std::string()
-                    : GetAttributeOrDie(struct_union, "name");
-  const auto full_name = name.empty() ? std::string() : scope_name_ + name;
-  std::ostringstream scope_name_os;
-  if (name.empty()) {
-    scope_name_os << "<unnamed " << kind << ">";
-  } else {
-    scope_name_os << name;
-  }
-  PushScopeName push_scope_name(scope_name_, scope_name_os.str());
+  const bool is_anonymous =
+      ReadAttribute<bool>(struct_union, "is-anonymous", false);
+  const auto name =
+      is_anonymous ? std::string() : GetAttributeOrDie(struct_union, "name");
+  const auto full_name =
+      is_anonymous ? std::string() : scope_name_ + name;
+  const PushScopeName push_scope_name(scope_name_, kind, name);
   if (forward) {
     graph_.Set<StructUnion>(id, kind, full_name);
     return;

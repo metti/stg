@@ -57,6 +57,7 @@ struct Entry {
   int GetTag();
   Dwarf_Off GetOffset();
   std::optional<std::string> MaybeGetString(uint32_t attribute);
+  std::optional<std::string> MaybeGetDirectString(uint32_t attribute);
   std::optional<uint64_t> MaybeGetUnsignedConstant(uint32_t attribute);
   bool GetFlag(uint32_t attribute);
   std::optional<Entry> MaybeGetReference(uint32_t attribute);
