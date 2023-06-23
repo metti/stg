@@ -28,6 +28,7 @@
 
 #include "error.h"
 #include "graph.h"
+#include "metrics.h"
 #include "substitution.h"
 #include "unification.h"
 

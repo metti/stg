@@ -28,6 +28,7 @@
 
 #include "graph.h"
 #include "hashing.h"
+#include "metrics.h"
 #include "scc.h"
 
 namespace stg {

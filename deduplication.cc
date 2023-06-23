@@ -25,6 +25,7 @@
 
 #include "equality.h"
 #include "equality_cache.h"
+#include "metrics.h"
 #include "substitution.h"
 
 namespace stg {
