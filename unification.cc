@@ -19,6 +19,7 @@
 
 #include "unification.h"
 
+#include <cstddef>
 #include <utility>
 
 namespace stg {

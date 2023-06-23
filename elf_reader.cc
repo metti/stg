@@ -19,6 +19,7 @@
 
 #include "elf_reader.h"
 
+#include <cstddef>
 #include <functional>
 #include <iomanip>
 #include <ios>

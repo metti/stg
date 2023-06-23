@@ -19,6 +19,7 @@
 
 #include "type_resolution.h"
 
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <string>

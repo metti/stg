@@ -20,6 +20,7 @@
 #ifndef STG_METRICS_H_
 #define STG_METRICS_H_
 
+#include <cstddef>
 #include <cstdint>
 #include <ctime>
 #include <map>

@@ -17,6 +17,7 @@
 //
 // Author: Giuliano Procida
 
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
