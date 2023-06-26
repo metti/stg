@@ -22,6 +22,8 @@
 #include <cstddef>
 #include <utility>
 
+#include "graph.h"
+
 namespace stg {
 
 namespace {

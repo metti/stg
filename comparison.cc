@@ -34,6 +34,7 @@
 #include <vector>
 
 #include "error.h"
+#include "graph.h"
 #include "order.h"
 
 namespace stg {
