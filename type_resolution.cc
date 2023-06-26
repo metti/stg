@@ -28,7 +28,6 @@
 #include "error.h"
 #include "graph.h"
 #include "metrics.h"
-#include "substitution.h"
 #include "unification.h"
 
 namespace stg {
@@ -235,26 +234,6 @@ void ResolveTypes(Graph& graph, Unification& unification,
         }
       }
     }
-  }
-
-  {
-    const Time time(metrics, "resolve.rewrite");
-    Counter removed(metrics, "resolve.removed");
-    Counter retained(metrics, "resolve.retained");
-    auto remap = [&unification](Id& id) {
-      unification.Update(id);
-    };
-    Substitute substitute(graph, remap);
-    graph.ForEach([&](Id id) {
-      const Id fid = unification.Find(id);
-      if (fid != id) {
-        graph.Remove(id);
-        ++removed;
-      } else {
-        substitute(id);
-        ++retained;
-      }
-    });
   }
 }
 

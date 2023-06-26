@@ -210,6 +210,7 @@ int main(int argc, char* argv[]) {
     if (!opt_keep_duplicates) {
       stg::Unification unification(graph, metrics);
       stg::ResolveTypes(graph, unification, {root}, metrics);
+      unification.Substitute(graph, metrics);
       unification.Update(root);
       const auto hashes = stg::Fingerprint(graph, root, metrics);
       root = stg::Deduplicate(graph, root, hashes, metrics);

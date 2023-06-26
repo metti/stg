@@ -238,6 +238,7 @@ class Reader {
     }
     Unification unification(graph_, metrics_);
     stg::ResolveTypes(graph_, unification, roots, metrics_);
+    unification.Substitute(graph_, metrics_);
     for (auto& id : types_.named_type_ids) {
       unification.Update(id);
     }

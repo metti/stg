@@ -25,6 +25,7 @@
 
 #include "graph.h"
 #include "metrics.h"
+#include "substitution.h"
 
 namespace stg {
 
@@ -76,6 +77,26 @@ class Unification {
     if (fid != id) {
       id = fid;
     }
+  }
+
+  // substitute over an entire graph
+  void Substitute(Graph& graph, Metrics& metrics) {
+    const Time time(metrics, "unification.rewrite");
+    Counter removed(metrics, "unification.removed");
+    Counter retained(metrics, "unification.retained");
+    auto remap = [&](Id& id) {
+      Update(id);
+    };
+    ::stg::Substitute substitute(graph, remap);
+    graph.ForEach([&](Id id) {
+      if (Find(id) != id) {
+        graph.Remove(id);
+        ++removed;
+      } else {
+        substitute(id);
+        ++retained;
+      }
+    });
   }
 
  private:
