@@ -87,7 +87,7 @@ Id Deduplicate(Graph& graph, Id root, const Hashes& hashes, Metrics& metrics) {
       id = fid;
     }
   };
-  Substitute<decltype(remap)> substitute(graph, remap);
+  Substitute substitute(graph, remap);
   {
     Time x(metrics, "rewrite");
     for (const auto& [id, fp] : hashes) {

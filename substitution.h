@@ -137,6 +137,9 @@ struct Substitute {
   const Updater& updater;
 };
 
+template <class Updater>
+Substitute(Graph&, const Updater& updater) -> Substitute<decltype(updater)>;
+
 }  // namespace stg
 
 #endif  // STG_SUBSTITUTION_H_
