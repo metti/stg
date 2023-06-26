@@ -20,7 +20,6 @@
 #include "type_resolution.h"
 
 #include <cstddef>
-#include <functional>
 #include <map>
 #include <string>
 #include <utility>
@@ -189,9 +188,8 @@ struct NamedTypes {
 
 }  // namespace
 
-void ResolveTypes(Graph& graph,
-                  const std::vector<std::reference_wrapper<Id>>& roots,
-                  Metrics& metrics) {
+void ResolveTypes(Graph& graph, Unification& unification,
+                  const std::vector<Id>& roots, Metrics& metrics) {
   const Time total(metrics, "resolve.total");
 
   // collect named types
@@ -203,7 +201,6 @@ void ResolveTypes(Graph& graph,
     }
   }
 
-  Unification unification(graph, metrics);
   {
     const Time time(metrics, "resolve.unification");
     Counter definition_unified(metrics, "resolve.definition.unified");
@@ -258,11 +255,6 @@ void ResolveTypes(Graph& graph,
         ++retained;
       }
     });
-
-    // Update roots
-    for (Id& root : roots) {
-      substitute.Update(root);
-    }
   }
 }
 

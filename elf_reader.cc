@@ -42,6 +42,7 @@
 #include "reader_options.h"
 #include "type_normalisation.h"
 #include "type_resolution.h"
+#include "unification.h"
 
 namespace stg {
 namespace elf {
@@ -197,52 +198,65 @@ bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
 
 namespace {
 
-class Typing {
+class Reader {
  public:
-  Typing(Graph& graph, Metrics& metrics)
+  Reader(Graph& graph, const std::string& path, ReadOptions options,
+         Metrics& metrics)
       : graph_(graph),
-        metrics_(metrics),
+        dwarf_(path),
+        elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
+        options_(options),
         equality_cache_(metrics),
-        equals_(graph, equality_cache_) {}
+        equals_(graph, equality_cache_),
+        metrics_(metrics) {}
 
-  const std::vector<Id>& GetTypesFromDwarf(dwarf::Handler& dwarf,
-                                           bool is_little_endian_binary) {
+  Reader(Graph& graph, char* data, size_t size, ReadOptions options,
+         Metrics& metrics)
+      : graph_(graph),
+        dwarf_(data, size),
+        elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
+        options_(options),
+        equality_cache_(metrics),
+        equals_(graph, equality_cache_),
+        metrics_(metrics) {}
+
+  Id Read();
+  ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) const;
+
+ private:
+  void GetTypesFromDwarf(dwarf::Handler& dwarf, bool is_little_endian_binary) {
     types_ = dwarf::Process(dwarf, is_little_endian_binary, graph_);
-    ResolveTypes();
-    FillAddressToId();
-    return types_.named_type_ids;
-  }
 
-  void ResolveTypes() {
-    std::vector<std::reference_wrapper<Id>> ids;
-    ids.reserve(types_.named_type_ids.size() + types_.symbols.size());
+    // resolve types
+    std::vector<Id> roots;
+    roots.reserve(types_.named_type_ids.size() + types_.symbols.size());
+    for (const auto& symbol : types_.symbols) {
+      roots.push_back(symbol.id);
+    }
+    for (const auto id : types_.named_type_ids) {
+      roots.push_back(id);
+    }
+    Unification unification(graph_, metrics_);
+    stg::ResolveTypes(graph_, unification, roots, metrics_);
     for (auto& id : types_.named_type_ids) {
-      ids.push_back(std::ref(id));
+      unification.Update(id);
     }
     for (auto& symbol : types_.symbols) {
-      ids.push_back(std::ref(symbol.id));
+      unification.Update(symbol.id);
     }
-    stg::ResolveTypes(graph_, ids, metrics_);
-  }
 
-  bool IsEqual(const dwarf::Types::Symbol& lhs,
-               const dwarf::Types::Symbol& rhs) {
-    return lhs.name == rhs.name && lhs.linkage_name == rhs.linkage_name &&
-           lhs.address == rhs.address && equals_(lhs.id, rhs.id);
-  }
-
-  // In general, we want to handle as many of the following cases as possible.
-  // In practice, determining the correct ELF-DWARF match may be impossible.
-  //
-  // * compiler-driven aliasing - multiple symbols with same address
-  // * zero-size symbol false aliasing - multiple symbols and types with same
-  //   address
-  // * weak/strong linkage symbols - multiple symbols and types with same
-  //   address
-  // * assembly symbols - multiple declarations but no definition and no address
-  //   in DWARF.
-
-  void FillAddressToId() {
+    // fill address to id
+    //
+    // In general, we want to handle as many of the following cases as possible.
+    // In practice, determining the correct ELF-DWARF match may be impossible.
+    //
+    // * compiler-driven aliasing - multiple symbols with same address
+    // * zero-size symbol false aliasing - multiple symbols and types with same
+    //   address
+    // * weak/strong linkage symbols - multiple symbols and types with same
+    //   address
+    // * assembly symbols - multiple declarations but no definition and no
+    //   address in DWARF.
     for (size_t i = 0; i < types_.symbols.size(); ++i) {
       const auto& symbol = types_.symbols[i];
 
@@ -259,6 +273,12 @@ class Typing {
         }
       }
     }
+  }
+
+  bool IsEqual(const dwarf::Types::Symbol& lhs,
+               const dwarf::Types::Symbol& rhs) {
+    return lhs.name == rhs.name && lhs.linkage_name == rhs.linkage_name
+        && lhs.address == rhs.address && equals_(lhs.id, rhs.id);
   }
 
   void MaybeAddTypeInfo(const size_t address, ElfSymbol& node) const {
@@ -298,37 +318,6 @@ class Typing {
     }
   }
 
- private:
-  Graph& graph_;
-  Metrics& metrics_;
-  dwarf::Types types_;
-  SimpleEqualityCache equality_cache_;
-  Equals<SimpleEqualityCache> equals_;
-  std::map<std::pair<size_t, std::string>, size_t> address_name_to_index_;
-};
-
-class Reader {
- public:
-  Reader(Graph& graph, const std::string& path, ReadOptions options,
-         Metrics& metrics)
-      : graph_(graph),
-        dwarf_(path),
-        elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
-        options_(options),
-        typing_(graph_, metrics) {}
-
-  Reader(Graph& graph, char* data, size_t size, ReadOptions options,
-         Metrics& metrics)
-      : graph_(graph),
-        dwarf_(data, size),
-        elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
-        options_(options),
-        typing_(graph_, metrics) {}
-
-  Id Read();
-  ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) const;
-
- private:
   Graph& graph_;
   // The order of the following two fields is important because ElfLoader uses
   // an Elf* from dwarf::Handler without owning it.
@@ -339,7 +328,15 @@ class Reader {
   // Data extracted from ELF
   CRCValuesMap crc_values_;
   NamespacesMap namespaces_;
-  Typing typing_;
+  // Data extracted from DWARF
+  dwarf::Types types_;
+  std::map<std::pair<size_t, std::string>, size_t> address_name_to_index_;
+
+  // For checking type equality
+  SimpleEqualityCache equality_cache_;
+  Equals<SimpleEqualityCache> equals_;
+
+  Metrics& metrics_;
 };
 
 Id Reader::Read() {
@@ -380,12 +377,11 @@ Id Reader::Read() {
 
   std::map<std::string, Id> types_map;
   if (!options_.Test(ReadOptions::SKIP_DWARF)) {
-    const auto& named_type_ids =
-        typing_.GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary());
+    GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary());
     if (options_.Test(ReadOptions::TYPE_ROOTS)) {
       const IsTypeDefined is_type_defined;
       const InterfaceKey get_key(graph_);
-      for (const auto id : named_type_ids) {
+      for (const auto id : types_.named_type_ids) {
         if (graph_.Apply<bool>(is_type_defined, id)) {
           const auto [it, inserted] = types_map.emplace(get_key(id), id);
           if (!inserted) {
@@ -427,7 +423,7 @@ ElfSymbol Reader::SymbolTableEntryToElfSymbol(
       /* ns = */ MaybeGet(namespaces_, std::string(symbol.name)),
       /* type_id = */ std::nullopt,
       /* full_name = */ std::nullopt);
-  typing_.MaybeAddTypeInfo(elf_.GetAbsoluteAddress(symbol), result);
+  MaybeAddTypeInfo(elf_.GetAbsoluteAddress(symbol), result);
   return result;
 }
 
