@@ -369,11 +369,8 @@ class Graph {
     Id& operator[](Id id) {
       const auto ix = id.ix_;
       const auto limit = ids_.size();
-      if (ix >= limit) {
-        ids_.reserve(ix + 1);
-        for (size_t iy = limit; iy <= ix; ++iy) {
-          ids_.emplace_back(iy);
-        }
+      for (size_t iy = limit; iy <= ix; ++iy) {
+        ids_.emplace_back(iy);
       }
       return ids_[ix];
     }
