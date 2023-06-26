@@ -82,7 +82,7 @@ Id Deduplicate(Graph& graph, Id root, const Hashes& hashes, Metrics& metrics) {
   Counter duplicate(metrics, "deduplicate.duplicate");
   auto remap = [&cache](Id& id) {
     // update id to representative id, avoiding silent stores
-    Id fid = cache.Find(id);
+    const Id fid = cache.Find(id);
     if (fid != id) {
       id = fid;
     }
