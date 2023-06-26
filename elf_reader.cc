@@ -34,8 +34,6 @@
 #include "dwarf_processor.h"
 #include "dwarf_wrappers.h"
 #include "elf_loader.h"
-#include "equality.h"
-#include "equality_cache.h"
 #include "error.h"
 #include "graph.h"
 #include "metrics.h"
@@ -187,8 +185,6 @@ class Reader {
         dwarf_(path),
         elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
         options_(options),
-        equality_cache_(metrics),
-        equals_(graph, equality_cache_),
         metrics_(metrics) {}
 
   Reader(Graph& graph, char* data, size_t size, ReadOptions options,
@@ -197,16 +193,18 @@ class Reader {
         dwarf_(data, size),
         elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
         options_(options),
-        equality_cache_(metrics),
-        equals_(graph, equality_cache_),
         metrics_(metrics) {}
 
   Id Read();
   ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) const;
 
  private:
-  void GetTypesFromDwarf(dwarf::Handler& dwarf, bool is_little_endian_binary) {
+  void GetTypesFromDwarf(dwarf::Handler& dwarf, bool is_little_endian_binary,
+                         std::map<std::string, Id>& types_map) {
     types_ = dwarf::Process(dwarf, is_little_endian_binary, graph_);
+
+    // For type unification
+    Unification unification(graph_, metrics_);
 
     // resolve types
     std::vector<Id> roots;
@@ -217,15 +215,7 @@ class Reader {
     for (const auto id : types_.named_type_ids) {
       roots.push_back(id);
     }
-    Unification unification(graph_, metrics_);
     stg::ResolveTypes(graph_, unification, roots, metrics_);
-    unification.Substitute(graph_, metrics_);
-    for (auto& id : types_.named_type_ids) {
-      unification.Update(id);
-    }
-    for (auto& symbol : types_.symbols) {
-      unification.Update(symbol.id);
-    }
 
     // fill address to id
     //
@@ -249,18 +239,39 @@ class Reader {
         const auto& other = types_.symbols[it->second];
         // TODO: allow "compatible" duplicates, for example
         // "void foo(int bar)" vs "void foo(const int bar)"
-        if (!IsEqual(symbol, other)) {
+        if (!IsEqual(unification, symbol, other)) {
           Die() << "Duplicate DWARF symbol: address=" << Hex(symbol.address)
                 << ", name=" << symbol.name;
         }
       }
     }
+
+    if (options_.Test(ReadOptions::TYPE_ROOTS)) {
+      const InterfaceKey get_key(graph_);
+      for (const auto id : types_.named_type_ids) {
+        const auto found = unification.Find(id);
+        const auto [it, inserted] = types_map.emplace(get_key(found), found);
+        if (!inserted) {
+          Die() << "found conflicting interface type: " << it->first;
+        }
+      }
+    }
+
+    unification.Substitute(graph_, metrics_);
+    for (auto& symbol : types_.symbols) {
+      unification.Update(symbol.id);
+    }
+    for (auto& [key, id] : types_map) {
+      unification.Update(id);
+    }
   }
 
-  bool IsEqual(const dwarf::Types::Symbol& lhs,
+  bool IsEqual(Unification& unification,
+               const dwarf::Types::Symbol& lhs,
                const dwarf::Types::Symbol& rhs) {
     return lhs.name == rhs.name && lhs.linkage_name == rhs.linkage_name
-        && lhs.address == rhs.address && equals_(lhs.id, rhs.id);
+        && lhs.address == rhs.address
+        && Unify(graph_, unification, lhs.id, rhs.id);
   }
 
   void MaybeAddTypeInfo(const size_t address, ElfSymbol& node) const {
@@ -314,10 +325,6 @@ class Reader {
   dwarf::Types types_;
   std::map<std::pair<size_t, std::string>, size_t> address_name_to_index_;
 
-  // For checking type equality
-  SimpleEqualityCache equality_cache_;
-  Equals<SimpleEqualityCache> equals_;
-
   Metrics& metrics_;
 };
 
@@ -359,16 +366,7 @@ Id Reader::Read() {
 
   std::map<std::string, Id> types_map;
   if (!options_.Test(ReadOptions::SKIP_DWARF)) {
-    GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary());
-    if (options_.Test(ReadOptions::TYPE_ROOTS)) {
-      const InterfaceKey get_key(graph_);
-      for (const auto id : types_.named_type_ids) {
-        const auto [it, inserted] = types_map.emplace(get_key(id), id);
-        if (!inserted) {
-          Die() << "found conflicting interface type: " << it->first;
-        }
-      }
-    }
+    GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary(), types_map);
   }
 
   std::map<std::string, Id> symbols_map;
