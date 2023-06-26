@@ -494,6 +494,17 @@ class Graph {
   template <typename Result, typename FunctionObject, typename... Args>
   Result Apply(FunctionObject& function, Id id, Args&&... args);
 
+  template <typename Function>
+  void ForEach(Function&& function) const {
+    const size_t limit = Limit().ix_;
+    for (size_t ix = 0; ix < limit; ++ix) {
+      const Id id(ix);
+      if (Is(id)) {
+        function(id);
+      }
+    }
+  }
+
  private:
   enum class Which {
     ABSENT,
