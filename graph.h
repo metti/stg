@@ -331,7 +331,7 @@ class Graph {
   // key set limited to allocated Ids.
   class DenseIdSet {
    public:
-    explicit DenseIdSet(size_t size) : ids_(size, false) {}
+    explicit DenseIdSet(Id limit) : ids_(limit.ix_, false) {}
     bool Insert(Id id) {
       const auto ix = id.ix_;
       if (ix >= ids_.size()) {
@@ -360,9 +360,9 @@ class Graph {
   // but with constant time operations and key set limited to allocated Ids.
   class DenseIdMapping {
    public:
-    explicit DenseIdMapping(size_t size) {
-      ids_.reserve(size);
-      for (size_t ix = 0; ix < size; ++ix) {
+    explicit DenseIdMapping(Id limit) {
+      ids_.reserve(limit.ix_);
+      for (size_t ix = 0; ix < limit.ix_; ++ix) {
         ids_.emplace_back(ix);
       }
     }
@@ -380,11 +380,15 @@ class Graph {
   };
 
   DenseIdSet MakeDenseIdSet() const {
-    return DenseIdSet(indirection_.size());
+    return DenseIdSet(Limit());
   }
 
   DenseIdMapping MakeDenseIdMapping() const {
-    return DenseIdMapping(indirection_.size());
+    return DenseIdMapping(Limit());
+  }
+
+  Id Limit() const {
+    return Id(indirection_.size());
   }
 
   bool Is(Id id) const {
@@ -392,9 +396,9 @@ class Graph {
   }
 
   Id Allocate() {
-    const auto ix = indirection_.size();
+    const auto id = Limit();
     indirection_.emplace_back(Which::ABSENT, 0);
-    return Id(ix);
+    return id;
   }
 
   template <typename Node, typename... Args>
