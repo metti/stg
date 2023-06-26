@@ -50,25 +50,6 @@ namespace internal {
 
 namespace {
 
-struct IsTypeDefined {
-  bool operator()(const Typedef&) const {
-    return true;
-  }
-
-  bool operator()(const StructUnion& x) const {
-    return x.definition.has_value();
-  }
-
-  bool operator()(const Enumeration& x) const {
-    return x.definition.has_value();
-  }
-
-  template <typename Node>
-  bool operator()(const Node&) const {
-    Die() << "expected a Typedef/StructUnion/Enumeration node";
-  }
-};
-
 template <typename M, typename K>
 std::optional<typename M::mapped_type> MaybeGet(const M& map, const K& key) {
   const auto it = map.find(key);
@@ -380,14 +361,11 @@ Id Reader::Read() {
   if (!options_.Test(ReadOptions::SKIP_DWARF)) {
     GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary());
     if (options_.Test(ReadOptions::TYPE_ROOTS)) {
-      const IsTypeDefined is_type_defined;
       const InterfaceKey get_key(graph_);
       for (const auto id : types_.named_type_ids) {
-        if (graph_.Apply<bool>(is_type_defined, id)) {
-          const auto [it, inserted] = types_map.emplace(get_key(id), id);
-          if (!inserted) {
-            Die() << "found conflicting interface type: " << it->first;
-          }
+        const auto [it, inserted] = types_map.emplace(get_key(id), id);
+        if (!inserted) {
+          Die() << "found conflicting interface type: " << it->first;
         }
       }
     }
