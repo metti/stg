@@ -245,7 +245,7 @@ void ResolveTypes(Graph& graph, Unification& unification,
       unification.Update(id);
     };
     Substitute<decltype(remap)> substitute(graph, remap);
-    named_types.seen.ForEach([&](Id id) {
+    graph.ForEach([&](Id id) {
       const Id fid = unification.Find(id);
       if (fid != id) {
         graph.Remove(id);
