@@ -249,9 +249,8 @@ class Reader {
     if (options_.Test(ReadOptions::TYPE_ROOTS)) {
       const InterfaceKey get_key(graph_);
       for (const auto id : types_.named_type_ids) {
-        const auto found = unification.Find(id);
-        const auto [it, inserted] = types_map.emplace(get_key(found), found);
-        if (!inserted) {
+        const auto [it, inserted] = types_map.emplace(get_key(id), id);
+        if (!inserted && !Unify(graph_, unification, id, it->second)) {
           Die() << "found conflicting interface type: " << it->first;
         }
       }
