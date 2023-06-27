@@ -200,22 +200,9 @@ class Reader {
 
  private:
   void GetTypesFromDwarf(dwarf::Handler& dwarf, bool is_little_endian_binary,
+                         Unification& unification,
                          std::map<std::string, Id>& types_map) {
     types_ = dwarf::Process(dwarf, is_little_endian_binary, graph_);
-
-    // For type unification
-    Unification unification(graph_, metrics_);
-
-    // resolve types
-    std::vector<Id> roots;
-    roots.reserve(types_.named_type_ids.size() + types_.symbols.size());
-    for (const auto& symbol : types_.symbols) {
-      roots.push_back(symbol.id);
-    }
-    for (const auto id : types_.named_type_ids) {
-      roots.push_back(id);
-    }
-    stg::ResolveTypes(graph_, unification, roots, metrics_);
 
     // fill address to id
     //
@@ -254,14 +241,6 @@ class Reader {
           Die() << "found conflicting interface type: " << it->first;
         }
       }
-    }
-
-    unification.Substitute(graph_, metrics_);
-    for (auto& symbol : types_.symbols) {
-      unification.Update(symbol.id);
-    }
-    for (auto& [key, id] : types_map) {
-      unification.Update(id);
     }
   }
 
@@ -363,9 +342,13 @@ Id Reader::Read() {
     }
   }
 
+  // For type unification
+  Unification unification(graph_, metrics_);
+
   std::map<std::string, Id> types_map;
   if (!options_.Test(ReadOptions::SKIP_DWARF)) {
-    GetTypesFromDwarf(dwarf_, elf_.IsLittleEndianBinary(), types_map);
+    GetTypesFromDwarf(
+        dwarf_, elf_.IsLittleEndianBinary(), unification, types_map);
   }
 
   std::map<std::string, Id> symbols_map;
@@ -379,9 +362,26 @@ Id Reader::Read() {
   }
   auto root =
       graph_.Add<Interface>(std::move(symbols_map), std::move(types_map));
+
+  // Use all named types and DWARF declarations as roots for type resolution.
+  std::vector<Id> roots;
+  roots.reserve(types_.named_type_ids.size() + types_.symbols.size() + 1);
+  for (const auto& symbol : types_.symbols) {
+    roots.push_back(symbol.id);
+  }
+  for (const auto id : types_.named_type_ids) {
+    roots.push_back(id);
+  }
+  roots.push_back(root);
+
+  stg::ResolveTypes(graph_, unification, roots, metrics_);
+  unification.Update(root);
+  unification.Substitute(graph_, metrics_);
+
   // Types produced by ELF/DWARF readers may require removing useless
   // qualifiers.
   RemoveUselessQualifiers(graph_, root);
+
   return root;
 }
 
