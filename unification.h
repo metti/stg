@@ -20,6 +20,7 @@
 #ifndef STG_UNIFICATION_H_
 #define STG_UNIFICATION_H_
 
+#include <exception>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -29,15 +30,42 @@
 
 namespace stg {
 
-// Keep track of which nodes have been substituted.
+// Keep track of which nodes are pending substitution and rewrite the graph on
+// destruction.
 class Unification {
  public:
-  Unification(const Graph& graph, Metrics& metrics)
-      : mapping_(graph.MakeDenseIdMapping()),
+  Unification(Graph& graph, Metrics& metrics)
+      : graph_(graph),
+        mapping_(graph.MakeDenseIdMapping()),
+        metrics_(metrics),
         find_query_(metrics, "unification.find_query"),
         find_halved_(metrics, "unification.find_halved"),
         union_known_(metrics, "unification.union_known"),
         union_unknown_(metrics, "unification.union_unknown") {}
+
+  ~Unification() {
+    if (std::uncaught_exceptions() > 0) {
+      // abort unification
+      return;
+    }
+    // apply substitutions to the entire graph
+    const Time time(metrics_, "unification.rewrite");
+    Counter removed(metrics_, "unification.removed");
+    Counter retained(metrics_, "unification.retained");
+    auto remap = [&](Id& id) {
+      Update(id);
+    };
+    ::stg::Substitute substitute(graph_, remap);
+    graph_.ForEach([&](Id id) {
+      if (Find(id) != id) {
+        graph_.Remove(id);
+        ++removed;
+      } else {
+        substitute(id);
+        ++retained;
+      }
+    });
+  }
 
   Id Find(Id id) {
     ++find_query_;
@@ -79,28 +107,10 @@ class Unification {
     }
   }
 
-  // substitute over an entire graph
-  void Substitute(Graph& graph, Metrics& metrics) {
-    const Time time(metrics, "unification.rewrite");
-    Counter removed(metrics, "unification.removed");
-    Counter retained(metrics, "unification.retained");
-    auto remap = [&](Id& id) {
-      Update(id);
-    };
-    ::stg::Substitute substitute(graph, remap);
-    graph.ForEach([&](Id id) {
-      if (Find(id) != id) {
-        graph.Remove(id);
-        ++removed;
-      } else {
-        substitute(id);
-        ++retained;
-      }
-    });
-  }
-
  private:
+  Graph& graph_;
   Graph::DenseIdMapping mapping_;
+  Metrics& metrics_;
   Counter find_query_;
   Counter find_halved_;
   Counter union_known_;

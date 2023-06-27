@@ -342,41 +342,42 @@ Id Reader::Read() {
     }
   }
 
-  // For type unification
-  Unification unification(graph_, metrics_);
+  Id root = Id::kInvalid;
+  {
+    // Unification rewrites the graph on destruction.
+    Unification unification(graph_, metrics_);
 
-  std::map<std::string, Id> types_map;
-  if (!options_.Test(ReadOptions::SKIP_DWARF)) {
-    GetTypesFromDwarf(
-        dwarf_, elf_.IsLittleEndianBinary(), unification, types_map);
-  }
+    std::map<std::string, Id> types_map;
+    if (!options_.Test(ReadOptions::SKIP_DWARF)) {
+      GetTypesFromDwarf(
+          dwarf_, elf_.IsLittleEndianBinary(), unification, types_map);
+    }
 
-  std::map<std::string, Id> symbols_map;
-  for (const auto& symbol : public_functions_and_variables) {
-    // TODO: add VersionInfoToString to SymbolKey name
-    // TODO: check for uniqueness of SymbolKey in map after support
-    // for version info
-    symbols_map.emplace(
-        std::string(symbol.name),
-        graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
-  }
-  auto root =
-      graph_.Add<Interface>(std::move(symbols_map), std::move(types_map));
+    std::map<std::string, Id> symbols_map;
+    for (const auto& symbol : public_functions_and_variables) {
+      // TODO: add VersionInfoToString to SymbolKey name
+      // TODO: check for uniqueness of SymbolKey in map after
+      // support for version info
+      symbols_map.emplace(
+          std::string(symbol.name),
+          graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
+    }
+    root = graph_.Add<Interface>(std::move(symbols_map), std::move(types_map));
 
-  // Use all named types and DWARF declarations as roots for type resolution.
-  std::vector<Id> roots;
-  roots.reserve(types_.named_type_ids.size() + types_.symbols.size() + 1);
-  for (const auto& symbol : types_.symbols) {
-    roots.push_back(symbol.id);
-  }
-  for (const auto id : types_.named_type_ids) {
-    roots.push_back(id);
-  }
-  roots.push_back(root);
+    // Use all named types and DWARF declarations as roots for type resolution.
+    std::vector<Id> roots;
+    roots.reserve(types_.named_type_ids.size() + types_.symbols.size() + 1);
+    for (const auto& symbol : types_.symbols) {
+      roots.push_back(symbol.id);
+    }
+    for (const auto id : types_.named_type_ids) {
+      roots.push_back(id);
+    }
+    roots.push_back(root);
 
-  stg::ResolveTypes(graph_, unification, roots, metrics_);
-  unification.Update(root);
-  unification.Substitute(graph_, metrics_);
+    stg::ResolveTypes(graph_, unification, {roots}, metrics_);
+    unification.Update(root);
+  }
 
   // Types produced by ELF/DWARF readers may require removing useless
   // qualifiers.

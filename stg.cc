@@ -208,10 +208,11 @@ int main(int argc, char* argv[]) {
       stg::Filter(graph, root, *opt_symbols);
     }
     if (!opt_keep_duplicates) {
-      stg::Unification unification(graph, metrics);
-      stg::ResolveTypes(graph, unification, {root}, metrics);
-      unification.Substitute(graph, metrics);
-      unification.Update(root);
+      {
+        stg::Unification unification(graph, metrics);
+        stg::ResolveTypes(graph, unification, {root}, metrics);
+        unification.Update(root);
+      }
       const auto hashes = stg::Fingerprint(graph, root, metrics);
       root = stg::Deduplicate(graph, root, hashes, metrics);
     }
