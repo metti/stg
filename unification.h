@@ -67,6 +67,8 @@ class Unification {
     });
   }
 
+  bool Unify(Id id1, Id id2);
+
   Id Find(Id id) {
     ++find_query_;
     // path halving - tiny performance gain
@@ -116,8 +118,6 @@ class Unification {
   Counter union_known_;
   Counter union_unknown_;
 };
-
-bool Unify(const Graph& graph, Unification& unification, Id id1, Id id2);
 
 }  // namespace stg
 

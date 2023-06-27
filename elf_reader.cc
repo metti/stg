@@ -237,7 +237,7 @@ class Reader {
       const InterfaceKey get_key(graph_);
       for (const auto id : types_.named_type_ids) {
         const auto [it, inserted] = types_map.emplace(get_key(id), id);
-        if (!inserted && !Unify(graph_, unification, id, it->second)) {
+        if (!inserted && !unification.Unify(id, it->second)) {
           Die() << "found conflicting interface type: " << it->first;
         }
       }
@@ -248,8 +248,7 @@ class Reader {
                const dwarf::Types::Symbol& lhs,
                const dwarf::Types::Symbol& rhs) {
     return lhs.name == rhs.name && lhs.linkage_name == rhs.linkage_name
-        && lhs.address == rhs.address
-        && Unify(graph_, unification, lhs.id, rhs.id);
+        && lhs.address == rhs.address && unification.Unify(lhs.id, rhs.id);
   }
 
   void MaybeAddTypeInfo(const size_t address, ElfSymbol& node) const {

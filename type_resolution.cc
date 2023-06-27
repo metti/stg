@@ -214,7 +214,7 @@ void ResolveTypes(Graph& graph, Unification& unification,
         std::vector<Id> todo;
         distinct_definitions.push_back(candidate);
         for (size_t i = 1; i < definitions.size(); ++i) {
-          if (Unify(graph, unification, definitions[i], candidate)) {
+          if (unification.Unify(definitions[i], candidate)) {
             // unification succeeded
             ++definition_unified;
           } else {
