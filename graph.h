@@ -343,14 +343,6 @@ class Graph {
       ids_[ix] = true;
       return true;
     }
-    template <typename Function>
-    void ForEach(Function&& function) const {
-      for (size_t ix = 0; ix < ids_.size(); ++ix) {
-        if (ids_[ix]) {
-          function(Id(ix));
-        }
-      }
-    }
 
    private:
     std::vector<bool> ids_;
