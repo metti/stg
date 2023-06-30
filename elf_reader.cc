@@ -199,10 +199,13 @@ class Reader {
   ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) const;
 
  private:
-  void GetTypesFromDwarf(dwarf::Handler& dwarf, bool is_little_endian_binary,
-                         Unification& unification,
-                         std::map<std::string, Id>& types_map) {
-    types_ = dwarf::Process(dwarf, is_little_endian_binary, graph_);
+  Id BuildRoot() {
+    if (!options_.Test(ReadOptions::SKIP_DWARF)) {
+      types_ = dwarf::Process(dwarf_, elf_.IsLittleEndianBinary(), graph_);
+    }
+
+    // Unification rewrites the graph on destruction.
+    Unification unification(graph_, metrics_);
 
     // fill address to id
     //
@@ -233,6 +236,7 @@ class Reader {
       }
     }
 
+    std::map<std::string, Id> types_map;
     if (options_.Test(ReadOptions::TYPE_ROOTS)) {
       const InterfaceKey get_key(graph_);
       for (const auto id : types_.named_type_ids) {
@@ -242,6 +246,35 @@ class Reader {
         }
       }
     }
+
+    std::map<std::string, Id> symbols_map;
+    for (const auto& symbol : public_functions_and_variables_) {
+      // TODO: add VersionInfoToString to SymbolKey name
+      // TODO: check for uniqueness of SymbolKey in map after
+      // support for version info
+      symbols_map.emplace(
+          std::string(symbol.name),
+          graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
+    }
+
+    Id root = graph_.Add<Interface>(
+        std::move(symbols_map), std::move(types_map));
+
+    // Use all named types and DWARF declarations as roots for type resolution.
+    std::vector<Id> roots;
+    roots.reserve(types_.named_type_ids.size() + types_.symbols.size() + 1);
+    for (const auto& symbol : types_.symbols) {
+      roots.push_back(symbol.id);
+    }
+    for (const auto id : types_.named_type_ids) {
+      roots.push_back(id);
+    }
+    roots.push_back(root);
+
+    stg::ResolveTypes(graph_, unification, {roots}, metrics_);
+
+    unification.Update(root);
+    return root;
   }
 
   bool IsEqual(Unification& unification,
@@ -296,8 +329,10 @@ class Reader {
   ReadOptions options_;
 
   // Data extracted from ELF
+  std::vector<SymbolTableEntry> public_functions_and_variables_;
   CRCValuesMap crc_values_;
   NamespacesMap namespaces_;
+
   // Data extracted from DWARF
   dwarf::Types types_;
   std::map<std::pair<size_t, std::string>, size_t> address_name_to_index_;
@@ -315,15 +350,14 @@ Id Reader::Read() {
   const SymbolNameList ksymtab_symbols =
       is_linux_kernel ? GetKsymtabSymbols(all_symbols) : SymbolNameList();
 
-  std::vector<SymbolTableEntry> public_functions_and_variables;
-  public_functions_and_variables.reserve(all_symbols.size());
+  public_functions_and_variables_.reserve(all_symbols.size());
   for (const auto& symbol : all_symbols) {
     if (IsPublicFunctionOrVariable(symbol) &&
         (!is_linux_kernel || ksymtab_symbols.count(symbol.name))) {
-      public_functions_and_variables.push_back(symbol);
+      public_functions_and_variables_.push_back(symbol);
     }
   }
-  public_functions_and_variables.shrink_to_fit();
+  public_functions_and_variables_.shrink_to_fit();
 
   if (is_linux_kernel) {
     crc_values_ = GetCRCValuesMap(all_symbols, elf_);
@@ -331,9 +365,9 @@ Id Reader::Read() {
   }
 
   if (options_.Test(ReadOptions::INFO)) {
-    std::cout << "File has " << public_functions_and_variables.size()
+    std::cout << "File has " << public_functions_and_variables_.size()
               << " public functions and variables:\n";
-    for (const auto& symbol : public_functions_and_variables) {
+    for (const auto& symbol : public_functions_and_variables_) {
       std::cout << "  " << symbol.binding << ' ' << symbol.symbol_type << " '"
                 << symbol.name << "'\n    visibility=" << symbol.visibility
                 << " size=" << symbol.size << " value=" << symbol.value << "["
@@ -341,42 +375,7 @@ Id Reader::Read() {
     }
   }
 
-  Id root = Id::kInvalid;
-  {
-    // Unification rewrites the graph on destruction.
-    Unification unification(graph_, metrics_);
-
-    std::map<std::string, Id> types_map;
-    if (!options_.Test(ReadOptions::SKIP_DWARF)) {
-      GetTypesFromDwarf(
-          dwarf_, elf_.IsLittleEndianBinary(), unification, types_map);
-    }
-
-    std::map<std::string, Id> symbols_map;
-    for (const auto& symbol : public_functions_and_variables) {
-      // TODO: add VersionInfoToString to SymbolKey name
-      // TODO: check for uniqueness of SymbolKey in map after
-      // support for version info
-      symbols_map.emplace(
-          std::string(symbol.name),
-          graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
-    }
-    root = graph_.Add<Interface>(std::move(symbols_map), std::move(types_map));
-
-    // Use all named types and DWARF declarations as roots for type resolution.
-    std::vector<Id> roots;
-    roots.reserve(types_.named_type_ids.size() + types_.symbols.size() + 1);
-    for (const auto& symbol : types_.symbols) {
-      roots.push_back(symbol.id);
-    }
-    for (const auto id : types_.named_type_ids) {
-      roots.push_back(id);
-    }
-    roots.push_back(root);
-
-    stg::ResolveTypes(graph_, unification, {roots}, metrics_);
-    unification.Update(root);
-  }
+  Id root = BuildRoot();
 
   // Types produced by ELF/DWARF readers may require removing useless
   // qualifiers.
