@@ -433,10 +433,7 @@ class Processor {
       // However, it is not guaranteed and we should do something if we find an
       // example.
       CheckNoChildren(entry);
-      const Id id = AddProcessedNode<StructUnion>(entry, kind, full_name);
-      if (!full_name.empty()) {
-        AddNamedTypeNode(id);
-      }
+      AddProcessedNode<StructUnion>(entry, kind, full_name);
       return;
     }
 
@@ -562,10 +559,7 @@ class Processor {
       // However, it is not guaranteed and we should do something if we find an
       // example.
       CheckNoChildren(entry);
-      const Id id = AddProcessedNode<Enumeration>(entry, name);
-      if (!name.empty()) {
-        AddNamedTypeNode(id);
-      }
+      AddProcessedNode<Enumeration>(entry, name);
       return;
     }
     auto underlying_type_id = GetIdForReferredType(MaybeGetReferredType(entry));

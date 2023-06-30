@@ -20,6 +20,7 @@
 #ifndef STG_EQUALITY_H_
 #define STG_EQUALITY_H_
 
+#include <cstddef>
 #include <map>
 #include <vector>
 

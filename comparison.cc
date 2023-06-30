@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <map>
 #include <optional>
 #include <ostream>
@@ -33,6 +34,7 @@
 #include <vector>
 
 #include "error.h"
+#include "graph.h"
 #include "order.h"
 
 namespace stg {

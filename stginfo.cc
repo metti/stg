@@ -27,6 +27,7 @@
 
 #include "input.h"
 #include "error.h"
+#include "graph.h"
 #include "metrics.h"
 #include "reader_options.h"
 

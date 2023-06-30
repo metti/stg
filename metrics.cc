@@ -19,6 +19,7 @@
 
 #include "metrics.h"
 
+#include <cstddef>
 #include <iomanip>
 #include <map>
 #include <ostream>

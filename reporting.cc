@@ -36,6 +36,7 @@
 
 #include "comparison.h"
 #include "error.h"
+#include "graph.h"
 #include "fidelity.h"
 #include "post_processing.h"
 

@@ -25,6 +25,8 @@
 
 #include "equality.h"
 #include "equality_cache.h"
+#include "graph.h"
+#include "metrics.h"
 #include "substitution.h"
 
 namespace stg {
@@ -80,12 +82,12 @@ Id Deduplicate(Graph& graph, Id root, const Hashes& hashes, Metrics& metrics) {
   Counter duplicate(metrics, "deduplicate.duplicate");
   auto remap = [&cache](Id& id) {
     // update id to representative id, avoiding silent stores
-    Id fid = cache.Find(id);
+    const Id fid = cache.Find(id);
     if (fid != id) {
       id = fid;
     }
   };
-  Substitute<decltype(remap)> substitute(graph, remap);
+  Substitute substitute(graph, remap);
   {
     Time x(metrics, "rewrite");
     for (const auto& [id, fp] : hashes) {

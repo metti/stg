@@ -331,7 +331,7 @@ class Graph {
   // key set limited to allocated Ids.
   class DenseIdSet {
    public:
-    explicit DenseIdSet(size_t size) : ids_(size, false) {}
+    explicit DenseIdSet(Id limit) : ids_(limit.ix_, false) {}
     bool Insert(Id id) {
       const auto ix = id.ix_;
       if (ix >= ids_.size()) {
@@ -343,14 +343,6 @@ class Graph {
       ids_[ix] = true;
       return true;
     }
-    template <typename Function>
-    void ForEach(Function&& function) const {
-      for (size_t ix = 0; ix < ids_.size(); ++ix) {
-        if (ids_[ix]) {
-          function(Id(ix));
-        }
-      }
-    }
 
    private:
     std::vector<bool> ids_;
@@ -360,20 +352,17 @@ class Graph {
   // but with constant time operations and key set limited to allocated Ids.
   class DenseIdMapping {
    public:
-    explicit DenseIdMapping(size_t size) {
-      ids_.reserve(size);
-      for (size_t ix = 0; ix < size; ++ix) {
+    explicit DenseIdMapping(Id limit) {
+      ids_.reserve(limit.ix_);
+      for (size_t ix = 0; ix < limit.ix_; ++ix) {
         ids_.emplace_back(ix);
       }
     }
     Id& operator[](Id id) {
       const auto ix = id.ix_;
       const auto limit = ids_.size();
-      if (ix >= limit) {
-        ids_.reserve(ix + 1);
-        for (size_t iy = limit; iy <= ix; ++iy) {
-          ids_.emplace_back(iy);
-        }
+      for (size_t iy = limit; iy <= ix; ++iy) {
+        ids_.emplace_back(iy);
       }
       return ids_[ix];
     }
@@ -383,11 +372,15 @@ class Graph {
   };
 
   DenseIdSet MakeDenseIdSet() const {
-    return DenseIdSet(indirection_.size());
+    return DenseIdSet(Limit());
   }
 
   DenseIdMapping MakeDenseIdMapping() const {
-    return DenseIdMapping(indirection_.size());
+    return DenseIdMapping(Limit());
+  }
+
+  Id Limit() const {
+    return Id(indirection_.size());
   }
 
   bool Is(Id id) const {
@@ -395,9 +388,9 @@ class Graph {
   }
 
   Id Allocate() {
-    const auto ix = indirection_.size();
+    const auto id = Limit();
     indirection_.emplace_back(Which::ABSENT, 0);
-    return Id(ix);
+    return id;
   }
 
   template <typename Node, typename... Args>
@@ -492,6 +485,17 @@ class Graph {
 
   template <typename Result, typename FunctionObject, typename... Args>
   Result Apply(FunctionObject& function, Id id, Args&&... args);
+
+  template <typename Function>
+  void ForEach(Function&& function) const {
+    const size_t limit = Limit().ix_;
+    for (size_t ix = 0; ix < limit; ++ix) {
+      const Id id(ix);
+      if (Is(id)) {
+        function(id);
+      }
+    }
+  }
 
  private:
   enum class Which {

@@ -21,7 +21,6 @@
 
 #include <cstring>
 #include <fstream>
-#include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -40,6 +39,7 @@
 #include "reader_options.h"
 #include "symbol_filter.h"
 #include "type_resolution.h"
+#include "unification.h"
 
 namespace stg {
 namespace {
@@ -208,7 +208,11 @@ int main(int argc, char* argv[]) {
       stg::Filter(graph, root, *opt_symbols);
     }
     if (!opt_keep_duplicates) {
-      stg::ResolveTypes(graph, {std::ref(root)}, metrics);
+      {
+        stg::Unification unification(graph, metrics);
+        stg::ResolveTypes(graph, unification, {root}, metrics);
+        unification.Update(root);
+      }
       const auto hashes = stg::Fingerprint(graph, root, metrics);
       root = stg::Deduplicate(graph, root, hashes, metrics);
     }

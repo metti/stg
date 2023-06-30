@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -39,6 +40,7 @@
 
 #include "elf_loader.h"
 #include "error.h"
+#include "graph.h"
 #include "file_descriptor.h"
 #include "reader_options.h"
 
