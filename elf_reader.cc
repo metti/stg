@@ -196,12 +196,14 @@ class Reader {
         metrics_(metrics) {}
 
   Id Read();
-  ElfSymbol SymbolTableEntryToElfSymbol(const SymbolTableEntry& symbol) const;
 
  private:
-  Id BuildRoot() {
+  using SymbolIndex = std::map<std::pair<size_t, std::string>, size_t>;
+
+  Id BuildRoot(const std::vector<std::pair<ElfSymbol, size_t>>& symbols) {
+    dwarf::Types types;
     if (!options_.Test(ReadOptions::SKIP_DWARF)) {
-      types_ = dwarf::Process(dwarf_, elf_.IsLittleEndianBinary(), graph_);
+      types = dwarf::Process(dwarf_, elf_.IsLittleEndianBinary(), graph_);
     }
 
     // Unification rewrites the graph on destruction.
@@ -219,14 +221,15 @@ class Reader {
     //   address
     // * assembly symbols - multiple declarations but no definition and no
     //   address in DWARF.
-    for (size_t i = 0; i < types_.symbols.size(); ++i) {
-      const auto& symbol = types_.symbols[i];
+    SymbolIndex address_name_to_index;
+    for (size_t i = 0; i < types.symbols.size(); ++i) {
+      const auto& symbol = types.symbols[i];
 
       // TODO: support linkage_name to support C++
-      auto [it, emplaced] = address_name_to_index_.emplace(
+      auto [it, emplaced] = address_name_to_index.emplace(
           std::make_pair(symbol.address, symbol.name), i);
       if (!emplaced) {
-        const auto& other = types_.symbols[it->second];
+        const auto& other = types.symbols[it->second];
         // TODO: allow "compatible" duplicates, for example
         // "void foo(int bar)" vs "void foo(const int bar)"
         if (!IsEqual(unification, symbol, other)) {
@@ -239,7 +242,7 @@ class Reader {
     std::map<std::string, Id> types_map;
     if (options_.Test(ReadOptions::TYPE_ROOTS)) {
       const InterfaceKey get_key(graph_);
-      for (const auto id : types_.named_type_ids) {
+      for (const auto id : types.named_type_ids) {
         const auto [it, inserted] = types_map.emplace(get_key(id), id);
         if (!inserted && !unification.Unify(id, it->second)) {
           Die() << "found conflicting interface type: " << it->first;
@@ -248,13 +251,12 @@ class Reader {
     }
 
     std::map<std::string, Id> symbols_map;
-    for (const auto& symbol : public_functions_and_variables_) {
+    for (auto [symbol, address] : symbols) {
       // TODO: add VersionInfoToString to SymbolKey name
       // TODO: check for uniqueness of SymbolKey in map after
       // support for version info
-      symbols_map.emplace(
-          std::string(symbol.name),
-          graph_.Add<ElfSymbol>(SymbolTableEntryToElfSymbol(symbol)));
+      MaybeAddTypeInfo(address_name_to_index, types.symbols, address, symbol);
+      symbols_map.emplace(symbol.symbol_name, graph_.Add<ElfSymbol>(symbol));
     }
 
     Id root = graph_.Add<Interface>(
@@ -262,11 +264,11 @@ class Reader {
 
     // Use all named types and DWARF declarations as roots for type resolution.
     std::vector<Id> roots;
-    roots.reserve(types_.named_type_ids.size() + types_.symbols.size() + 1);
-    for (const auto& symbol : types_.symbols) {
+    roots.reserve(types.named_type_ids.size() + types.symbols.size() + 1);
+    for (const auto& symbol : types.symbols) {
       roots.push_back(symbol.id);
     }
-    for (const auto id : types_.named_type_ids) {
+    for (const auto id : types.named_type_ids) {
       roots.push_back(id);
     }
     roots.push_back(root);
@@ -277,26 +279,46 @@ class Reader {
     return root;
   }
 
-  bool IsEqual(Unification& unification,
-               const dwarf::Types::Symbol& lhs,
-               const dwarf::Types::Symbol& rhs) {
+  static bool IsEqual(Unification& unification,
+                      const dwarf::Types::Symbol& lhs,
+                      const dwarf::Types::Symbol& rhs) {
     return lhs.name == rhs.name && lhs.linkage_name == rhs.linkage_name
         && lhs.address == rhs.address && unification.Unify(lhs.id, rhs.id);
   }
 
-  void MaybeAddTypeInfo(const size_t address, ElfSymbol& node) const {
+  static ElfSymbol SymbolTableEntryToElfSymbol(
+      const CRCValuesMap& crc_values, const NamespacesMap& namespaces,
+      const SymbolTableEntry& symbol) {
+    return ElfSymbol(
+        /* symbol_name = */ std::string(symbol.name),
+        /* version_info = */ std::nullopt,
+        /* is_defined = */
+        symbol.value_type != SymbolTableEntry::ValueType::UNDEFINED,
+        /* symbol_type = */ ConvertSymbolType(symbol.symbol_type),
+        /* binding = */ symbol.binding,
+        /* visibility = */ symbol.visibility,
+        /* crc = */ MaybeGet(crc_values, std::string(symbol.name)),
+        /* ns = */ MaybeGet(namespaces, std::string(symbol.name)),
+        /* type_id = */ std::nullopt,
+        /* full_name = */ std::nullopt);
+  }
+
+  static void MaybeAddTypeInfo(
+      const SymbolIndex& address_name_to_index,
+      const std::vector<dwarf::Types::Symbol>& dwarf_symbols,
+      const size_t address, ElfSymbol& node) {
     // try to find the first symbol with given address
-    const auto start_it = address_name_to_index_.lower_bound(
+    const auto start_it = address_name_to_index.lower_bound(
         std::make_pair(address, std::string()));
     const dwarf::Types::Symbol* best_symbol = nullptr;
     bool matched_by_name = false;
     size_t candidates = 0;
     for (auto it = start_it;
-         it != address_name_to_index_.end() && it->first.first == address;
+         it != address_name_to_index.end() && it->first.first == address;
          ++it) {
       ++candidates;
       // We have at least matching addresses.
-      const auto& candidate = types_.symbols[it->second];
+      const auto& candidate = dwarf_symbols[it->second];
       if (it->first.second == node.symbol_name) {
         // If we have also matching names we can stop looking further.
         matched_by_name = true;
@@ -327,16 +349,6 @@ class Reader {
   dwarf::Handler dwarf_;
   elf::ElfLoader elf_;
   ReadOptions options_;
-
-  // Data extracted from ELF
-  std::vector<SymbolTableEntry> public_functions_and_variables_;
-  CRCValuesMap crc_values_;
-  NamespacesMap namespaces_;
-
-  // Data extracted from DWARF
-  dwarf::Types types_;
-  std::map<std::pair<size_t, std::string>, size_t> address_name_to_index_;
-
   Metrics& metrics_;
 };
 
@@ -350,56 +362,42 @@ Id Reader::Read() {
   const SymbolNameList ksymtab_symbols =
       is_linux_kernel ? GetKsymtabSymbols(all_symbols) : SymbolNameList();
 
-  public_functions_and_variables_.reserve(all_symbols.size());
-  for (const auto& symbol : all_symbols) {
-    if (IsPublicFunctionOrVariable(symbol) &&
-        (!is_linux_kernel || ksymtab_symbols.count(symbol.name))) {
-      public_functions_and_variables_.push_back(symbol);
-    }
-  }
-  public_functions_and_variables_.shrink_to_fit();
-
+  CRCValuesMap crc_values;
+  NamespacesMap namespaces;
   if (is_linux_kernel) {
-    crc_values_ = GetCRCValuesMap(all_symbols, elf_);
-    namespaces_ = GetNamespacesMap(all_symbols, elf_);
+    crc_values = GetCRCValuesMap(all_symbols, elf_);
+    namespaces = GetNamespacesMap(all_symbols, elf_);
   }
 
   if (options_.Test(ReadOptions::INFO)) {
-    std::cout << "File has " << public_functions_and_variables_.size()
-              << " public functions and variables:\n";
-    for (const auto& symbol : public_functions_and_variables_) {
-      std::cout << "  " << symbol.binding << ' ' << symbol.symbol_type << " '"
-                << symbol.name << "'\n    visibility=" << symbol.visibility
-                << " size=" << symbol.size << " value=" << symbol.value << "["
-                << symbol.value_type << "]\n";
+    std::cout << "Public functions and variables:\n";
+  }
+  std::vector<std::pair<ElfSymbol, size_t>> symbols;
+  symbols.reserve(all_symbols.size());
+  for (const auto& symbol : all_symbols) {
+    if (IsPublicFunctionOrVariable(symbol) &&
+        (!is_linux_kernel || ksymtab_symbols.count(symbol.name))) {
+      symbols.emplace_back(
+          SymbolTableEntryToElfSymbol(crc_values, namespaces, symbol),
+          elf_.GetAbsoluteAddress(symbol));
+
+      if (options_.Test(ReadOptions::INFO)) {
+        std::cout << "  " << symbol.binding << ' ' << symbol.symbol_type << " '"
+                  << symbol.name << "'\n    visibility=" << symbol.visibility
+                  << " size=" << symbol.size << " value=" << symbol.value << "["
+                  << symbol.value_type << "]\n";
+      }
     }
   }
+  symbols.shrink_to_fit();
 
-  Id root = BuildRoot();
+  Id root = BuildRoot(symbols);
 
   // Types produced by ELF/DWARF readers may require removing useless
   // qualifiers.
   RemoveUselessQualifiers(graph_, root);
 
   return root;
-}
-
-ElfSymbol Reader::SymbolTableEntryToElfSymbol(
-    const SymbolTableEntry& symbol) const {
-  ElfSymbol result(
-      /* symbol_name = */ std::string(symbol.name),
-      /* version_info = */ std::nullopt,
-      /* is_defined = */ symbol.value_type !=
-          SymbolTableEntry::ValueType::UNDEFINED,
-      /* symbol_type = */ ConvertSymbolType(symbol.symbol_type),
-      /* binding = */ symbol.binding,
-      /* visibility = */ symbol.visibility,
-      /* crc = */ MaybeGet(crc_values_, std::string(symbol.name)),
-      /* ns = */ MaybeGet(namespaces_, std::string(symbol.name)),
-      /* type_id = */ std::nullopt,
-      /* full_name = */ std::nullopt);
-  MaybeAddTypeInfo(elf_.GetAbsoluteAddress(symbol), result);
-  return result;
 }
 
 }  // namespace
