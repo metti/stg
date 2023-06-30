@@ -25,7 +25,6 @@
 #include <utility>
 #include <vector>
 
-#include "error.h"
 #include "graph.h"
 #include "metrics.h"
 #include "unification.h"
@@ -136,8 +135,7 @@ struct NamedTypes {
       (*this)(definition.base_classes);
       (*this)(definition.methods);
       (*this)(definition.members);
-    } else {
-      Check(named) << "anonymous forward declaration";
+    } else if (named) {
       info.declarations.push_back(id);
       ++declarations;
     }
@@ -152,8 +150,7 @@ struct NamedTypes {
         info.definitions.push_back(id);
         ++definitions;
       }
-    } else {
-      Check(named) << "anonymous forward declaration";
+    } else if (named) {
       info.declarations.push_back(id);
       ++declarations;
     }
