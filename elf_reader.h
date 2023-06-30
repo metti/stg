@@ -20,6 +20,7 @@
 #ifndef STG_ELF_READER_H_
 #define STG_ELF_READER_H_
 
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <unordered_map>

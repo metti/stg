@@ -20,6 +20,7 @@
 #ifndef STG_DWARF_PROCESSOR_H_
 #define STG_DWARF_PROCESSOR_H_
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>

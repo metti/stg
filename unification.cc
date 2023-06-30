@@ -19,7 +19,10 @@
 
 #include "unification.h"
 
+#include <cstddef>
 #include <utility>
+
+#include "graph.h"
 
 namespace stg {
 
@@ -252,12 +255,13 @@ struct Unifier {
 
 }  // namespace
 
-bool Unify(const Graph& graph, Unification& unification, Id id1, Id id2) {
-  Unifier unifier(graph, unification);
+bool Unification::Unify(Id id1, Id id2) {
+  // TODO: Unifier only needs access to Unification::Find
+  Unifier unifier(graph_, *this);
   if (unifier(id1, id2)) {
     // commit
     for (const auto& s : unifier.mapping) {
-      unification.Union(s.first, s.second);
+      Union(s.first, s.second);
     }
     return true;
   }

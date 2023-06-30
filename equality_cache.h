@@ -20,6 +20,7 @@
 #ifndef STG_EQUALITY_CACHE_H_
 #define STG_EQUALITY_CACHE_H_
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <unordered_map>
