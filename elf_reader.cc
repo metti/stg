@@ -239,6 +239,15 @@ class Reader {
       }
     }
 
+    std::map<std::string, Id> symbols_map;
+    for (auto [symbol, address] : symbols) {
+      // TODO: add VersionInfoToString to SymbolKey name
+      // TODO: check for uniqueness of SymbolKey in map after
+      // support for version info
+      MaybeAddTypeInfo(address_name_to_index, types.symbols, address, symbol);
+      symbols_map.emplace(symbol.symbol_name, graph_.Add<ElfSymbol>(symbol));
+    }
+
     std::map<std::string, Id> types_map;
     if (options_.Test(ReadOptions::TYPE_ROOTS)) {
       const InterfaceKey get_key(graph_);
@@ -248,15 +257,6 @@ class Reader {
           Die() << "found conflicting interface type: " << it->first;
         }
       }
-    }
-
-    std::map<std::string, Id> symbols_map;
-    for (auto [symbol, address] : symbols) {
-      // TODO: add VersionInfoToString to SymbolKey name
-      // TODO: check for uniqueness of SymbolKey in map after
-      // support for version info
-      MaybeAddTypeInfo(address_name_to_index, types.symbols, address, symbol);
-      symbols_map.emplace(symbol.symbol_name, graph_.Add<ElfSymbol>(symbol));
     }
 
     Id root = graph_.Add<Interface>(
