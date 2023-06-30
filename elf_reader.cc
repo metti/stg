@@ -245,7 +245,8 @@ class Reader {
       // TODO: check for uniqueness of SymbolKey in map after
       // support for version info
       MaybeAddTypeInfo(address_name_to_index, types.symbols, address, symbol);
-      symbols_map.emplace(symbol.symbol_name, graph_.Add<ElfSymbol>(symbol));
+      symbols_map.emplace(VersionedSymbolName(symbol),
+                          graph_.Add<ElfSymbol>(symbol));
     }
 
     std::map<std::string, Id> types_map;
