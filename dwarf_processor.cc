@@ -464,6 +464,11 @@ class Processor {
         case DW_TAG_variable:
           Process(child);
           break;
+        case DW_TAG_template_type_parameter:
+        case DW_TAG_template_value_parameter:
+          // We just skip these as neither GCC nor Clang seem to use them
+          // properly (resulting in no references to such DIEs).
+          break;
         default:
           Die() << "Unexpected tag for child of struct/class/union: 0x"
                 << std::hex << child_tag;
@@ -742,6 +747,10 @@ class Processor {
                  child_tag == DW_TAG_call_site ||
                  child_tag == DW_TAG_GNU_call_site) {
         Process(child);
+      } else if (child_tag == DW_TAG_template_type_parameter ||
+                 child_tag == DW_TAG_template_value_parameter) {
+        // We just skip these as neither GCC nor Clang seem to use them properly
+        // (resulting in no references to such DIEs).
       } else {
         Die() << "Unexpected tag for child of function: " << child_tag << ", "
               << EntryToString(child);
