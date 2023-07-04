@@ -36,7 +36,7 @@ class Unification {
  public:
   Unification(Graph& graph, Metrics& metrics)
       : graph_(graph),
-        mapping_(graph.MakeDenseIdMapping()),
+        mapping_(graph.Limit()),
         metrics_(metrics),
         find_query_(metrics, "unification.find_query"),
         find_halved_(metrics, "unification.find_halved"),
@@ -111,7 +111,7 @@ class Unification {
 
  private:
   Graph& graph_;
-  Graph::DenseIdMapping mapping_;
+  DenseIdMapping mapping_;
   Metrics& metrics_;
   Counter find_query_;
   Counter find_halved_;

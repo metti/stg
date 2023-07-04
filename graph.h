@@ -348,35 +348,8 @@ class Graph {
     std::vector<bool> ids_;
   };
 
-  // Roughly equivalent to std::map<Id, Id>, defaulted to the identity mapping,
-  // but with constant time operations and key set limited to allocated Ids.
-  class DenseIdMapping {
-   public:
-    explicit DenseIdMapping(Id limit) {
-      ids_.reserve(limit.ix_);
-      for (size_t ix = 0; ix < limit.ix_; ++ix) {
-        ids_.emplace_back(ix);
-      }
-    }
-    Id& operator[](Id id) {
-      const auto ix = id.ix_;
-      const auto limit = ids_.size();
-      for (size_t iy = limit; iy <= ix; ++iy) {
-        ids_.emplace_back(iy);
-      }
-      return ids_[ix];
-    }
-
-   private:
-    std::vector<Id> ids_;
-  };
-
   DenseIdSet MakeDenseIdSet() const {
     return DenseIdSet(Limit());
-  }
-
-  DenseIdMapping MakeDenseIdMapping() const {
-    return DenseIdMapping(Limit());
   }
 
   Id Limit() const {
@@ -695,6 +668,31 @@ struct InterfaceKey {
   }
 
   const Graph& graph;
+};
+
+// Roughly equivalent to std::map<Id, Id>, defaulted to the identity mapping,
+// but with constant time operations and key set limited to allocated Ids.
+class DenseIdMapping {
+ public:
+  explicit DenseIdMapping(Id limit) {
+    ids_.reserve(limit.ix_);
+    Populate(limit.ix_);
+  }
+  Id& operator[](Id id) {
+    const auto ix = id.ix_;
+    Populate(ix + 1);
+    return ids_[ix];
+  }
+
+ private:
+  void Populate(size_t size) {
+    const auto limit = ids_.size();
+    for (size_t ix = limit; ix < size; ++ix) {
+      ids_.emplace_back(ix);
+    }
+  }
+
+  std::vector<Id> ids_;
 };
 
 }  // namespace stg
