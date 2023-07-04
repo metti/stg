@@ -84,6 +84,8 @@ std::ostream& operator<<(std::ostream& os, Qualifier qualifier) {
       return os << "volatile";
     case Qualifier::RESTRICT:
       return os << "restrict";
+    case Qualifier::ATOMIC:
+      return os << "atomic";
   }
 }
 
