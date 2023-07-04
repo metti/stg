@@ -37,7 +37,7 @@ namespace {
 struct NamedTypes {
   NamedTypes(const Graph& graph, Metrics& metrics)
       : graph(graph),
-        seen(graph.MakeDenseIdSet()),
+        seen(graph.Limit()),
         nodes(metrics, "named_types.nodes"),
         types(metrics, "named_types.types"),
         definitions(metrics, "named_types.definitions"),
@@ -175,7 +175,7 @@ struct NamedTypes {
   const Graph& graph;
   // ordered map for consistency and sequential processing of related types
   std::map<Type, Info> type_info;
-  Graph::DenseIdSet seen;
+  DenseIdSet seen;
   Counter nodes;
   Counter types;
   Counter definitions;

@@ -121,7 +121,7 @@ struct Typedef {
   Id referred_type_id;
 };
 
-enum class Qualifier { CONST, VOLATILE, RESTRICT };
+enum class Qualifier { CONST, VOLATILE, RESTRICT, ATOMIC };
 
 std::ostream& operator<<(std::ostream& os, Qualifier qualifier);
 
@@ -327,58 +327,6 @@ std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding);
 // Concrete graph type.
 class Graph {
  public:
-  // Roughly equivalent to std::set<Id> but with constant time operations and
-  // key set limited to allocated Ids.
-  class DenseIdSet {
-   public:
-    explicit DenseIdSet(Id limit) : ids_(limit.ix_, false) {}
-    bool Insert(Id id) {
-      const auto ix = id.ix_;
-      if (ix >= ids_.size()) {
-        ids_.resize(ix + 1);
-      }
-      if (ids_[ix]) {
-        return false;
-      }
-      ids_[ix] = true;
-      return true;
-    }
-
-   private:
-    std::vector<bool> ids_;
-  };
-
-  // Roughly equivalent to std::map<Id, Id>, defaulted to the identity mapping,
-  // but with constant time operations and key set limited to allocated Ids.
-  class DenseIdMapping {
-   public:
-    explicit DenseIdMapping(Id limit) {
-      ids_.reserve(limit.ix_);
-      for (size_t ix = 0; ix < limit.ix_; ++ix) {
-        ids_.emplace_back(ix);
-      }
-    }
-    Id& operator[](Id id) {
-      const auto ix = id.ix_;
-      const auto limit = ids_.size();
-      for (size_t iy = limit; iy <= ix; ++iy) {
-        ids_.emplace_back(iy);
-      }
-      return ids_[ix];
-    }
-
-   private:
-    std::vector<Id> ids_;
-  };
-
-  DenseIdSet MakeDenseIdSet() const {
-    return DenseIdSet(Limit());
-  }
-
-  DenseIdMapping MakeDenseIdMapping() const {
-    return DenseIdMapping(Limit());
-  }
-
   Id Limit() const {
     return Id(indirection_.size());
   }
@@ -695,6 +643,52 @@ struct InterfaceKey {
   }
 
   const Graph& graph;
+};
+
+// Roughly equivalent to std::set<Id> but with constant time operations and
+// key set limited to allocated Ids.
+class DenseIdSet {
+ public:
+  explicit DenseIdSet(Id limit) : ids_(limit.ix_, false) {}
+  bool Insert(Id id) {
+    const auto ix = id.ix_;
+    if (ix >= ids_.size()) {
+      ids_.resize(ix + 1);
+    }
+    if (ids_[ix]) {
+      return false;
+    }
+    ids_[ix] = true;
+    return true;
+  }
+
+ private:
+  std::vector<bool> ids_;
+};
+
+// Roughly equivalent to std::map<Id, Id>, defaulted to the identity mapping,
+// but with constant time operations and key set limited to allocated Ids.
+class DenseIdMapping {
+ public:
+  explicit DenseIdMapping(Id limit) {
+    ids_.reserve(limit.ix_);
+    Populate(limit.ix_);
+  }
+  Id& operator[](Id id) {
+    const auto ix = id.ix_;
+    Populate(ix + 1);
+    return ids_[ix];
+  }
+
+ private:
+  void Populate(size_t size) {
+    const auto limit = ids_.size();
+    for (size_t ix = limit; ix < size; ++ix) {
+      ids_.emplace_back(ix);
+    }
+  }
+
+  std::vector<Id> ids_;
 };
 
 }  // namespace stg

@@ -81,6 +81,7 @@ message Qualified {
     CONST = 1;
     VOLATILE = 2;
     RESTRICT = 3;
+    ATOMIC = 4;
   }
 
   fixed32 id = 1;

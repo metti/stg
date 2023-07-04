@@ -300,6 +300,8 @@ stg::Qualifier Transformer::Transform(Qualified::Qualifier x) {
       return stg::Qualifier::VOLATILE;
     case Qualified::RESTRICT:
       return stg::Qualifier::RESTRICT;
+    case Qualified::ATOMIC:
+      return stg::Qualifier::ATOMIC;
     default:
       Die() << "unknown Qualified::Qualifier " << x;
   }

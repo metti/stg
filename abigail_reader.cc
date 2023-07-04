@@ -133,6 +133,12 @@ void RemoveNode(xmlNodePtr node) {
   xmlFreeNode(node);
 }
 
+// Move a node to be the last child of another.
+void MoveNode(xmlNodePtr node, xmlNodePtr destination) {
+  xmlUnlinkNode(node);
+  xmlAddChild(destination, node);
+}
+
 template <typename T>
 std::optional<T> Parse(const std::string& value) {
   T result;
@@ -614,19 +620,64 @@ void HandleDuplicateTypes(xmlNodePtr root) {
     }
 
     const auto possible_maximal = MaximalTree(definitions);
-    if (!possible_maximal) {
-      Warn() << "unresolvable duplicate definitions found for type '" << id
-             << '\'';
+    if (possible_maximal) {
+      // Remove all but the maximal definition.
+      const size_t maximal = possible_maximal.value();
+      for (size_t ix = 0; ix < definitions.size(); ++ix) {
+        if (ix != maximal) {
+          RemoveNode(definitions[ix]);
+        }
+      }
       continue;
     }
 
-    // Remove all but the maximal definition.
-    const size_t maximal = possible_maximal.value();
+    // As a rare alternative, check for a stray anonymous member that has been
+    // separated from the main definition.
+    size_t strays = 0;
+    std::optional<size_t> stray;
+    std::optional<size_t> non_stray;
     for (size_t ix = 0; ix < definitions.size(); ++ix) {
-      if (ix != maximal) {
-        RemoveNode(definitions[ix]);
+      auto node = definitions[ix];
+      auto member = Child(node);
+      if (member && !Next(member) && GetName(member) == "data-member") {
+        auto decl = Child(member);
+        if (decl && !Next(decl) && GetName(decl) == "var-decl") {
+          auto name = GetAttribute(decl, "name");
+          if (name && name.value().empty()) {
+            ++strays;
+            stray = ix;
+            continue;
+          }
+        }
+      }
+      non_stray = ix;
+    }
+    if (strays + 1 == definitions.size() && stray.has_value()
+        && non_stray.has_value()) {
+      const auto stray_index = stray.value();
+      const auto non_stray_index = non_stray.value();
+      bool good = true;
+      for (size_t ix = 0; ix < definitions.size(); ++ix) {
+        if (ix == stray_index || ix == non_stray_index) {
+          continue;
+        }
+        if (EqualTree(definitions[stray_index], definitions[ix])) {
+          // it doesn't hurt if we remove exact duplicates and then fail
+          RemoveNode(definitions[ix]);
+        } else {
+          good = false;
+          break;
+        }
+      }
+      if (good) {
+        MoveNode(Child(definitions[stray_index]), definitions[non_stray_index]);
+        RemoveNode(definitions[stray_index]);
+        continue;
       }
     }
+
+    Warn() << "unresolvable duplicate definitions found for type '" << id
+           << '\'';
   }
 }
 
