@@ -327,31 +327,6 @@ std::ostream& operator<<(std::ostream& os, Primitive::Encoding encoding);
 // Concrete graph type.
 class Graph {
  public:
-  // Roughly equivalent to std::set<Id> but with constant time operations and
-  // key set limited to allocated Ids.
-  class DenseIdSet {
-   public:
-    explicit DenseIdSet(Id limit) : ids_(limit.ix_, false) {}
-    bool Insert(Id id) {
-      const auto ix = id.ix_;
-      if (ix >= ids_.size()) {
-        ids_.resize(ix + 1);
-      }
-      if (ids_[ix]) {
-        return false;
-      }
-      ids_[ix] = true;
-      return true;
-    }
-
-   private:
-    std::vector<bool> ids_;
-  };
-
-  DenseIdSet MakeDenseIdSet() const {
-    return DenseIdSet(Limit());
-  }
-
   Id Limit() const {
     return Id(indirection_.size());
   }
@@ -668,6 +643,27 @@ struct InterfaceKey {
   }
 
   const Graph& graph;
+};
+
+// Roughly equivalent to std::set<Id> but with constant time operations and
+// key set limited to allocated Ids.
+class DenseIdSet {
+ public:
+  explicit DenseIdSet(Id limit) : ids_(limit.ix_, false) {}
+  bool Insert(Id id) {
+    const auto ix = id.ix_;
+    if (ix >= ids_.size()) {
+      ids_.resize(ix + 1);
+    }
+    if (ids_[ix]) {
+      return false;
+    }
+    ids_[ix] = true;
+    return true;
+  }
+
+ private:
+  std::vector<bool> ids_;
 };
 
 // Roughly equivalent to std::map<Id, Id>, defaulted to the identity mapping,

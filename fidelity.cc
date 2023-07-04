@@ -69,7 +69,7 @@ const std::unordered_map<TypeFidelityTransition, FidelityDiffSeverity>
 
 struct Fidelity {
   Fidelity(const Graph& graph, NameCache& name_cache)
-      : graph(graph), describe(graph, name_cache), seen(graph.MakeDenseIdSet())
+      : graph(graph), describe(graph, name_cache), seen(graph.Limit())
   {}
 
   void operator()(Id);
@@ -94,7 +94,7 @@ struct Fidelity {
 
   const Graph& graph;
   Describe describe;
-  Graph::DenseIdSet seen;
+  DenseIdSet seen;
   std::unordered_map<std::string, SymbolFidelity> symbols;
   std::unordered_map<std::string, TypeFidelity> types;
 };
