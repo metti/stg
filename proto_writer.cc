@@ -318,6 +318,8 @@ Qualified::Qualifier Transform<MapId>::operator()(stg::Qualifier x) {
       return Qualified::VOLATILE;
     case stg::Qualifier::RESTRICT:
       return Qualified::RESTRICT;
+    case stg::Qualifier::ATOMIC:
+      return Qualified::ATOMIC;
   }
 }
 

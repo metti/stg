@@ -321,6 +321,10 @@ class Processor {
       case DW_TAG_restrict_type:
         ProcessReference<Qualified>(entry, Qualifier::RESTRICT);
         break;
+      case DW_TAG_atomic_type:
+        // TODO: test pending BTF / test suite support
+        ProcessReference<Qualified>(entry, Qualifier::ATOMIC);
+        break;
       case DW_TAG_variable:
         ProcessVariable(entry);
         break;

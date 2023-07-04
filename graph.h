@@ -121,7 +121,7 @@ struct Typedef {
   Id referred_type_id;
 };
 
-enum class Qualifier { CONST, VOLATILE, RESTRICT };
+enum class Qualifier { CONST, VOLATILE, RESTRICT, ATOMIC };
 
 std::ostream& operator<<(std::ostream& os, Qualifier qualifier);
 
