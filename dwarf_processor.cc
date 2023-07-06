@@ -470,6 +470,7 @@ class Processor {
           break;
         case DW_TAG_template_type_parameter:
         case DW_TAG_template_value_parameter:
+        case DW_TAG_GNU_template_parameter_pack:
           // We just skip these as neither GCC nor Clang seem to use them
           // properly (resulting in no references to such DIEs).
           break;
@@ -752,7 +753,8 @@ class Processor {
                  child_tag == DW_TAG_GNU_call_site) {
         Process(child);
       } else if (child_tag == DW_TAG_template_type_parameter ||
-                 child_tag == DW_TAG_template_value_parameter) {
+                 child_tag == DW_TAG_template_value_parameter ||
+                 child_tag == DW_TAG_GNU_template_parameter_pack) {
         // We just skip these as neither GCC nor Clang seem to use them properly
         // (resulting in no references to such DIEs).
       } else {
