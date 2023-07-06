@@ -475,8 +475,8 @@ class Processor {
           // properly (resulting in no references to such DIEs).
           break;
         default:
-          Die() << "Unexpected tag for child of struct/class/union: 0x"
-                << std::hex << child_tag;
+          Die() << "Unexpected tag for child of struct/class/union: "
+                << Hex(child_tag);
       }
     }
 
