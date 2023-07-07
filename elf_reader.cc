@@ -332,6 +332,12 @@ class Reader {
       }
     }
     if (best_symbol != nullptr) {
+      if (best_symbol->name.empty()) {
+        Die() << "DWARF symbol (address = " << best_symbol->address
+              << ", linkage_name = "
+              << best_symbol->linkage_name.value_or("{missing}")
+              << " should have a name";
+      }
       // There may be multiple DWARF symbols with same address (zero-length
       // arrays), or ELF symbol has different name from DWARF symbol (aliases).
       // But if we have both situations at once, we can't match ELF to DWARF and

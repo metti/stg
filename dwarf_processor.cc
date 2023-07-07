@@ -326,7 +326,10 @@ class Processor {
         ProcessReference<Qualified>(entry, Qualifier::ATOMIC);
         break;
       case DW_TAG_variable:
-        ProcessVariable(entry);
+        // Process only variables visible externally
+        if (entry.GetFlag(DW_AT_external)) {
+          ProcessVariable(entry);
+        }
         break;
       case DW_TAG_subroutine_type:
         // Standalone function type, for example, used in function pointers.
@@ -450,8 +453,14 @@ class Processor {
       // All possible children of struct/class/union
       switch (child_tag) {
         case DW_TAG_member:
-          members.push_back(GetIdForEntry(child));
-          ProcessMember(child);
+          if (child.GetFlag(DW_AT_external)) {
+            // static members are interpreted as variables and not included in
+            // members.
+            ProcessVariable(child);
+          } else {
+            members.push_back(GetIdForEntry(child));
+            ProcessMember(child);
+          }
           break;
         case DW_TAG_subprogram:
           methods.push_back(GetIdForEntry(child));
@@ -677,24 +686,16 @@ class Processor {
   }
 
   void ProcessVariable(Entry& entry) {
-    // Skip:
-    //  * anonymous variables (for example, anonymous union)
-    //  * variables not visible outside of its enclosing compilation unit
-    if (!entry.GetFlag(DW_AT_external)) {
-      return;
-    }
-    std::optional<std::string> name_optional = MaybeGetName(entry);
-    if (!name_optional) {
-      return;
-    }
+    auto name_with_context = GetNameWithContext(entry);
 
     auto referred_type = GetReferredType(entry);
     auto referred_type_id = GetIdForEntry(referred_type);
 
     if (auto address = entry.MaybeGetAddress(DW_AT_location)) {
       // Only external variables with address are useful for ABI monitoring
+      const auto new_symbol_idx = result_.symbols.size();
       result_.symbols.push_back(Types::Symbol{
-          .name = *name_optional,
+          .name = GetScopedNameForSymbol(new_symbol_idx, name_with_context),
           .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
           .address = *address,
           .id = referred_type_id});
@@ -751,6 +752,9 @@ class Processor {
                  child_tag == DW_TAG_variable ||
                  child_tag == DW_TAG_call_site ||
                  child_tag == DW_TAG_GNU_call_site) {
+        // TODO: Do not leak local types outside this scope.
+        // TODO: It would be better to not process any information
+        // that is function local but there is a dangling reference Clang bug.
         Process(child);
       } else if (child_tag == DW_TAG_template_type_parameter ||
                  child_tag == DW_TAG_template_value_parameter ||
