@@ -440,16 +440,6 @@ class Processor {
     const std::string full_name = name.empty() ? std::string() : scope_ + name;
     const PushScopeName push_scope_name(scope_, kind, name);
 
-    if (entry.GetFlag(DW_AT_declaration)) {
-      // It is expected to have only name and no children in declaration.
-      // However, it is not guaranteed and we should do something if we find an
-      // example.
-      CheckNoChildren(entry);
-      AddProcessedNode<StructUnion>(entry, kind, full_name);
-      return;
-    }
-
-    auto byte_size = GetByteSize(entry);
     std::vector<Id> members;
     std::vector<Id> methods;
 
@@ -494,6 +484,16 @@ class Processor {
                 << Hex(child_tag);
       }
     }
+
+    if (entry.GetFlag(DW_AT_declaration)) {
+      // Declaration may have partial information about members or method.
+      // We only need to parse children for information that will be needed in
+      // complete definition, but don't need to store them in incomplete node.
+      AddProcessedNode<StructUnion>(entry, kind, full_name);
+      return;
+    }
+
+    const auto byte_size = GetByteSize(entry);
 
     // TODO: support base classes
     const Id id = AddProcessedNode<StructUnion>(
