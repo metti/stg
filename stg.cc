@@ -55,23 +55,29 @@ struct GetInterface {
   }
 };
 
-Id Merge(Graph& graph, const std::vector<Id>& roots) {
+Id Merge(Graph& graph, const std::vector<Id>& roots, Metrics& metrics) {
+  // this rewrites the graph on destruction
+  Unification unification(graph, metrics);
   std::map<std::string, Id> symbols;
+  std::map<std::string, Id> types;
   GetInterface get;
   for (auto root : roots) {
     const auto& interface = graph.Apply<Interface&>(get, root);
-    // TODO: Implement merging interfaces with type roots.
-    if (!interface.types.empty()) {
-      Die() << "merging interfaces with type roots is not yet supported";
-    }
     for (const auto& x : interface.symbols) {
       if (!symbols.insert(x).second) {
         Die() << "merge failed with duplicate symbol: " << x.first;
       }
     }
+    // TODO: test type roots merge
+    for (const auto& x : interface.types) {
+      const auto [it, inserted] = types.insert(x);
+      if (!inserted && !unification.Unify(x.second, it->second)) {
+        Die() << "merge failed with type conflict: " << x.first;
+      }
+    }
     graph.Remove(root);
   }
-  return graph.Add<Interface>(symbols);
+  return graph.Add<Interface>(symbols, types);
 }
 
 void Filter(Graph& graph, Id root, const SymbolFilter& filter) {
@@ -203,7 +209,8 @@ int main(int argc, char* argv[]) {
       roots.push_back(stg::Read(graph, opt_input_format, input,
                                 opt_read_options, metrics));
     }
-    stg::Id root = roots.size() == 1 ? roots[0] : stg::Merge(graph, roots);
+    stg::Id root =
+        roots.size() == 1 ? roots[0] : stg::Merge(graph, roots, metrics);
     if (opt_symbols) {
       stg::Filter(graph, root, *opt_symbols);
     }

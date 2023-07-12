@@ -143,6 +143,28 @@ std::string ElfSectionTypeToString(Elf64_Word elf_section_type) {
   }
 }
 
+GElf_Half GetMachine(Elf* elf) {
+  GElf_Ehdr header;
+  Check(gelf_getehdr(elf, &header) != nullptr) << "could not get ELF header";
+  return header.e_machine;
+}
+
+void AdjustAddress(GElf_Half machine, SymbolTableEntry& entry) {
+  if (machine == EM_ARM) {
+    if (entry.symbol_type == SymbolTableEntry::SymbolType::FUNCTION
+        || entry.symbol_type == SymbolTableEntry::SymbolType::GNU_IFUNC) {
+      // Clear bit zero of ARM32 addresses as per "ELF for the Arm Architecture"
+      // section 5.5.3.  https://static.docs.arm.com/ihi0044/g/aaelf32.pdf
+      entry.value &= ~1;
+    }
+  } else if (machine == EM_AARCH64) {
+    // Copy bit 55 over bits 56 to 63 which may be tag information.
+    entry.value = entry.value & (1ULL << 55)
+                  ? entry.value | (0xffULL << 56)
+                  : entry.value & ~(0xffULL << 56);
+  }
+}
+
 std::vector<Elf_Scn*> GetSectionsIf(
     Elf* elf, const std::function<bool(const GElf_Shdr&)>& predicate) {
   std::vector<Elf_Scn*> result;
@@ -362,6 +384,8 @@ std::string_view ElfLoader::GetBtfRawData() const {
 }
 
 std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
+  const auto machine = GetMachine(elf_);
+
   Elf_Scn* symbol_table_section =
       GetSymbolTableSection(elf_, is_linux_kernel_binary_, verbose_);
   Check(symbol_table_section != nullptr)
@@ -381,7 +405,7 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
 
     const auto name =
         GetString(elf_, symbol_table_header.sh_link, symbol.st_name);
-    result.push_back(SymbolTableEntry{
+    SymbolTableEntry entry{
         .name = name,
         .value = symbol.st_value,
         .size = symbol.st_size,
@@ -391,7 +415,9 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
             ParseSymbolVisibility(GELF_ST_VISIBILITY(symbol.st_other)),
         .section_index = symbol.st_shndx,
         .value_type = ParseSymbolValueType(symbol.st_shndx),
-    });
+    };
+    AdjustAddress(machine, entry);
+    result.push_back(entry);
   }
 
   return result;
