@@ -340,8 +340,7 @@ class Processor {
         ProcessFunction(entry);
         break;
       case DW_TAG_namespace:
-        // TODO: handle scopes
-        ProcessAllChildren(entry);
+        ProcessNamespace(entry);
         break;
 
       default:
@@ -393,6 +392,12 @@ class Processor {
   }
 
   void ProcessCompileUnit(Entry& entry) {
+    ProcessAllChildren(entry);
+  }
+
+  void ProcessNamespace(Entry& entry) {
+    auto name = GetNameOrEmpty(entry);
+    const PushScopeName push_scope_name(scope_, "namespace", name);
     ProcessAllChildren(entry);
   }
 
