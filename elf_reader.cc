@@ -225,9 +225,10 @@ class Reader {
     for (size_t i = 0; i < types.symbols.size(); ++i) {
       const auto& symbol = types.symbols[i];
 
-      // TODO: support linkage_name to support C++
+      const auto& name =
+          symbol.linkage_name.has_value() ? *symbol.linkage_name : symbol.name;
       auto [it, emplaced] = address_name_to_index.emplace(
-          std::make_pair(symbol.address, symbol.name), i);
+          std::make_pair(symbol.address, name), i);
       if (!emplaced) {
         const auto& other = types.symbols[it->second];
         // TODO: allow "compatible" duplicates, for example
@@ -332,6 +333,12 @@ class Reader {
       }
     }
     if (best_symbol != nullptr) {
+      if (best_symbol->name.empty()) {
+        Die() << "DWARF symbol (address = " << best_symbol->address
+              << ", linkage_name = "
+              << best_symbol->linkage_name.value_or("{missing}")
+              << " should have a name";
+      }
       // There may be multiple DWARF symbols with same address (zero-length
       // arrays), or ELF symbol has different name from DWARF symbol (aliases).
       // But if we have both situations at once, we can't match ELF to DWARF and

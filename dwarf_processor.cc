@@ -326,7 +326,10 @@ class Processor {
         ProcessReference<Qualified>(entry, Qualifier::ATOMIC);
         break;
       case DW_TAG_variable:
-        ProcessVariable(entry);
+        // Process only variables visible externally
+        if (entry.GetFlag(DW_AT_external)) {
+          ProcessVariable(entry);
+        }
         break;
       case DW_TAG_subroutine_type:
         // Standalone function type, for example, used in function pointers.
@@ -337,8 +340,7 @@ class Processor {
         ProcessFunction(entry);
         break;
       case DW_TAG_namespace:
-        // TODO: handle scopes
-        ProcessAllChildren(entry);
+        ProcessNamespace(entry);
         break;
 
       default:
@@ -393,6 +395,12 @@ class Processor {
     ProcessAllChildren(entry);
   }
 
+  void ProcessNamespace(Entry& entry) {
+    auto name = GetNameOrEmpty(entry);
+    const PushScopeName push_scope_name(scope_, "namespace", name);
+    ProcessAllChildren(entry);
+  }
+
   void ProcessBaseType(Entry& entry) {
     CheckNoChildren(entry);
     const auto type_name = GetName(entry);
@@ -432,16 +440,6 @@ class Processor {
     const std::string full_name = name.empty() ? std::string() : scope_ + name;
     const PushScopeName push_scope_name(scope_, kind, name);
 
-    if (entry.GetFlag(DW_AT_declaration)) {
-      // It is expected to have only name and no children in declaration.
-      // However, it is not guaranteed and we should do something if we find an
-      // example.
-      CheckNoChildren(entry);
-      AddProcessedNode<StructUnion>(entry, kind, full_name);
-      return;
-    }
-
-    auto byte_size = GetByteSize(entry);
     std::vector<Id> members;
     std::vector<Id> methods;
 
@@ -450,8 +448,14 @@ class Processor {
       // All possible children of struct/class/union
       switch (child_tag) {
         case DW_TAG_member:
-          members.push_back(GetIdForEntry(child));
-          ProcessMember(child);
+          if (child.GetFlag(DW_AT_external)) {
+            // static members are interpreted as variables and not included in
+            // members.
+            ProcessVariable(child);
+          } else {
+            members.push_back(GetIdForEntry(child));
+            ProcessMember(child);
+          }
           break;
         case DW_TAG_subprogram:
           methods.push_back(GetIdForEntry(child));
@@ -470,14 +474,26 @@ class Processor {
           break;
         case DW_TAG_template_type_parameter:
         case DW_TAG_template_value_parameter:
+        case DW_TAG_GNU_template_template_param:
+        case DW_TAG_GNU_template_parameter_pack:
           // We just skip these as neither GCC nor Clang seem to use them
           // properly (resulting in no references to such DIEs).
           break;
         default:
-          Die() << "Unexpected tag for child of struct/class/union: 0x"
-                << std::hex << child_tag;
+          Die() << "Unexpected tag for child of struct/class/union: "
+                << Hex(child_tag);
       }
     }
+
+    if (entry.GetFlag(DW_AT_declaration)) {
+      // Declaration may have partial information about members or method.
+      // We only need to parse children for information that will be needed in
+      // complete definition, but don't need to store them in incomplete node.
+      AddProcessedNode<StructUnion>(entry, kind, full_name);
+      return;
+    }
+
+    const auto byte_size = GetByteSize(entry);
 
     // TODO: support base classes
     const Id id = AddProcessedNode<StructUnion>(
@@ -562,7 +578,10 @@ class Processor {
   }
 
   void ProcessEnum(Entry& entry) {
-    std::string name = GetNameOrEmpty(entry);
+    const std::optional<std::string> name_optional = MaybeGetName(entry);
+    const std::string name =
+        name_optional.has_value() ? scope_ + *name_optional : "";
+
     if (entry.GetFlag(DW_AT_declaration)) {
       // It is expected to have only name and no children in declaration.
       // However, it is not guaranteed and we should do something if we find an
@@ -676,24 +695,16 @@ class Processor {
   }
 
   void ProcessVariable(Entry& entry) {
-    // Skip:
-    //  * anonymous variables (for example, anonymous union)
-    //  * variables not visible outside of its enclosing compilation unit
-    if (!entry.GetFlag(DW_AT_external)) {
-      return;
-    }
-    std::optional<std::string> name_optional = MaybeGetName(entry);
-    if (!name_optional) {
-      return;
-    }
+    auto name_with_context = GetNameWithContext(entry);
 
     auto referred_type = GetReferredType(entry);
     auto referred_type_id = GetIdForEntry(referred_type);
 
     if (auto address = entry.MaybeGetAddress(DW_AT_location)) {
       // Only external variables with address are useful for ABI monitoring
+      const auto new_symbol_idx = result_.symbols.size();
       result_.symbols.push_back(Types::Symbol{
-          .name = *name_optional,
+          .name = GetScopedNameForSymbol(new_symbol_idx, name_with_context),
           .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
           .address = *address,
           .id = referred_type_id});
@@ -750,9 +761,14 @@ class Processor {
                  child_tag == DW_TAG_variable ||
                  child_tag == DW_TAG_call_site ||
                  child_tag == DW_TAG_GNU_call_site) {
+        // TODO: Do not leak local types outside this scope.
+        // TODO: It would be better to not process any information
+        // that is function local but there is a dangling reference Clang bug.
         Process(child);
       } else if (child_tag == DW_TAG_template_type_parameter ||
-                 child_tag == DW_TAG_template_value_parameter) {
+                 child_tag == DW_TAG_template_value_parameter ||
+                 child_tag == DW_TAG_GNU_template_template_param ||
+                 child_tag == DW_TAG_GNU_template_parameter_pack) {
         // We just skip these as neither GCC nor Clang seem to use them properly
         // (resulting in no references to such DIEs).
       } else {
