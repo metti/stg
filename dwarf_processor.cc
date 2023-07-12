@@ -573,7 +573,10 @@ class Processor {
   }
 
   void ProcessEnum(Entry& entry) {
-    std::string name = GetNameOrEmpty(entry);
+    const std::optional<std::string> name_optional = MaybeGetName(entry);
+    const std::string name =
+        name_optional.has_value() ? scope_ + *name_optional : "";
+
     if (entry.GetFlag(DW_AT_declaration)) {
       // It is expected to have only name and no children in declaration.
       // However, it is not guaranteed and we should do something if we find an
