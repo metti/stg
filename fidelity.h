@@ -25,6 +25,7 @@
 #include <ostream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "graph.h"
@@ -43,12 +44,6 @@ enum class TypeFidelity {
   FULLY_DEFINED = 2,
 };
 
-enum class FidelityDiffSeverity {
-  SKIP = 0,
-  INFO = 1,
-  WARN = 2,
-};
-
 using SymbolFidelityTransition = std::pair<SymbolFidelity, SymbolFidelity>;
 using TypeFidelityTransition = std::pair<TypeFidelity, TypeFidelity>;
 
@@ -56,7 +51,6 @@ std::ostream& operator<<(std::ostream& os, SymbolFidelity x);
 std::ostream& operator<<(std::ostream& os, TypeFidelity x);
 std::ostream& operator<<(std::ostream& os, SymbolFidelityTransition x);
 std::ostream& operator<<(std::ostream& os, TypeFidelityTransition x);
-std::ostream& operator<<(std::ostream& os, FidelityDiffSeverity x);
 
 }  // namespace stg
 
@@ -85,7 +79,6 @@ struct FidelityDiff {
       symbol_transitions;
   std::unordered_map<TypeFidelityTransition, std::vector<std::string>>
       type_transitions;
-  FidelityDiffSeverity severity = FidelityDiffSeverity::SKIP;
 };
 
 FidelityDiff GetFidelityTransitions(const Graph& graph, Id root1, Id root2);

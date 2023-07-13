@@ -1,5 +1,3 @@
-SEVERITY: WARN
-
 2 type(s) changed from FULLY_DEFINED to ABSENT:
   struct s1
   union u1

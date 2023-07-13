@@ -36,8 +36,8 @@
 
 #include "comparison.h"
 #include "error.h"
-#include "graph.h"
 #include "fidelity.h"
+#include "graph.h"
 #include "post_processing.h"
 
 namespace stg {
@@ -430,23 +430,26 @@ void Report(const Reporting& reporting, const Comparison& comparison,
   }
 }
 
-void FidelityDiff(const stg::FidelityDiff& diff, std::ostream& output) {
-  auto print_bucket = [&diff, &output](auto&& from, auto&& to) {
+bool FidelityDiff(const stg::FidelityDiff& diff, std::ostream& output) {
+  bool diffs_reported = false;
+  auto print_bucket = [&diff, &output, &diffs_reported](auto&& from,
+                                                        auto&& to) {
     auto transition = std::make_pair(from, to);
     if constexpr (std::is_same_v<decltype(from), SymbolFidelity&&>) {
       auto it = diff.symbol_transitions.find(transition);
       if (it != diff.symbol_transitions.end()) {
         PrintFidelityReportBucket(transition, it->second, output);
+        diffs_reported = true;
       }
     } else if constexpr (std::is_same_v<decltype(from), TypeFidelity&&>) {
       auto it = diff.type_transitions.find(transition);
       if (it != diff.type_transitions.end()) {
         PrintFidelityReportBucket(transition, it->second, output);
+        diffs_reported = true;
       }
     }
   };
 
-  output << "SEVERITY: " << diff.severity << "\n\n";
   print_bucket(TypeFidelity::FULLY_DEFINED, TypeFidelity::ABSENT);
   print_bucket(TypeFidelity::DECLARATION_ONLY, TypeFidelity::ABSENT);
   print_bucket(TypeFidelity::FULLY_DEFINED, TypeFidelity::DECLARATION_ONLY);
@@ -455,6 +458,7 @@ void FidelityDiff(const stg::FidelityDiff& diff, std::ostream& output) {
   print_bucket(TypeFidelity::DECLARATION_ONLY, TypeFidelity::FULLY_DEFINED);
   print_bucket(SymbolFidelity::UNTYPED, SymbolFidelity::TYPED);
   print_bucket(TypeFidelity::ABSENT, TypeFidelity::FULLY_DEFINED);
+  return diffs_reported;
 }
 
 }  // namespace reporting
