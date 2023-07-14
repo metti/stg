@@ -36,12 +36,14 @@ class Unification {
  public:
   Unification(Graph& graph, Metrics& metrics)
       : graph_(graph),
-        mapping_(Id(0), graph.Limit()),
+        mapping_(Id(0)),
         metrics_(metrics),
         find_query_(metrics, "unification.find_query"),
         find_halved_(metrics, "unification.find_halved"),
         union_known_(metrics, "unification.union_known"),
-        union_unknown_(metrics, "unification.union_unknown") {}
+        union_unknown_(metrics, "unification.union_unknown") {
+    mapping_.Reserve(graph.Limit());
+  }
 
   ~Unification() {
     if (std::uncaught_exceptions() > 0) {

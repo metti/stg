@@ -676,10 +676,9 @@ class DenseIdSet {
 // but with constant time operations and key set limited to allocated Ids.
 class DenseIdMapping {
  public:
-  DenseIdMapping(Id start, Id limit)
-      : offset_(start.ix_) {
+  explicit DenseIdMapping(Id start) : offset_(start.ix_) {}
+  void Reserve(Id limit) {
     ids_.reserve(limit.ix_ - offset_);
-    Populate(limit.ix_);
   }
   Id& operator[](Id id) {
     const auto ix = id.ix_;
