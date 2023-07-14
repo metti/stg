@@ -34,16 +34,15 @@ namespace stg {
 // destruction.
 class Unification {
  public:
-  Unification(Graph& graph, Metrics& metrics)
+  Unification(Graph& graph, Id start, Metrics& metrics)
       : graph_(graph),
-        mapping_(Id(0)),
+        start_(start),
+        mapping_(start),
         metrics_(metrics),
         find_query_(metrics, "unification.find_query"),
         find_halved_(metrics, "unification.find_halved"),
         union_known_(metrics, "unification.union_known"),
-        union_unknown_(metrics, "unification.union_unknown") {
-    mapping_.Reserve(graph.Limit());
-  }
+        union_unknown_(metrics, "unification.union_unknown") {}
 
   ~Unification() {
     if (std::uncaught_exceptions() > 0) {
@@ -58,7 +57,7 @@ class Unification {
       Update(id);
     };
     ::stg::Substitute substitute(graph_, remap);
-    graph_.ForEach(Id(0), graph_.Limit(), [&](Id id) {
+    graph_.ForEach(start_, graph_.Limit(), [&](Id id) {
       if (Find(id) != id) {
         graph_.Remove(id);
         ++removed;
@@ -67,6 +66,10 @@ class Unification {
         ++retained;
       }
     });
+  }
+
+  void Reserve(Id limit) {
+    mapping_.Reserve(limit);
   }
 
   bool Unify(Id id1, Id id2);
@@ -113,6 +116,7 @@ class Unification {
 
  private:
   Graph& graph_;
+  Id start_;
   DenseIdMapping mapping_;
   Metrics& metrics_;
   Counter find_query_;

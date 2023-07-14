@@ -57,7 +57,8 @@ struct GetInterface {
 
 Id Merge(Graph& graph, const std::vector<Id>& roots, Metrics& metrics) {
   // this rewrites the graph on destruction
-  Unification unification(graph, metrics);
+  Unification unification(graph, Id(0), metrics);
+  unification.Reserve(graph.Limit());
   std::map<std::string, Id> symbols;
   std::map<std::string, Id> types;
   GetInterface get;
@@ -216,7 +217,8 @@ int main(int argc, char* argv[]) {
     }
     if (!opt_keep_duplicates) {
       {
-        stg::Unification unification(graph, metrics);
+        stg::Unification unification(graph, stg::Id(0), metrics);
+        unification.Reserve(graph.Limit());
         stg::ResolveTypes(graph, unification, {root}, metrics);
         unification.Update(root);
       }

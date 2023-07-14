@@ -207,7 +207,8 @@ class Reader {
     }
 
     // Unification rewrites the graph on destruction.
-    Unification unification(graph_, metrics_);
+    Unification unification(graph_, Id(0), metrics_);
+    unification.Reserve(graph_.Limit());
 
     // fill address to id
     //
