@@ -56,7 +56,7 @@ class Unification {
       Update(id);
     };
     ::stg::Substitute substitute(graph_, remap);
-    graph_.ForEach([&](Id id) {
+    graph_.ForEach(Id(0), graph_.Limit(), [&](Id id) {
       if (Find(id) != id) {
         graph_.Remove(id);
         ++removed;

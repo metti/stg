@@ -435,9 +435,8 @@ class Graph {
   Result Apply(FunctionObject& function, Id id, Args&&... args);
 
   template <typename Function>
-  void ForEach(Function&& function) const {
-    const size_t limit = Limit().ix_;
-    for (size_t ix = 0; ix < limit; ++ix) {
+  void ForEach(Id start, Id limit, Function&& function) const {
+    for (size_t ix = start.ix_; ix < limit.ix_; ++ix) {
       const Id id(ix);
       if (Is(id)) {
         function(id);
