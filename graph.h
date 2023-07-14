@@ -670,24 +670,28 @@ class DenseIdSet {
 // but with constant time operations and key set limited to allocated Ids.
 class DenseIdMapping {
  public:
-  explicit DenseIdMapping(Id limit) {
-    ids_.reserve(limit.ix_);
+  DenseIdMapping(Id start, Id limit)
+      : offset_(start.ix_) {
+    ids_.reserve(limit.ix_ - offset_);
     Populate(limit.ix_);
   }
   Id& operator[](Id id) {
     const auto ix = id.ix_;
+    if (ix < offset_) {
+      Die() << "DenseIdMapping: out of range access to " << id;
+    }
     Populate(ix + 1);
-    return ids_[ix];
+    return ids_[ix - offset_];
   }
 
  private:
   void Populate(size_t size) {
-    const auto limit = ids_.size();
-    for (size_t ix = limit; ix < size; ++ix) {
+    for (size_t ix = offset_ + ids_.size(); ix < size; ++ix) {
       ids_.emplace_back(ix);
     }
   }
 
+  size_t offset_;
   std::vector<Id> ids_;
 };
 

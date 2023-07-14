@@ -36,7 +36,7 @@ class Unification {
  public:
   Unification(Graph& graph, Metrics& metrics)
       : graph_(graph),
-        mapping_(graph.Limit()),
+        mapping_(Id(0), graph.Limit()),
         metrics_(metrics),
         find_query_(metrics, "unification.find_query"),
         find_halved_(metrics, "unification.find_halved"),
