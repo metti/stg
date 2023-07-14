@@ -649,20 +649,27 @@ struct InterfaceKey {
 // key set limited to allocated Ids.
 class DenseIdSet {
  public:
-  explicit DenseIdSet(Id limit) : ids_(limit.ix_, false) {}
+  DenseIdSet(Id start, Id limit)
+      : offset_(start.ix_),
+        ids_(limit.ix_ - offset_, false) {}
   bool Insert(Id id) {
     const auto ix = id.ix_;
-    if (ix >= ids_.size()) {
-      ids_.resize(ix + 1);
+    if (ix < offset_) {
+      Die() << "DenseIdSet: out of range access to " << id;
     }
-    if (ids_[ix]) {
+    const auto offset_ix = ix - offset_;
+    if (offset_ix >= ids_.size()) {
+      ids_.resize(offset_ix + 1, false);
+    }
+    if (ids_[offset_ix]) {
       return false;
     }
-    ids_[ix] = true;
+    ids_[offset_ix] = true;
     return true;
   }
 
  private:
+  size_t offset_;
   std::vector<bool> ids_;
 };
 

@@ -37,7 +37,7 @@ namespace {
 struct NamedTypes {
   NamedTypes(const Graph& graph, Metrics& metrics)
       : graph(graph),
-        seen(graph.Limit()),
+        seen(Id(0), graph.Limit()),
         nodes(metrics, "named_types.nodes"),
         types(metrics, "named_types.types"),
         definitions(metrics, "named_types.definitions"),
