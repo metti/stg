@@ -648,9 +648,10 @@ struct InterfaceKey {
 // key set limited to allocated Ids.
 class DenseIdSet {
  public:
-  DenseIdSet(Id start, Id limit)
-      : offset_(start.ix_),
-        ids_(limit.ix_ - offset_, false) {}
+  explicit DenseIdSet(Id start) : offset_(start.ix_) {}
+  void Reserve(Id limit) {
+    ids_.reserve(limit.ix_ - offset_);
+  }
   bool Insert(Id id) {
     const auto ix = id.ix_;
     if (ix < offset_) {
