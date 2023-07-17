@@ -45,14 +45,17 @@ namespace stg {
 
 struct Ignore {
   enum Value {
+    // noise reduction
     SYMBOL_TYPE_PRESENCE = 1<<0,
     TYPE_DECLARATION_STATUS = 1<<1,
     PRIMITIVE_TYPE_ENCODING = 1<<2,
     MEMBER_SIZE = 1<<3,
     ENUM_UNDERLYING_TYPE = 1<<4,
     QUALIFIER = 1<<5,
-    INTERFACE_ADDITION = 1<<6,
-    SYMBOL_CRC = 1<<7,
+    SYMBOL_CRC = 1<<6,
+    // ABI compatibility testing
+    INTERFACE_ADDITION = 1<<7,
+    TYPE_DEFINITION_ADDITION = 1<<8,
   };
 
   using Bitset = std::underlying_type_t<Value>;
