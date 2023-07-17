@@ -201,13 +201,22 @@ class Reader {
   using SymbolIndex = std::map<std::pair<size_t, std::string>, size_t>;
 
   Id BuildRoot(const std::vector<std::pair<ElfSymbol, size_t>>& symbols) {
+    // On destruction, the unification object will remove or rewrite each graph
+    // node for which it has a mapping.
+    //
+    // Graph rewriting is expensive so an important optimisation is to restrict
+    // the nodes in consideration to the ones allocated by the DWARF processor
+    // here and any symbol or type roots that follow. This is done by setting
+    // the starting node ID to be the current graph limit.
+    Unification unification(graph_, graph_.Limit(), metrics_);
+
     dwarf::Types types;
     if (!options_.Test(ReadOptions::SKIP_DWARF)) {
       types = dwarf::Process(dwarf_, elf_.IsLittleEndianBinary(), graph_);
     }
 
-    // Unification rewrites the graph on destruction.
-    Unification unification(graph_, Id(0), metrics_);
+    // A less important optimisation is avoiding copying the mapping array as it
+    // is populated. This is done by reserving space to the new graph limit.
     unification.Reserve(graph_.Limit());
 
     // fill address to id
