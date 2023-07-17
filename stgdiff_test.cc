@@ -25,6 +25,7 @@
 #include <string>
 
 #include <catch2/catch.hpp>
+#include "comparison.h"
 #include "graph.h"
 #include "input.h"
 #include "metrics.h"
