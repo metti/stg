@@ -770,6 +770,7 @@ class Processor {
           Process(child);
           break;
         case DW_TAG_imported_declaration:
+        case DW_TAG_imported_module:
           // For now information there is useless for ABI monitoring, but we
           // need to check that there is no missing information in descendants.
           CheckNoChildren(child);
