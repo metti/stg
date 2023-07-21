@@ -140,8 +140,9 @@ size_t GetNumberOfElements(Entry& entry) {
       << "Non-zero DW_AT_lower_bound is not supported";
   std::optional<size_t> upper_bound_optional =
       entry.MaybeGetUnsignedConstant(DW_AT_upper_bound);
-  std::optional<size_t> number_of_elements_optional =
-      entry.MaybeGetUnsignedConstant(DW_AT_count);
+  // Don't fail if DW_AT_count is not a constant and treat this as no count
+  // provided. This can happen if array has variable length.
+  std::optional<size_t> number_of_elements_optional = entry.MaybeGetCount();
   if (upper_bound_optional && number_of_elements_optional) {
     Die() << "Both DW_AT_upper_bound and DW_AT_count given";
   } else if (upper_bound_optional) {
