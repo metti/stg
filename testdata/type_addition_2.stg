@@ -1,7 +1,7 @@
 version: 0x00000001
 root_id: 0x84ea5130
 struct_union {
-  id: 0xa8a0bc6a
+  id: 0xfa4f7de5
   kind: UNION
   name: "U"
   definition {
@@ -9,5 +9,5 @@ struct_union {
 }
 interface {
   id: 0x84ea5130
-  type_id: 0xa8a0bc6a
+  type_id: 0xfa4f7de5
 }

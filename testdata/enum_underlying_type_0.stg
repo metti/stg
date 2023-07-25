@@ -1,6 +1,7 @@
-root_id: 0x25a8b173
+version: 0x00000001
+root_id: 0x84ea5130
 primitive {
-  id: 0x4585663f
+  id: 0xa08f335b
   name: "bob"
   encoding: UNSIGNED_INTEGER
   bytesize: 0x00000004
@@ -8,7 +9,7 @@ primitive {
 enumeration {
   id: 0x64775884
   definition {
-    underlying_type_id: 0x4585663f
+    underlying_type_id: 0xa08f335b
     enumerator {
       name: "a"
       value: 1
@@ -23,10 +24,7 @@ elf_symbol {
   type_id: 0x64775884
   full_name: "x"
 }
-symbols {
-  id: 0x25a8b173
-  symbol {
-    key: "x"
-    value: 0x7709bd40
-  }
+interface {
+  id: 0x84ea5130
+  symbol_id: 0x7709bd40
 }
