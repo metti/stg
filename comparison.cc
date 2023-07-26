@@ -44,15 +44,16 @@ struct IgnoreDescriptor {
   Ignore::Value value;
 };
 
-static constexpr std::array<IgnoreDescriptor, 8> kIgnores{{
-  {"type_declaration_status", Ignore::TYPE_DECLARATION_STATUS},
-  {"symbol_type_presence",    Ignore::SYMBOL_TYPE_PRESENCE   },
-  {"primitive_type_encoding", Ignore::PRIMITIVE_TYPE_ENCODING},
-  {"member_size",             Ignore::MEMBER_SIZE            },
-  {"enum_underlying_type",    Ignore::ENUM_UNDERLYING_TYPE   },
-  {"qualifier",               Ignore::QUALIFIER              },
-  {"interface_addition",      Ignore::INTERFACE_ADDITION     },
-  {"linux_symbol_crc",        Ignore::SYMBOL_CRC             },
+static constexpr std::array<IgnoreDescriptor, 9> kIgnores{{
+  {"type_declaration_status",  Ignore::TYPE_DECLARATION_STATUS  },
+  {"symbol_type_presence",     Ignore::SYMBOL_TYPE_PRESENCE     },
+  {"primitive_type_encoding",  Ignore::PRIMITIVE_TYPE_ENCODING  },
+  {"member_size",              Ignore::MEMBER_SIZE              },
+  {"enum_underlying_type",     Ignore::ENUM_UNDERLYING_TYPE     },
+  {"qualifier",                Ignore::QUALIFIER                },
+  {"linux_symbol_crc",         Ignore::SYMBOL_CRC               },
+  {"interface_addition",       Ignore::INTERFACE_ADDITION       },
+  {"type_definition_addition", Ignore::TYPE_DEFINITION_ADDITION },
 }};
 
 std::optional<Ignore::Value> ParseIgnore(std::string_view ignore) {
@@ -289,12 +290,13 @@ Result Compare::operator()(const Array& x1, const Array& x2) {
   return result;
 }
 
+// return whether to continue comparing both definitions
 bool Compare::CompareDefined(bool defined1, bool defined2, Result& result) {
-  if (defined1 && defined2) {
-    return true;
+  if (defined1 == defined2) {
+    return defined1;
   }
-  const bool ignore_diff = ignore.Test(Ignore::TYPE_DECLARATION_STATUS);
-  if (!ignore_diff && defined1 != defined2) {
+  if (!ignore.Test(Ignore::TYPE_DECLARATION_STATUS)
+      && !(ignore.Test(Ignore::TYPE_DEFINITION_ADDITION) && defined2)) {
     std::ostringstream os;
     os << "was " << (defined1 ? "fully defined" : "only declared")
        << ", is now " << (defined2 ? "fully defined" : "only declared");

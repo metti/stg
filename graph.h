@@ -435,9 +435,8 @@ class Graph {
   Result Apply(FunctionObject& function, Id id, Args&&... args);
 
   template <typename Function>
-  void ForEach(Function&& function) const {
-    const size_t limit = Limit().ix_;
-    for (size_t ix = 0; ix < limit; ++ix) {
+  void ForEach(Id start, Id limit, Function&& function) const {
+    for (size_t ix = start.ix_; ix < limit.ix_; ++ix) {
       const Id id(ix);
       if (Is(id)) {
         function(id);
@@ -649,20 +648,28 @@ struct InterfaceKey {
 // key set limited to allocated Ids.
 class DenseIdSet {
  public:
-  explicit DenseIdSet(Id limit) : ids_(limit.ix_, false) {}
+  explicit DenseIdSet(Id start) : offset_(start.ix_) {}
+  void Reserve(Id limit) {
+    ids_.reserve(limit.ix_ - offset_);
+  }
   bool Insert(Id id) {
     const auto ix = id.ix_;
-    if (ix >= ids_.size()) {
-      ids_.resize(ix + 1);
+    if (ix < offset_) {
+      Die() << "DenseIdSet: out of range access to " << id;
     }
-    if (ids_[ix]) {
+    const auto offset_ix = ix - offset_;
+    if (offset_ix >= ids_.size()) {
+      ids_.resize(offset_ix + 1, false);
+    }
+    if (ids_[offset_ix]) {
       return false;
     }
-    ids_[ix] = true;
+    ids_[offset_ix] = true;
     return true;
   }
 
  private:
+  size_t offset_;
   std::vector<bool> ids_;
 };
 
@@ -670,24 +677,27 @@ class DenseIdSet {
 // but with constant time operations and key set limited to allocated Ids.
 class DenseIdMapping {
  public:
-  explicit DenseIdMapping(Id limit) {
-    ids_.reserve(limit.ix_);
-    Populate(limit.ix_);
+  explicit DenseIdMapping(Id start) : offset_(start.ix_) {}
+  void Reserve(Id limit) {
+    ids_.reserve(limit.ix_ - offset_);
   }
   Id& operator[](Id id) {
     const auto ix = id.ix_;
+    if (ix < offset_) {
+      Die() << "DenseIdMapping: out of range access to " << id;
+    }
     Populate(ix + 1);
-    return ids_[ix];
+    return ids_[ix - offset_];
   }
 
  private:
   void Populate(size_t size) {
-    const auto limit = ids_.size();
-    for (size_t ix = limit; ix < size; ++ix) {
+    for (size_t ix = offset_ + ids_.size(); ix < size; ++ix) {
       ids_.emplace_back(ix);
     }
   }
 
+  size_t offset_;
   std::vector<Id> ids_;
 };
 

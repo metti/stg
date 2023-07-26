@@ -140,8 +140,9 @@ size_t GetNumberOfElements(Entry& entry) {
       << "Non-zero DW_AT_lower_bound is not supported";
   std::optional<size_t> upper_bound_optional =
       entry.MaybeGetUnsignedConstant(DW_AT_upper_bound);
-  std::optional<size_t> number_of_elements_optional =
-      entry.MaybeGetUnsignedConstant(DW_AT_count);
+  // Don't fail if DW_AT_count is not a constant and treat this as no count
+  // provided. This can happen if array has variable length.
+  std::optional<size_t> number_of_elements_optional = entry.MaybeGetCount();
   if (upper_bound_optional && number_of_elements_optional) {
     Die() << "Both DW_AT_upper_bound and DW_AT_count given";
   } else if (upper_bound_optional) {
@@ -740,40 +741,51 @@ class Processor {
     std::vector<Id> parameters;
     for (auto& child : entry.GetChildren()) {
       auto child_tag = child.GetTag();
-      if (child_tag == DW_TAG_formal_parameter) {
-        auto child_type = GetReferredType(child);
-        auto child_type_id = GetIdForEntry(child_type);
-        parameters.push_back(child_type_id);
-      } else if (child_tag == DW_TAG_unspecified_parameters) {
-        // Note: C++ allows a single ... argument specification but C does not.
-        // However, "extern int foo();" (note lack of "void" in parameters) in C
-        // will produce the same DWARF as "extern int foo(...);" in C++.
-        CheckNoChildren(child);
-        parameters.push_back(variadic_id_);
-      } else if (child_tag == DW_TAG_enumeration_type ||
-                 child_tag == DW_TAG_label ||
-                 child_tag == DW_TAG_lexical_block ||
-                 child_tag == DW_TAG_structure_type ||
-                 child_tag == DW_TAG_class_type ||
-                 child_tag == DW_TAG_union_type ||
-                 child_tag == DW_TAG_typedef ||
-                 child_tag == DW_TAG_inlined_subroutine ||
-                 child_tag == DW_TAG_variable ||
-                 child_tag == DW_TAG_call_site ||
-                 child_tag == DW_TAG_GNU_call_site) {
-        // TODO: Do not leak local types outside this scope.
-        // TODO: It would be better to not process any information
-        // that is function local but there is a dangling reference Clang bug.
-        Process(child);
-      } else if (child_tag == DW_TAG_template_type_parameter ||
-                 child_tag == DW_TAG_template_value_parameter ||
-                 child_tag == DW_TAG_GNU_template_template_param ||
-                 child_tag == DW_TAG_GNU_template_parameter_pack) {
-        // We just skip these as neither GCC nor Clang seem to use them properly
-        // (resulting in no references to such DIEs).
-      } else {
-        Die() << "Unexpected tag for child of function: " << child_tag << ", "
-              << EntryToString(child);
+      switch (child_tag) {
+        case DW_TAG_formal_parameter:
+          parameters.push_back(GetIdForReferredType(GetReferredType(child)));
+          break;
+        case DW_TAG_unspecified_parameters:
+          // Note: C++ allows a single ... argument specification but C does
+          // not. However, "extern int foo();" (note lack of "void" in
+          // parameters) in C will produce the same DWARF as "extern int
+          // foo(...);" in C++.
+          CheckNoChildren(child);
+          parameters.push_back(variadic_id_);
+          break;
+        case DW_TAG_enumeration_type:
+        case DW_TAG_label:
+        case DW_TAG_lexical_block:
+        case DW_TAG_structure_type:
+        case DW_TAG_class_type:
+        case DW_TAG_union_type:
+        case DW_TAG_typedef:
+        case DW_TAG_inlined_subroutine:
+        case DW_TAG_variable:
+        case DW_TAG_call_site:
+        case DW_TAG_GNU_call_site:
+          // TODO: Do not leak local types outside this scope.
+          // TODO: It would be better to not process any
+          // information that is function local but there is a dangling
+          // reference Clang bug.
+          Process(child);
+          break;
+        case DW_TAG_imported_declaration:
+        case DW_TAG_imported_module:
+          // For now information there is useless for ABI monitoring, but we
+          // need to check that there is no missing information in descendants.
+          CheckNoChildren(child);
+          break;
+        case DW_TAG_template_type_parameter:
+        case DW_TAG_template_value_parameter:
+        case DW_TAG_GNU_template_template_param:
+        case DW_TAG_GNU_template_parameter_pack:
+          // We just skip these as neither GCC nor Clang seem to use them
+          // properly (resulting in no references to such DIEs).
+          break;
+        default:
+          Die() << "Unexpected tag for child of function: " << child_tag << ", "
+                << EntryToString(child);
       }
     }
 
@@ -798,6 +810,11 @@ class Processor {
   // because it is normal for DWARF (5.2 Unspecified Type Entries).
   Id GetIdForReferredType(std::optional<Entry> referred_type) {
     return referred_type ? GetIdForEntry(*referred_type) : void_id_;
+  }
+
+  // Wrapper for GetIdForEntry to allow lvalues.
+  Id GetIdForReferredType(Entry referred_type) {
+    return GetIdForEntry(referred_type);
   }
 
   // Populate Id from method above with processed Node.

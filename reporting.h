@@ -21,9 +21,9 @@
 #define STG_REPORTING_H_
 
 #include <cstddef>
-#include <string_view>
 #include <optional>
 #include <ostream>
+#include <string_view>
 
 #include "comparison.h"
 #include "fidelity.h"
@@ -54,7 +54,7 @@ struct Reporting {
 
 void Report(const Reporting&, const Comparison&, std::ostream&);
 
-void FidelityDiff(const stg::FidelityDiff&, std::ostream&);
+bool FidelityDiff(const stg::FidelityDiff&, std::ostream&);
 
 }  // namespace reporting
 }  // namespace stg

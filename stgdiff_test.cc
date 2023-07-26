@@ -25,6 +25,7 @@
 #include <string>
 
 #include <catch2/catch.hpp>
+#include "comparison.h"
 #include "graph.h"
 #include "input.h"
 #include "metrics.h"
@@ -166,42 +167,6 @@ TEST_CASE("ignore") {
            "empty",
            true}),
       IgnoreTestCase(
-          {"interface addition",
-           stg::InputFormat::STG,
-           "interface_addition_0.stg",
-           stg::InputFormat::STG,
-           "interface_addition_1.stg",
-           stg::Ignore(),
-           "interface_addition_small_diff",
-           false}),
-      IgnoreTestCase(
-          {"type addition",
-           stg::InputFormat::STG,
-           "type_addition_0.stg",
-           stg::InputFormat::STG,
-           "type_addition_1.stg",
-           stg::Ignore(),
-           "type_addition_small_diff",
-           false}),
-      IgnoreTestCase(
-          {"interface addition ignored",
-           stg::InputFormat::STG,
-           "interface_addition_0.stg",
-           stg::InputFormat::STG,
-           "interface_addition_1.stg",
-           stg::Ignore(stg::Ignore::INTERFACE_ADDITION),
-           "empty",
-           true}),
-      IgnoreTestCase(
-          {"type addition ignored",
-           stg::InputFormat::STG,
-           "type_addition_0.stg",
-           stg::InputFormat::STG,
-           "type_addition_1.stg",
-           stg::Ignore(stg::Ignore::INTERFACE_ADDITION),
-           "empty",
-           true}),
-      IgnoreTestCase(
           {"CRC change",
            stg::InputFormat::STG,
            "crc_change_0.stg",
@@ -217,6 +182,60 @@ TEST_CASE("ignore") {
            stg::InputFormat::STG,
            "crc_change_1.stg",
            stg::Ignore(stg::Ignore::SYMBOL_CRC),
+           "empty",
+           true}),
+      IgnoreTestCase(
+          {"interface addition",
+           stg::InputFormat::STG,
+           "interface_addition_0.stg",
+           stg::InputFormat::STG,
+           "interface_addition_1.stg",
+           stg::Ignore(),
+           "interface_addition_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"interface addition ignored",
+           stg::InputFormat::STG,
+           "interface_addition_0.stg",
+           stg::InputFormat::STG,
+           "interface_addition_1.stg",
+           stg::Ignore(stg::Ignore::INTERFACE_ADDITION),
+           "empty",
+           true}),
+      IgnoreTestCase(
+          {"type addition",
+           stg::InputFormat::STG,
+           "type_addition_0.stg",
+           stg::InputFormat::STG,
+           "type_addition_1.stg",
+           stg::Ignore(),
+           "type_addition_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"type addition ignored",
+           stg::InputFormat::STG,
+           "type_addition_0.stg",
+           stg::InputFormat::STG,
+           "type_addition_1.stg",
+           stg::Ignore(stg::Ignore::INTERFACE_ADDITION),
+           "empty",
+           true}),
+      IgnoreTestCase(
+          {"type definition addition",
+           stg::InputFormat::STG,
+           "type_addition_1.stg",
+           stg::InputFormat::STG,
+           "type_addition_2.stg",
+           stg::Ignore(),
+           "type_definition_addition_small_diff",
+           false}),
+      IgnoreTestCase(
+          {"type definition addition ignored",
+           stg::InputFormat::STG,
+           "type_addition_1.stg",
+           stg::InputFormat::STG,
+           "type_addition_2.stg",
+           stg::Ignore(stg::Ignore::TYPE_DEFINITION_ADDITION),
            "empty",
            true})
       );

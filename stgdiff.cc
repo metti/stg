@@ -62,15 +62,15 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
 int RunFidelity(const char* filename, const stg::Graph& graph,
                 const std::vector<stg::Id>& roots) {
   std::ofstream output(filename);
-  auto fidelity_diff = stg::GetFidelityTransitions(graph, roots[0], roots[1]);
-  stg::reporting::FidelityDiff(fidelity_diff, output);
+  const auto fidelity_diff =
+      stg::GetFidelityTransitions(graph, roots[0], roots[1]);
+  const bool diffs_reported =
+      stg::reporting::FidelityDiff(fidelity_diff, output);
   output << std::flush;
   if (!output) {
     stg::Die() << "error writing to " << '\'' << filename << '\'';
   }
-  return fidelity_diff.severity == stg::FidelityDiffSeverity::WARN
-             ? kFidelityChange
-             : 0;
+  return diffs_reported ? kFidelityChange : 0;
 }
 
 int RunExact(const Inputs& inputs, stg::ReadOptions options,
