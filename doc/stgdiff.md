@@ -20,7 +20,7 @@ stgdiff
 implicit defaults: --abi --format plain
 --exact (node equality) cannot be combined with --output
 output formats: plain flat small short viz
-ignore options: type_declaration_status symbol_type_presence primitive_type_encoding member_size enum_underlying_type qualifier interface_addition linux_symbol_crc
+ignore options: type_declaration_status symbol_type_presence primitive_type_encoding member_size enum_underlying_type qualifier linux_symbol_crc interface_addition type_definition_addition
 ```
 
 ## Input
@@ -114,16 +114,23 @@ in how much (DWARF) information they preserve.
     Ignore qualifiers during comparison. Both libabigail and STG interpret and
     adjust type qualifiers but sometimes do so differently.
 
-*   `interface_addition`
-
-    Ignore interface additions during comparison. This can be useful for ABI
-    comparisons where symbol / type additions are allowed.
-
 *   `linux_symbol_crc`
 
     Ignore Linux kernel symbol CRC changes during comparison. This can be
     useful for ABI comparisons across different toolchains, where CRC changes
     are often large and not useful.
+
+These two options can be used for ABI compatibility testing where the first ABI
+is expected to be a subset of the second.
+
+*   `interface_addition`
+
+    Ignore interface (symbol and type root) additions during comparison.
+
+*   `type_definition_addition`
+
+    Ignore type definition additions during comparison. Any extra symbol and
+    type roots may reach extra definitions of existing types.
 
 ### Fidelity Reporting
 

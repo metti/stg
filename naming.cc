@@ -24,6 +24,8 @@
 #include <sstream>
 #include <string>
 
+#include "graph.h"
+
 namespace stg {
 
 Name Name::Add(Side side, Precedence precedence,

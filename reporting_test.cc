@@ -36,10 +36,18 @@ std::string filename_to_path(const std::string& f) {
 
 TEST_CASE("fidelity diff") {
   stg::FidelityDiff diff = {
-      .symbol_transitions = {{{SymbolFidelity::TYPED, SymbolFidelity::UNTYPED},
-                              {"symbol1", "symbol2"}},
-                             {{SymbolFidelity::UNTYPED, SymbolFidelity::TYPED},
-                              {"symbol3"}}},
+      .symbol_transitions =
+          {
+              {{SymbolFidelity::TYPED, SymbolFidelity::UNTYPED},
+               {"symbol1", "symbol2"}},
+              {{SymbolFidelity::UNTYPED, SymbolFidelity::TYPED}, {"symbol3"}},
+              {{SymbolFidelity::ABSENT, SymbolFidelity::UNTYPED},
+               {"symbol4", "symbol5"}},
+              {{SymbolFidelity::ABSENT, SymbolFidelity::TYPED}, {"symbol6"}},
+              {{SymbolFidelity::TYPED, SymbolFidelity::ABSENT},
+               {"symbol7", "symbol8"}},
+              {{SymbolFidelity::UNTYPED, SymbolFidelity::ABSENT}, {"symbol9"}},
+          },
       .type_transitions =
           {{{TypeFidelity::FULLY_DEFINED, TypeFidelity::ABSENT},
             {"struct s1", "union u1"}},
@@ -53,11 +61,10 @@ TEST_CASE("fidelity diff") {
             {"enum e2", "union u3"}},
            {{TypeFidelity::ABSENT, TypeFidelity::FULLY_DEFINED},
             {"struct s3"}}},
-      .severity = FidelityDiffSeverity::WARN,
   };
 
   std::ostringstream report;
-  reporting::FidelityDiff(diff, report);
+  CHECK(reporting::FidelityDiff(diff, report));
 
   std::ifstream expected_report_file(filename_to_path("fidelity_diff_report"));
   std::ostringstream expected_report;

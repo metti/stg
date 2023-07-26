@@ -34,9 +34,10 @@ namespace stg {
 // destruction.
 class Unification {
  public:
-  Unification(Graph& graph, Metrics& metrics)
+  Unification(Graph& graph, Id start, Metrics& metrics)
       : graph_(graph),
-        mapping_(graph.Limit()),
+        start_(start),
+        mapping_(start),
         metrics_(metrics),
         find_query_(metrics, "unification.find_query"),
         find_halved_(metrics, "unification.find_halved"),
@@ -56,7 +57,7 @@ class Unification {
       Update(id);
     };
     ::stg::Substitute substitute(graph_, remap);
-    graph_.ForEach([&](Id id) {
+    graph_.ForEach(start_, graph_.Limit(), [&](Id id) {
       if (Find(id) != id) {
         graph_.Remove(id);
         ++removed;
@@ -65,6 +66,10 @@ class Unification {
         ++retained;
       }
     });
+  }
+
+  void Reserve(Id limit) {
+    mapping_.Reserve(limit);
   }
 
   bool Unify(Id id1, Id id2);
@@ -111,6 +116,7 @@ class Unification {
 
  private:
   Graph& graph_;
+  Id start_;
   DenseIdMapping mapping_;
   Metrics& metrics_;
   Counter find_query_;

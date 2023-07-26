@@ -63,6 +63,9 @@ struct Entry {
   std::optional<Entry> MaybeGetReference(uint32_t attribute);
   std::optional<uint64_t> MaybeGetAddress(uint32_t attribute);
   std::optional<uint64_t> MaybeGetMemberByteOffset();
+  // Returns value of DW_AT_count if it is constant or nullptr if it is not
+  // defined or cannot be represented as constant.
+  std::optional<uint64_t> MaybeGetCount();
 };
 
 // C++ wrapper over libdw (DWARF library).

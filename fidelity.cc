@@ -19,7 +19,6 @@
 
 #include "fidelity.h"
 
-#include <algorithm>
 #include <map>
 #include <ostream>
 #include <set>
@@ -35,42 +34,11 @@ namespace stg {
 
 namespace {
 
-const std::unordered_map<SymbolFidelityTransition, FidelityDiffSeverity>
-    kSymbolTransitionSeverity = {
-        {{SymbolFidelity::ABSENT, SymbolFidelity::UNTYPED},
-         FidelityDiffSeverity::SKIP},
-        {{SymbolFidelity::ABSENT, SymbolFidelity::TYPED},
-         FidelityDiffSeverity::SKIP},
-        {{SymbolFidelity::UNTYPED, SymbolFidelity::ABSENT},
-         FidelityDiffSeverity::SKIP},
-        {{SymbolFidelity::UNTYPED, SymbolFidelity::TYPED},
-         FidelityDiffSeverity::INFO},
-        {{SymbolFidelity::TYPED, SymbolFidelity::ABSENT},
-         FidelityDiffSeverity::SKIP},
-        {{SymbolFidelity::TYPED, SymbolFidelity::UNTYPED},
-         FidelityDiffSeverity::WARN},
-};
-
-const std::unordered_map<TypeFidelityTransition, FidelityDiffSeverity>
-    kTypeTransitionSeverity = {
-        {{TypeFidelity::ABSENT, TypeFidelity::DECLARATION_ONLY},
-         FidelityDiffSeverity::WARN},
-        {{TypeFidelity::ABSENT, TypeFidelity::FULLY_DEFINED},
-         FidelityDiffSeverity::INFO},
-        {{TypeFidelity::DECLARATION_ONLY, TypeFidelity::FULLY_DEFINED},
-         FidelityDiffSeverity::INFO},
-        {{TypeFidelity::DECLARATION_ONLY, TypeFidelity::ABSENT},
-         FidelityDiffSeverity::WARN},
-        {{TypeFidelity::FULLY_DEFINED, TypeFidelity::ABSENT},
-         FidelityDiffSeverity::WARN},
-        {{TypeFidelity::FULLY_DEFINED, TypeFidelity::DECLARATION_ONLY},
-         FidelityDiffSeverity::WARN},
-};
-
 struct Fidelity {
   Fidelity(const Graph& graph, NameCache& name_cache)
-      : graph(graph), describe(graph, name_cache), seen(graph.Limit())
-  {}
+      : graph(graph), describe(graph, name_cache), seen(Id(0)) {
+    seen.Reserve(graph.Limit());
+  }
 
   void operator()(Id);
   void operator()(const std::vector<Id>&);
@@ -214,16 +182,6 @@ std::set<std::string> GetKeys(
   return keys;
 }
 
-FidelityDiffSeverity GetTransitionSeverity(SymbolFidelityTransition x) {
-  return x.first == x.second ? FidelityDiffSeverity::SKIP
-                             : kSymbolTransitionSeverity.at(x);
-}
-
-FidelityDiffSeverity GetTransitionSeverity(TypeFidelityTransition x) {
-  return x.first == x.second ? FidelityDiffSeverity::SKIP
-                             : kTypeTransitionSeverity.at(x);
-}
-
 void InsertTransition(FidelityDiff& diff, SymbolFidelityTransition transition,
                       const std::string& symbol) {
   diff.symbol_transitions[transition].push_back(symbol);
@@ -243,11 +201,7 @@ void InsertTransitions(FidelityDiff& diff,
     auto it2 = x2.find(key);
     auto transition = std::make_pair(it1 == x1.end() ? T() : it1->second,
                                      it2 == x2.end() ? T() : it2->second);
-    auto transition_severity = GetTransitionSeverity(transition);
-    if (transition_severity != FidelityDiffSeverity::SKIP) {
-      diff.severity = std::max(diff.severity, transition_severity);
-      InsertTransition(diff, transition, key);
-    }
+    InsertTransition(diff, transition, key);
   }
 }
 
@@ -281,17 +235,6 @@ std::ostream& operator<<(std::ostream& os, SymbolFidelityTransition x) {
 
 std::ostream& operator<<(std::ostream& os, TypeFidelityTransition x) {
   return os << "type(s) changed from " << x.first << " to " << x.second;
-}
-
-std::ostream& operator<<(std::ostream& os, FidelityDiffSeverity x) {
-  switch (x) {
-    case FidelityDiffSeverity::SKIP:
-      return os << "NONE";
-    case FidelityDiffSeverity::INFO:
-      return os << "INFO";
-    case FidelityDiffSeverity::WARN:
-      return os << "WARN";
-  }
 }
 
 FidelityDiff GetFidelityTransitions(const Graph& graph, Id root1, Id root2) {
