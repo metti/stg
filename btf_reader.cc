@@ -86,7 +86,7 @@ Structs::Structs(Graph& graph, const bool verbose)
 // Get the index of the void type, creating one if needed.
 Id Structs::GetVoid() {
   if (!void_) {
-    void_ = {graph_.Add<Void>()};
+    void_ = {graph_.Add<Special>(Special::Kind::VOID)};
   }
   return *void_;
 }
@@ -94,7 +94,7 @@ Id Structs::GetVoid() {
 // Get the index of the variadic parameter type, creating one if needed.
 Id Structs::GetVariadic() {
   if (!variadic_) {
-    variadic_ = {graph_.Add<Variadic>()};
+    variadic_ = {graph_.Add<Special>(Special::Kind::VARIADIC)};
   }
   return *variadic_;
 }
@@ -278,9 +278,9 @@ Id Structs::BuildTypes(MemoryRange memory) {
     std::cout << "Type section:\n";
   }
 
-  // Alas, BTF overloads type id 0 to mean both Void (for everything but
-  // function parameters) and Variadic (for function parameters). We determine
-  // which is intended and create Void and Variadic types on demand.
+  // Alas, BTF overloads type id 0 to mean both void (for everything but
+  // function parameters) and variadic (for function parameters). We determine
+  // which is intended and create void and variadic types on demand.
 
   // The type section is parsed sequentially and each type's index is its id.
   uint32_t btf_index = 1;

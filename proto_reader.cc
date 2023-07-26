@@ -55,6 +55,7 @@ struct Transformer {
   void AddNodes(const google::protobuf::RepeatedPtrField<ProtoType>&);
   void AddNode(const Void&);
   void AddNode(const Variadic&);
+  void AddNode(const Special&);
   void AddNode(const PointerReference&);
   void AddNode(const PointerToMember&);
   void AddNode(const Typedef&);
@@ -77,6 +78,7 @@ struct Transformer {
   template <typename GetKey>
   std::map<std::string, Id> Transform(GetKey,
                                       const google::protobuf::RepeatedField<uint32_t>&);
+  stg::Special::Kind Transform(Special::Kind);
   stg::PointerReference::Kind Transform(PointerReference::Kind);
   stg::Qualifier Transform(Qualified::Qualifier);
   stg::Primitive::Encoding Transform(Primitive::Encoding);
@@ -98,8 +100,9 @@ struct Transformer {
 };
 
 Id Transformer::Transform(const proto::STG& x) {
-  AddNodes(x.void_());
-  AddNodes(x.variadic());
+  AddNodes(x.void_());  // deprecated
+  AddNodes(x.variadic());  // deprecated
+  AddNodes(x.special());
   AddNodes(x.pointer_reference());
   AddNodes(x.pointer_to_member());
   AddNodes(x.typedef_());
@@ -134,11 +137,15 @@ void Transformer::AddNodes(const google::protobuf::RepeatedPtrField<ProtoType>& 
 }
 
 void Transformer::AddNode(const Void& x) {
-  AddNode<stg::Void>(GetId(x.id()));
+  AddNode<stg::Special>(GetId(x.id()), stg::Special::Kind::VOID);
 }
 
 void Transformer::AddNode(const Variadic& x) {
-  AddNode<stg::Variadic>(GetId(x.id()));
+  AddNode<stg::Special>(GetId(x.id()), stg::Special::Kind::VARIADIC);
+}
+
+void Transformer::AddNode(const Special& x) {
+  AddNode<stg::Special>(GetId(x.id()), x.kind());
 }
 
 void Transformer::AddNode(const PointerReference& x) {
@@ -277,6 +284,19 @@ std::map<std::string, Id> Transformer::Transform(
     }
   }
   return result;
+}
+
+stg::Special::Kind Transformer::Transform(Special::Kind x) {
+  switch (x) {
+    case Special::VOID:
+      return stg::Special::Kind::VOID;
+    case Special::VARIADIC:
+      return stg::Special::Kind::VARIADIC;
+    case Special::NULLPTR:
+      return stg::Special::Kind::NULLPTR;
+    default:
+      Die() << "unknown Special::Kind " << x;
+  }
 }
 
 stg::PointerReference::Kind Transformer::Transform(PointerReference::Kind x) {
@@ -434,7 +454,7 @@ Type Transformer::Transform(const Type& x) {
   return x;
 }
 
-const std::array<uint32_t, 2> kSupportedFormatVersions = {0, 1};
+const std::array<uint32_t, 3> kSupportedFormatVersions = {0, 1, 2};
 
 void CheckFormatVersion(uint32_t version, std::optional<std::string> path) {
   Check(std::count(kSupportedFormatVersions.begin(),

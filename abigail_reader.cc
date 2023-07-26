@@ -751,7 +751,7 @@ Id Abigail::GetEdge(xmlNodePtr element) {
 
 Id Abigail::GetVariadic() {
   if (!variadic_) {
-    variadic_ = {graph_.Add<Variadic>()};
+    variadic_ = {graph_.Add<Special>(Special::Kind::VARIADIC)};
   }
   return *variadic_;
 }
@@ -1033,7 +1033,7 @@ void Abigail::ProcessTypeDecl(Id id, xmlNodePtr type_decl) {
   const auto bytes = bits / 8;
 
   if (name == "void") {
-    graph_.Set<Void>(id);
+    graph_.Set<Special>(id, Special::Kind::VOID);
   } else {
     // libabigail doesn't model encoding at all and we don't want to parse names
     // (which will not always work) in an attempt to reconstruct it.

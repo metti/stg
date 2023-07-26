@@ -104,12 +104,9 @@ struct Unifier {
     return result && it1 == end1 && it2 == end2;
   }
 
-  Winner operator()(const Void&, const Void&) {
-    return Right;
-  }
-
-  Winner operator()(const Variadic&, const Variadic&) {
-    return Right;
+  Winner operator()(const Special& x1, const Special& x2) {
+    return x1.kind == x2.kind
+        ? Right : Neither;
   }
 
   Winner operator()(const PointerReference& x1,

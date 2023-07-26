@@ -42,12 +42,26 @@ syntax = "proto3";
 
 package stg.proto;
 
+// deprecated
 message Void {
   fixed32 id = 1;
 }
 
+// deprecated
 message Variadic {
   fixed32 id = 1;
+}
+
+message Special {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    VOID = 1;
+    VARIADIC = 2;
+    NULLPTR = 3;
+  }
+
+  fixed32 id = 1;
+  Kind kind = 2;
 }
 
 message PointerReference {
@@ -252,19 +266,20 @@ message STG {
   fixed32 root_id = 2;
   repeated Void void = 3;
   repeated Variadic variadic = 4;
-  repeated PointerReference pointer_reference = 5;
-  repeated PointerToMember pointer_to_member = 6;
-  repeated Typedef typedef = 7;
-  repeated Qualified qualified = 8;
-  repeated Primitive primitive = 9;
-  repeated Array array = 10;
-  repeated BaseClass base_class = 11;
-  repeated Method method = 12;
-  repeated Member member = 13;
-  repeated StructUnion struct_union = 14;
-  repeated Enumeration enumeration = 15;
-  repeated Function function = 16;
-  repeated ElfSymbol elf_symbol = 17;
-  repeated Symbols symbols = 18;
-  repeated Interface interface = 19;
+  repeated Special special = 5;
+  repeated PointerReference pointer_reference = 6;
+  repeated PointerToMember pointer_to_member = 7;
+  repeated Typedef typedef = 8;
+  repeated Qualified qualified = 9;
+  repeated Primitive primitive = 10;
+  repeated Array array = 11;
+  repeated BaseClass base_class = 12;
+  repeated Method method = 13;
+  repeated Member member = 14;
+  repeated StructUnion struct_union = 15;
+  repeated Enumeration enumeration = 16;
+  repeated Function function = 17;
+  repeated ElfSymbol elf_symbol = 18;
+  repeated Symbols symbols = 19;
+  repeated Interface interface = 20;
 }
