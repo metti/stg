@@ -198,7 +198,8 @@ class Reader {
   Id Read();
 
  private:
-  using SymbolIndex = std::map<std::pair<size_t, std::string>, size_t>;
+  using SymbolIndex =
+      std::map<std::pair<size_t, std::string>, std::vector<size_t>>;
 
   Id BuildRoot(const std::vector<std::pair<ElfSymbol, size_t>>& symbols) {
     // On destruction, the unification object will remove or rewrite each graph
@@ -237,17 +238,7 @@ class Reader {
 
       const auto& name =
           symbol.linkage_name.has_value() ? *symbol.linkage_name : symbol.name;
-      auto [it, emplaced] = address_name_to_index.emplace(
-          std::make_pair(symbol.address, name), i);
-      if (!emplaced) {
-        const auto& other = types.symbols[it->second];
-        // TODO: allow "compatible" duplicates, for example
-        // "void foo(int bar)" vs "void foo(const int bar)"
-        if (!IsEqual(unification, symbol, other)) {
-          Die() << "Duplicate DWARF symbol: address=" << Hex(symbol.address)
-                << ", name=" << symbol.name;
-        }
-      }
+      address_name_to_index[std::make_pair(symbol.address, name)].push_back(i);
     }
 
     std::map<std::string, Id> symbols_map;
@@ -255,7 +246,8 @@ class Reader {
       // TODO: add VersionInfoToString to SymbolKey name
       // TODO: check for uniqueness of SymbolKey in map after
       // support for version info
-      MaybeAddTypeInfo(address_name_to_index, types.symbols, address, symbol);
+      MaybeAddTypeInfo(address_name_to_index, types.symbols, address, symbol,
+                       unification);
       symbols_map.emplace(VersionedSymbolName(symbol),
                           graph_.Add<ElfSymbol>(symbol));
     }
@@ -318,11 +310,11 @@ class Reader {
   static void MaybeAddTypeInfo(
       const SymbolIndex& address_name_to_index,
       const std::vector<dwarf::Types::Symbol>& dwarf_symbols,
-      const size_t address, ElfSymbol& node) {
+      const size_t address, ElfSymbol& node, Unification& unification) {
     // try to find the first symbol with given address
     const auto start_it = address_name_to_index.lower_bound(
         std::make_pair(address, std::string()));
-    const dwarf::Types::Symbol* best_symbol = nullptr;
+    auto best_symbols_it = address_name_to_index.end();
     bool matched_by_name = false;
     size_t candidates = 0;
     for (auto it = start_it;
@@ -330,23 +322,34 @@ class Reader {
          ++it) {
       ++candidates;
       // We have at least matching addresses.
-      const auto& candidate = dwarf_symbols[it->second];
       if (it->first.second == node.symbol_name) {
         // If we have also matching names we can stop looking further.
         matched_by_name = true;
-        best_symbol = &candidate;
+        best_symbols_it = it;
         break;
       }
-      if (best_symbol == nullptr) {
+      if (best_symbols_it == address_name_to_index.end()) {
         // Otherwise keep the first match.
-        best_symbol = &candidate;
+        best_symbols_it = it;
       }
     }
-    if (best_symbol != nullptr) {
-      if (best_symbol->name.empty()) {
-        Die() << "DWARF symbol (address = " << best_symbol->address
+    if (best_symbols_it != address_name_to_index.end()) {
+      const auto& best_symbols = best_symbols_it->second;
+      Check(!best_symbols.empty()) << "best_symbols.empty()";
+      const auto& best_symbol = dwarf_symbols[best_symbols[0]];
+      for (size_t i = 1; i < best_symbols.size(); ++i) {
+        const auto& other = dwarf_symbols[best_symbols[i]];
+        // TODO: allow "compatible" duplicates, for example
+        // "void foo(int bar)" vs "void foo(const int bar)"
+        if (!IsEqual(unification, best_symbol, other)) {
+          Die() << "Duplicate DWARF symbol: address="
+                << Hex(best_symbol.address) << ", name=" << best_symbol.name;
+        }
+      }
+      if (best_symbol.name.empty()) {
+        Die() << "DWARF symbol (address = " << best_symbol.address
               << ", linkage_name = "
-              << best_symbol->linkage_name.value_or("{missing}")
+              << best_symbol.linkage_name.value_or("{missing}")
               << " should have a name";
       }
       // There may be multiple DWARF symbols with same address (zero-length
@@ -355,9 +358,9 @@ class Reader {
       // it should be fixed in analysed binary source code.
       Check(matched_by_name || candidates == 1)
           << "multiple candidates without matching names, best_symbol.name="
-          << best_symbol->name;
-      node.type_id = best_symbol->id;
-      node.full_name = best_symbol->name;
+          << best_symbol.name;
+      node.type_id = best_symbol.id;
+      node.full_name = best_symbol.name;
     }
   }
 
