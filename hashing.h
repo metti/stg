@@ -111,7 +111,7 @@ struct Hash {
   }
 
   // Hash std::string by constructing a std::string_view.
-  constexpr HashValue operator()(const std::string& x) const {
+  HashValue operator()(const std::string& x) const {
     return (*this)(std::string_view(x));
   }
 
