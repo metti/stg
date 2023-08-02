@@ -81,9 +81,7 @@ struct NamedTypes {
   }
 
   // Graph function implementation
-  void operator()(const Void&, Id) {}
-
-  void operator()(const Variadic&, Id) {}
+  void operator()(const Special&, Id) {}
 
   void operator()(const PointerReference& x, Id) {
     (*this)(x.pointee_type_id);

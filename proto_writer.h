@@ -23,7 +23,6 @@
 #include <ostream>
 
 #include "graph.h"
-#include "stg.pb.h"
 
 namespace stg {
 namespace proto {

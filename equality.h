@@ -104,12 +104,8 @@ struct Equals {
     return result && it1 == end1 && it2 == end2;
   }
 
-  bool operator()(const Void&, const Void&) {
-    return true;
-  }
-
-  bool operator()(const Variadic&, const Variadic&) {
-    return true;
+  bool operator()(const Special& x1, const Special& x2) {
+    return x1.kind == x2.kind;
   }
 
   bool operator()(const PointerReference& x1,

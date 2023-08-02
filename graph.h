@@ -83,10 +83,16 @@ struct hash<stg::Pair> {
 
 namespace stg {
 
-struct Void {
-};
+struct Special {
+  enum class Kind {
+    VOID,
+    VARIADIC,
+    NULLPTR,
+  };
+  explicit Special(Kind kind)
+      : kind(kind) {}
 
-struct Variadic {
+  Kind kind;
 };
 
 struct PointerReference {
@@ -347,12 +353,9 @@ class Graph {
     if (reference.first != Which::ABSENT) {
       Die() << "node value already set: " << id;
     }
-    if constexpr (std::is_same_v<Node, Void>) {
-      reference = {Which::VOID, void_.size()};
-      void_.emplace_back(std::forward<Args>(args)...);
-    } else if constexpr (std::is_same_v<Node, Variadic>) {
-      reference = {Which::VARIADIC, variadic_.size()};
-      variadic_.emplace_back(std::forward<Args>(args)...);
+    if constexpr (std::is_same_v<Node, Special>) {
+      reference = {Which::SPECIAL, special_.size()};
+      special_.emplace_back(std::forward<Args>(args)...);
     } else if constexpr (std::is_same_v<Node, PointerReference>) {
       reference = {Which::POINTER_REFERENCE, pointer_reference_.size()};
       pointer_reference_.emplace_back(std::forward<Args>(args)...);
@@ -447,8 +450,7 @@ class Graph {
  private:
   enum class Which {
     ABSENT,
-    VOID,
-    VARIADIC,
+    SPECIAL,
     POINTER_REFERENCE,
     POINTER_TO_MEMBER,
     TYPEDEF,
@@ -467,8 +469,7 @@ class Graph {
 
   std::vector<std::pair<Which, size_t>> indirection_;
 
-  std::vector<Void> void_;
-  std::vector<Variadic> variadic_;
+  std::vector<Special> special_;
   std::vector<PointerReference> pointer_reference_;
   std::vector<PointerToMember> pointer_to_member_;
   std::vector<Typedef> typedef_;
@@ -491,10 +492,8 @@ Result Graph::Apply(FunctionObject& function, Id id, Args&&... args) const {
   switch (which) {
     case Which::ABSENT:
       Die() << "undefined node: " << id;
-    case Which::VOID:
-      return function(void_[ix], std::forward<Args>(args)...);
-    case Which::VARIADIC:
-      return function(variadic_[ix], std::forward<Args>(args)...);
+    case Which::SPECIAL:
+      return function(special_[ix], std::forward<Args>(args)...);
     case Which::POINTER_REFERENCE:
       return function(pointer_reference_[ix], std::forward<Args>(args)...);
     case Which::POINTER_TO_MEMBER:
@@ -537,11 +536,8 @@ Result Graph::Apply2(
   switch (which1) {
     case Which::ABSENT:
       Die() << "undefined nodes: " << id1 << ", " << id2;
-    case Which::VOID:
-      return function(void_[ix1], void_[ix2],
-                      std::forward<Args>(args)...);
-    case Which::VARIADIC:
-      return function(variadic_[ix1], variadic_[ix2],
+    case Which::SPECIAL:
+      return function(special_[ix1], special_[ix2],
                       std::forward<Args>(args)...);
     case Which::POINTER_REFERENCE:
       return function(pointer_reference_[ix1], pointer_reference_[ix2],

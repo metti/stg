@@ -20,16 +20,10 @@
 #ifndef STG_PROTO_READER_H_
 #define STG_PROTO_READER_H_
 
-#include <cstdint>
-#include <istream>
-#include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_map>
-#include <vector>
 
 #include "graph.h"
-#include "stg.pb.h"
 
 namespace stg {
 namespace proto {

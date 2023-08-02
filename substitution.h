@@ -62,9 +62,7 @@ struct Substitute {
     return graph.Apply<void>(*this, id);
   }
 
-  void operator()(Void&) {}
-
-  void operator()(Variadic&) {}
+  void operator()(Special&) {}
 
   void operator()(PointerReference& x) {
     Update(x.pointee_type_id);

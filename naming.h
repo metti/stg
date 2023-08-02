@@ -58,8 +58,7 @@ using NameCache = std::unordered_map<Id, Name>;
 struct Describe {
   Describe(const Graph& graph, NameCache& names) : graph(graph), names(names) {}
   Name operator()(Id id);
-  Name operator()(const Void&);
-  Name operator()(const Variadic&);
+  Name operator()(const Special&);
   Name operator()(const PointerReference&);
   Name operator()(const PointerToMember&);
   Name operator()(const Typedef&);
