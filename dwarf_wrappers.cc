@@ -268,6 +268,11 @@ std::optional<uint64_t> GetAddressFromLocation(Dwarf_Attribute& attribute) {
     // manually extract the address from expression.
     return expr->number;
   }
+  if (expr_len == 2 && (expr[1].atom == DW_OP_GNU_push_tls_address ||
+                        expr[1].atom == DW_OP_form_tls_address)) {
+    // We don't handle TLS location expressions.
+    return {};
+  }
 
   Die() << "Unsupported data location expression";
 }
