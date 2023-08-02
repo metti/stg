@@ -274,8 +274,7 @@ struct Compare {
   bool CompareDefined(bool defined1, bool defined2, Result& result);
 
   Result Mismatch();
-  Result operator()(const Void&, const Void&);
-  Result operator()(const Variadic&, const Variadic&);
+  Result operator()(const Special&, const Special&);
   Result operator()(const PointerReference&, const PointerReference&);
   Result operator()(const PointerToMember&, const PointerToMember&);
   Result operator()(const Typedef&, const Typedef&);

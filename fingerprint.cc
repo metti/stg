@@ -41,12 +41,15 @@ struct Hasher {
         non_trivial_scc_size(metrics, "fingerprint.non_trivial_scc_size") {}
 
   // Graph function implementation
-  HashValue operator()(const Void&) {
-    return hash('O');
-  }
-
-  HashValue operator()(const Variadic&) {
-    return hash('V');
+  HashValue operator()(const Special& x) {
+    switch (x.kind) {
+      case Special::Kind::VOID:
+        return hash('O');
+      case Special::Kind::VARIADIC:
+        return hash('V');
+      case Special::Kind::NULLPTR:
+        return hash('L');
+    }
   }
 
   HashValue operator()(const PointerReference& x) {

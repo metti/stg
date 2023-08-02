@@ -115,12 +115,15 @@ Name Describe::operator()(Id id) {
   return cached;
 }
 
-Name Describe::operator()(const Void&) {
-  return Name{"void"};
-}
-
-Name Describe::operator()(const Variadic&) {
-  return Name{"..."};
+Name Describe::operator()(const Special& x) {
+  switch (x.kind) {
+    case Special::Kind::VOID:
+      return Name{"void"};
+    case Special::Kind::VARIADIC:
+      return Name{"..."};
+    case Special::Kind::NULLPTR:
+      return Name{"decltype(nullptr)"};
+  }
 }
 
 Name Describe::operator()(const PointerReference& x) {

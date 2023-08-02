@@ -304,6 +304,9 @@ class Processor {
       case DW_TAG_ptr_to_member_type:
         ProcessPointerToMember(entry);
         break;
+      case DW_TAG_unspecified_type:
+        ProcessUnspecifiedType(entry);
+        break;
       case DW_TAG_compile_unit:
         ProcessCompileUnit(entry);
         break;
@@ -434,6 +437,13 @@ class Processor {
         GetIdForReferredType(MaybeGetReferredType(entry));
     AddProcessedNode<PointerToMember>(entry, containing_type_id,
                                       pointee_type_id);
+  }
+
+  void ProcessUnspecifiedType(Entry& entry) {
+    const std::string type_name =  GetName(entry);
+    Check(type_name == "decltype(nullptr)")
+        << "Unsupported DW_TAG_unspecified_type: " << type_name;
+    AddProcessedNode<Special>(entry, Special::Kind::NULLPTR);
   }
 
   void ProcessStructUnion(Entry& entry, StructUnion::Kind kind) {
@@ -844,8 +854,8 @@ class Processor {
 Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
                      Graph& graph) {
   Types result;
-  Id void_id = graph.Add<Void>();
-  Id variadic_id = graph.Add<Variadic>();
+  const Id void_id = graph.Add<Special>(Special::Kind::VOID);
+  const Id variadic_id = graph.Add<Special>(Special::Kind::VARIADIC);
   Processor processor(graph, void_id, variadic_id, is_little_endian_binary,
                       result);
   for (auto& entry : entries) {

@@ -61,8 +61,7 @@ struct Transform {
 
   uint32_t operator()(Id);
 
-  void operator()(const stg::Void&, uint32_t);
-  void operator()(const stg::Variadic&, uint32_t);
+  void operator()(const stg::Special&, uint32_t);
   void operator()(const stg::PointerReference&, uint32_t);
   void operator()(const stg::PointerToMember&, uint32_t);
   void operator()(const stg::Typedef&, uint32_t);
@@ -78,6 +77,7 @@ struct Transform {
   void operator()(const stg::ElfSymbol&, uint32_t);
   void operator()(const stg::Interface&, uint32_t);
 
+  Special::Kind operator()(stg::Special::Kind);
   PointerReference::Kind operator()(stg::PointerReference::Kind);
   Qualified::Qualifier operator()(stg::Qualifier);
   Primitive::Encoding operator()(stg::Primitive::Encoding);
@@ -116,13 +116,10 @@ uint32_t Transform<MapId>::operator()(Id id) {
 }
 
 template <typename MapId>
-void Transform<MapId>::operator()(const stg::Void&, uint32_t id) {
-  stg.add_void_()->set_id(id);
-}
-
-template <typename MapId>
-void Transform<MapId>::operator()(const stg::Variadic&, uint32_t id) {
-  stg.add_variadic()->set_id(id);
+void Transform<MapId>::operator()(const stg::Special& x, uint32_t id) {
+  auto& special = *stg.add_special();
+  special.set_id(id);
+  special.set_kind((*this)(x.kind));
 }
 
 template <typename MapId>
@@ -310,6 +307,19 @@ PointerReference::Kind Transform<MapId>::operator()(
 }
 
 template <typename MapId>
+Special::Kind Transform<MapId>::operator()(
+    stg::Special::Kind x) {
+  switch (x) {
+    case stg::Special::Kind::VOID:
+      return Special::VOID;
+    case stg::Special::Kind::VARIADIC:
+      return Special::VARIADIC;
+    case stg::Special::Kind::NULLPTR:
+      return Special::NULLPTR;
+  }
+}
+
+template <typename MapId>
 Qualified::Qualifier Transform<MapId>::operator()(stg::Qualifier x) {
   switch (x) {
     case stg::Qualifier::CONST:
@@ -470,7 +480,7 @@ class HexPrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
   }
 };
 
-const uint32_t kWrittenFormatVersion = 1;
+const uint32_t kWrittenFormatVersion = 2;
 
 }  // namespace
 

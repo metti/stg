@@ -1,4 +1,4 @@
-version: 0x00000001
+version: 0x00000002
 root_id: 0x84ea5130
 struct_union {
   id: 0xb1a9a2d5

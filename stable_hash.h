@@ -35,8 +35,7 @@ class StableHash {
   explicit StableHash(const Graph& graph) : graph_(graph) {}
 
   HashValue operator()(Id);
-  HashValue operator()(const Void&);
-  HashValue operator()(const Variadic&);
+  HashValue operator()(const Special&);
   HashValue operator()(const PointerReference&);
   HashValue operator()(const PointerToMember&);
   HashValue operator()(const Typedef&);

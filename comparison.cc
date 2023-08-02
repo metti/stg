@@ -228,12 +228,12 @@ Result Compare::Mismatch() {
   return Result().MarkIncomparable();
 }
 
-Result Compare::operator()(const Void&, const Void&) {
-  return {};
-}
-
-Result Compare::operator()(const Variadic&, const Variadic&) {
-  return {};
+Result Compare::operator()(const Special& x1, const Special& x2) {
+  Result result;
+  if (x1.kind != x2.kind) {
+    return result.MarkIncomparable();
+  }
+  return result;
 }
 
 Result Compare::operator()(const PointerReference& x1,

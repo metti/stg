@@ -43,8 +43,7 @@ struct Fidelity {
   void operator()(Id);
   void operator()(const std::vector<Id>&);
   void operator()(const std::map<std::string, Id>&);
-  void operator()(const Void&, Id);
-  void operator()(const Variadic&, Id);
+  void operator()(const Special&, Id);
   void operator()(const PointerReference&, Id);
   void operator()(const PointerToMember&, Id);
   void operator()(const Typedef&, Id);
@@ -85,9 +84,7 @@ void Fidelity::operator()(const std::map<std::string, Id>& x) {
   }
 }
 
-void Fidelity::operator()(const Void&, Id) {}
-
-void Fidelity::operator()(const Variadic&, Id) {}
+void Fidelity::operator()(const Special&, Id) {}
 
 void Fidelity::operator()(const PointerReference& x, Id) {
   (*this)(x.pointee_type_id);
