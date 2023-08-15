@@ -89,6 +89,25 @@ void CheckOrDwflError(bool condition, const char* caller) {
   }
 }
 
+struct Expression {
+  const Dwarf_Op& operator[](size_t i) const {
+    return atoms[i];
+  }
+
+  Dwarf_Op* atoms = nullptr;
+  size_t length = 0;
+};
+
+Expression GetExpression(Dwarf_Attribute& attribute) {
+  Expression result;
+
+  Check(dwarf_getlocation(&attribute, &result.atoms, &result.length) ==
+        kReturnOk) << "dwarf_getlocation returned error";
+  Check(result.atoms != nullptr && result.length > 0)
+      << "dwarf_getlocation returned empty expression";
+  return result;
+}
+
 }  // namespace
 
 Handler::Handler(const std::string& path) : dwfl_(dwfl_begin(&kDwflCallbacks)) {
@@ -247,29 +266,24 @@ std::optional<Entry> Entry::MaybeGetReference(uint32_t attribute) {
 namespace {
 
 std::optional<uint64_t> GetAddressFromLocation(Dwarf_Attribute& attribute) {
-  Dwarf_Op* expr = nullptr;
-  size_t expr_len = 0;
-
-  Check(dwarf_getlocation(&attribute, &expr, &expr_len) == kReturnOk)
-      << "dwarf_getlocation returned error";
-  Check(expr != nullptr && expr_len > 0)
-      << "dwarf_getlocation returned empty expression";
+  const auto expression = GetExpression(attribute);
 
   Dwarf_Attribute result_attribute;
-  if (dwarf_getlocation_attr(&attribute, expr, &result_attribute) ==
+  if (dwarf_getlocation_attr(&attribute, expression.atoms, &result_attribute) ==
       kReturnOk) {
-    uint64_t addr;
-    Check(dwarf_formaddr(&result_attribute, &addr) == kReturnOk)
+    uint64_t address;
+    Check(dwarf_formaddr(&result_attribute, &address) == kReturnOk)
         << "dwarf_formaddr returned error";
-    return addr;
+    return address;
   }
-  if (expr_len == 1 && expr->atom == DW_OP_addr) {
+  if (expression.length == 1 && expression[0].atom == DW_OP_addr) {
     // DW_OP_addr is unsupported by dwarf_getlocation_attr, so we need to
     // manually extract the address from expression.
-    return expr->number;
+    return expression[0].number;
   }
-  if (expr_len == 2 && (expr[1].atom == DW_OP_GNU_push_tls_address ||
-                        expr[1].atom == DW_OP_form_tls_address)) {
+  if (expression.length == 2 &&
+      (expression[1].atom == DW_OP_GNU_push_tls_address ||
+       expression[1].atom == DW_OP_form_tls_address)) {
     // We don't handle TLS location expressions.
     return {};
   }
