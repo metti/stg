@@ -43,7 +43,11 @@ find_package(LibDw REQUIRED)
 find_package(LibXml2 REQUIRED)
 find_package(Protobuf REQUIRED)
 
-set(COMMON_LIBRARIES LibElf::LibElf LibDw::LibDw LibXml2::LibXml2)
+set(COMMON_LIBRARIES
+    LibElf::LibElf
+    LibDw::LibDw
+    LibXml2::LibXml2
+    protobuf::libprotobuf)
 
 if(NOT Jemalloc_DISABLE)
   find_package(Jemalloc)
@@ -86,13 +90,13 @@ add_library(libstg OBJECT
   ${PROTO_HDRS})
 # Needed for generated .pb.h files
 target_include_directories(libstg PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(libstg PRIVATE ${COMMON_LIBRARIES} protobuf::libprotobuf)
+target_link_libraries(libstg PRIVATE ${COMMON_LIBRARIES})
 
 set(STG_EXECUTABLE_TARGETS stg stgdiff stginfo)
 
 foreach(TARGET IN LISTS STG_EXECUTABLE_TARGETS)
   add_executable("${TARGET}" "${TARGET}.cc")
-  target_link_libraries("${TARGET}" PRIVATE ${COMMON_LIBRARIES} libstg)
+  target_link_libraries("${TARGET}" PRIVATE libstg)
 endforeach()
 
 # Installation and packaging
