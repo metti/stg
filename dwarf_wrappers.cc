@@ -321,7 +321,7 @@ std::optional<uint64_t> Entry::MaybeGetMemberByteOffset() {
   }
 
   // TODO: support location expressions
-  Die() << "dwarf_formudata returned error, " << std::hex << GetOffset();
+  Die() << "dwarf_formudata returned error, " << Hex(GetOffset());
 }
 
 std::optional<uint64_t> Entry::MaybeGetCount() {
