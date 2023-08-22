@@ -43,6 +43,7 @@
 #include <vector>
 
 #include <libxml/parser.h>
+#include <libxml/tree.h>
 #include "error.h"
 #include "file_descriptor.h"
 #include "graph.h"
