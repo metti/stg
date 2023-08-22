@@ -464,6 +464,52 @@ void StripReachabilityAttributes(xmlNodePtr node) {
   }
 }
 
+// Fix bad DWARF -> ELF links caused by size zero symbol confusion.
+//
+// libabigail used to be confused by these sorts of symbols, resulting in
+// declarations pointing at the wrong ELF symbols:
+//
+// 573623: ffffffc0122383c0   256 OBJECT  GLOBAL DEFAULT   33 vm_node_stat
+// 573960: ffffffc0122383c0     0 OBJECT  GLOBAL DEFAULT   33 vm_numa_stat
+void FixBadDwarfElfLinks(xmlNodePtr root) {
+  std::unordered_map<std::string, size_t> elf_links;
+
+  // See which ELF symbol IDs might be affected by this issue.
+  const std::function<void(xmlNodePtr)> count = [&](xmlNodePtr node) {
+    if (GetName(node) == "var-decl") {
+      const auto symbol_id = GetAttribute(node, "elf-symbol-id");
+      if (symbol_id) {
+        ++elf_links[symbol_id.value()];
+      }
+    }
+
+    for (auto* child = Child(node); child; child = Next(child)) {
+      count(child);
+    }
+  };
+  count(root);
+
+  // Fix up likely bad links from DWARF declaration to ELF symbol.
+  const std::function<void(xmlNodePtr)> fix = [&](xmlNodePtr node) {
+    if (GetName(node) == "var-decl") {
+      const auto name = GetAttributeOrDie(node, "name");
+      const auto mangled_name = GetAttribute(node, "mangled-name");
+      const auto symbol_id = GetAttribute(node, "elf-symbol-id");
+      if (mangled_name && symbol_id && name == mangled_name.value()
+          && name != symbol_id.value() && elf_links[symbol_id.value()] > 1) {
+        Warn() << "fixing up ELF symbol for '" << name << "' (was '"
+               << symbol_id.value() << "')";
+        SetAttribute(node, "elf-symbol-id", name);
+      }
+    }
+
+    for (auto* child = Child(node); child; child = Next(child)) {
+      fix(child);
+    }
+  };
+  fix(root);
+}
+
 // Tidy anonymous types in various ways.
 //
 // 1. Normalise anonymous type names by dropping the name attribute.
@@ -703,6 +749,9 @@ namespace {
 
 // Transform XML elements to improve their semantics.
 void Tidy(xmlNodePtr root) {
+  // Fix bad ELF symbol links
+  FixBadDwarfElfLinks(root);
+
   // Normalise anonymous type names.
   // Reanonymise anonymous types.
   // Discard naming typedef backlinks.
