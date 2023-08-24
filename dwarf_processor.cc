@@ -578,9 +578,17 @@ class Processor {
       Die() << "No offset found for base class " << EntryToString(entry);
     }
     const auto bit_offset = *byte_offset * 8;
-    // TODO: support virtual inheritance
-    AddProcessedNode<BaseClass>(entry, type_id, bit_offset,
-                                BaseClass::Inheritance::NON_VIRTUAL);
+    const auto virtuality = entry.MaybeGetUnsignedConstant(DW_AT_virtuality)
+                                 .value_or(DW_VIRTUALITY_none);
+    BaseClass::Inheritance inheritance;
+    if (virtuality == DW_VIRTUALITY_none) {
+      inheritance = BaseClass::Inheritance::NON_VIRTUAL;
+    } else if (virtuality == DW_VIRTUALITY_virtual) {
+      inheritance = BaseClass::Inheritance::VIRTUAL;
+    } else {
+      Die() << "Unexpected base class virtuality: " << virtuality;
+    }
+    AddProcessedNode<BaseClass>(entry, type_id, bit_offset, inheritance);
   }
 
   void ProcessArray(Entry& entry) {
