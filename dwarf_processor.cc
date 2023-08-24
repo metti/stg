@@ -760,7 +760,7 @@ class Processor {
     Function node;
     NameWithContext name_with_context;
     std::optional<std::string> linkage_name;
-    std::optional<size_t> address;
+    std::optional<Address> address;
     bool external;
   };
 

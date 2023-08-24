@@ -35,7 +35,7 @@ struct Types {
   struct Symbol {
     std::string name;
     std::optional<std::string> linkage_name;
-    size_t address;
+    Address address;
     Id id;
   };
 

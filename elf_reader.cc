@@ -199,7 +199,7 @@ class Reader {
 
  private:
   using SymbolIndex =
-      std::map<std::pair<size_t, std::string>, std::vector<size_t>>;
+      std::map<std::pair<dwarf::Address, std::string>, std::vector<size_t>>;
 
   Id BuildRoot(const std::vector<std::pair<ElfSymbol, size_t>>& symbols) {
     // On destruction, the unification object will remove or rewrite each graph
@@ -310,7 +310,16 @@ class Reader {
   static void MaybeAddTypeInfo(
       const SymbolIndex& address_name_to_index,
       const std::vector<dwarf::Types::Symbol>& dwarf_symbols,
-      const size_t address, ElfSymbol& node, Unification& unification) {
+      size_t address_value, ElfSymbol& node, Unification& unification) {
+    const bool is_tls = node.symbol_type == ElfSymbol::SymbolType::TLS;
+    if (is_tls) {
+      // TLS symbols address may be incorrect because of unsupported
+      // relocations. Resetting it to zero the same way as it is done in
+      // dwarf::Entry::GetAddressFromLocation.
+      // TODO: match TLS variables by address
+      address_value = 0;
+    }
+    const dwarf::Address address{.value = address_value, .is_tls = is_tls};
     // try to find the first symbol with given address
     const auto start_it = address_name_to_index.lower_bound(
         std::make_pair(address, std::string()));
@@ -343,7 +352,7 @@ class Reader {
         // "void foo(int bar)" vs "void foo(const int bar)"
         if (!IsEqual(unification, best_symbol, other)) {
           Die() << "Duplicate DWARF symbol: address="
-                << Hex(best_symbol.address) << ", name=" << best_symbol.name;
+                << best_symbol.address << ", name=" << best_symbol.name;
         }
       }
       if (best_symbol.name.empty()) {

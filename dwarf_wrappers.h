@@ -28,11 +28,29 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace stg {
 namespace dwarf {
+
+struct Address {
+  // TODO: use auto operator<=>
+  bool operator<(const Address& other) const {
+    return std::tie(value, is_tls) < std::tie(other.value, other.is_tls);
+  }
+
+  bool operator==(const Address& other) const {
+    return value == other.value && is_tls == other.is_tls;
+  }
+
+  uint64_t value;
+  bool is_tls;
+};
+
+std::ostream& operator<<(std::ostream& os, const Address& address);
 
 // C++ wrapper over Dwarf_Die, providing interface for its various properties.
 struct Entry {
@@ -61,7 +79,7 @@ struct Entry {
   std::optional<uint64_t> MaybeGetUnsignedConstant(uint32_t attribute);
   bool GetFlag(uint32_t attribute);
   std::optional<Entry> MaybeGetReference(uint32_t attribute);
-  std::optional<uint64_t> MaybeGetAddress(uint32_t attribute);
+  std::optional<Address> MaybeGetAddress(uint32_t attribute);
   std::optional<uint64_t> MaybeGetMemberByteOffset();
   // Returns value of DW_AT_count if it is constant or nullptr if it is not
   // defined or cannot be represented as constant.
