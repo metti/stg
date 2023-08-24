@@ -564,16 +564,7 @@ class Processor {
 
   void ProcessBaseClass(Entry& entry) {
     const auto type_id = GetIdForReferredType(GetReferredType(entry));
-    const auto byte_offset = [&] {
-      // TODO: remove try/catch after supporting virtual
-      // inheritance offset
-      try {
-        return entry.MaybeGetMemberByteOffset();
-      } catch (const stg::Exception& ex) {
-        Warn() << ex.what();
-        return std::optional<uint64_t>(0ULL);
-      }
-    }();
+    const auto byte_offset = entry.MaybeGetMemberByteOffset();
     if (!byte_offset) {
       Die() << "No offset found for base class " << EntryToString(entry);
     }

@@ -89,6 +89,32 @@ void CheckOrDwflError(bool condition, const char* caller) {
   }
 }
 
+std::optional<uint64_t> MaybeGetUnsignedOperand(const Dwarf_Op& operand) {
+  switch (operand.atom) {
+    case DW_OP_addr:
+    case DW_OP_const1u:
+    case DW_OP_const2u:
+    case DW_OP_const4u:
+    case DW_OP_const8u:
+    case DW_OP_constu:
+      return operand.number;
+    case DW_OP_const1s:
+    case DW_OP_const2s:
+    case DW_OP_const4s:
+    case DW_OP_const8s:
+    case DW_OP_consts:
+      if (static_cast<int64_t>(operand.number) < 0) {
+        // Atom is not an unsigned constant
+        return std::nullopt;
+      }
+      return operand.number;
+    case DW_OP_lit0...DW_OP_lit31:
+      return operand.atom - DW_OP_lit0;
+    default:
+      return std::nullopt;
+  }
+}
+
 struct Expression {
   const Dwarf_Op& operator[](size_t i) const {
     return atoms[i];
@@ -320,8 +346,32 @@ std::optional<uint64_t> Entry::MaybeGetMemberByteOffset() {
     return offset;
   }
 
-  // TODO: support location expressions
-  Die() << "dwarf_formudata returned error, " << Hex(GetOffset());
+  // Parse location expression
+  const auto expression = GetExpression(attribute.value());
+
+  // Parse virtual base classes offset, which looks like this:
+  //   [0] = DW_OP_dup
+  //   [1] = DW_OP_deref
+  //   [2] = constant operand
+  //   [3] = DW_OP_minus
+  //   [4] = DW_OP_deref
+  //   [5] = DW_OP_plus
+  // This form is not in the standard, but hardcoded in compilers:
+  //   * https://github.com/llvm/llvm-project/blob/release/17.x/llvm/lib/CodeGen/AsmPrinter/DwarfUnit.cpp#L1611
+  //   * https://github.com/gcc-mirror/gcc/blob/releases/gcc-13/gcc/dwarf2out.cc#L20029
+  if (expression.length == 6 &&
+      expression[0].atom == DW_OP_dup &&
+      expression[1].atom == DW_OP_deref &&
+      expression[3].atom == DW_OP_minus &&
+      expression[4].atom == DW_OP_deref &&
+      expression[5].atom == DW_OP_plus) {
+    const auto byte_offset = MaybeGetUnsignedOperand(expression[2]);
+    if (byte_offset) {
+      return byte_offset;
+    }
+  }
+
+  Die() << "Unsupported member offset expression, " << Hex(GetOffset());
 }
 
 std::optional<uint64_t> Entry::MaybeGetCount() {
