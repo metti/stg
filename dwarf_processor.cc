@@ -24,8 +24,7 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <ios>
-#include <iostream>
+#include <cstdint>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -451,6 +450,7 @@ class Processor {
     const std::string full_name = name.empty() ? std::string() : scope_ + name;
     const PushScopeName push_scope_name(scope_, kind, name);
 
+    std::vector<Id> base_classes;
     std::vector<Id> members;
     std::vector<Id> methods;
 
@@ -473,7 +473,8 @@ class Processor {
           ProcessMethod(child);
           break;
         case DW_TAG_inheritance:
-          // TODO: process base classes
+          base_classes.push_back(GetIdForEntry(child));
+          ProcessBaseClass(child);
           break;
         case DW_TAG_structure_type:
         case DW_TAG_class_type:
@@ -506,10 +507,8 @@ class Processor {
 
     const auto byte_size = GetByteSize(entry);
 
-    // TODO: support base classes
     const Id id = AddProcessedNode<StructUnion>(
-        entry, kind, full_name, byte_size,
-        /* base_classes = */ std::vector<Id>{},
+        entry, kind, full_name, byte_size, std::move(base_classes),
         std::move(methods), std::move(members));
     if (!full_name.empty()) {
       AddNamedTypeNode(id);
@@ -561,6 +560,27 @@ class Processor {
                              subprogram.linkage_name.value_or("{missing}"),
                              *subprogram.name_with_context.unscoped_name, kind,
                              /* vtable_offset = */ std::nullopt, id);
+  }
+
+  void ProcessBaseClass(Entry& entry) {
+    const auto type_id = GetIdForReferredType(GetReferredType(entry));
+    const auto byte_offset = [&] {
+      // TODO: remove try/catch after supporting virtual
+      // inheritance offset
+      try {
+        return entry.MaybeGetMemberByteOffset();
+      } catch (const stg::Exception& ex) {
+        Warn() << ex.what();
+        return std::optional<uint64_t>(0ULL);
+      }
+    }();
+    if (!byte_offset) {
+      Die() << "No offset found for base class " << EntryToString(entry);
+    }
+    const auto bit_offset = *byte_offset * 8;
+    // TODO: support virtual inheritance
+    AddProcessedNode<BaseClass>(entry, type_id, bit_offset,
+                                BaseClass::Inheritance::NON_VIRTUAL);
   }
 
   void ProcessArray(Entry& entry) {
