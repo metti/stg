@@ -77,6 +77,7 @@ class ElfLoader final {
 
   std::string_view GetBtfRawData() const;
   std::vector<SymbolTableEntry> GetElfSymbols() const;
+  std::vector<SymbolTableEntry> GetCFISymbols() const;
   ElfSymbol::CRC GetElfSymbolCRC(const SymbolTableEntry& symbol) const;
   std::string_view GetElfSymbolNamespace(const SymbolTableEntry& symbol) const;
   size_t GetAbsoluteAddress(const SymbolTableEntry& symbol) const;

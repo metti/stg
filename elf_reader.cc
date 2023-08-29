@@ -399,6 +399,14 @@ Id Reader::Read() {
     namespaces = GetNamespacesMap(all_symbols, elf_);
   }
 
+  const auto cfi_symbols = elf_.GetCFISymbols();
+  if (options_.Test(ReadOptions::INFO) && !cfi_symbols.empty()) {
+    std::cout << "CFI symbols:\n";
+    for (const auto& symbol : cfi_symbols) {
+      std::cout << "  " << symbol.name << " value=" << symbol.value << '\n';
+    }
+  }
+
   if (options_.Test(ReadOptions::INFO)) {
     std::cout << "Public functions and variables:\n";
   }
