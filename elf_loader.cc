@@ -29,6 +29,7 @@
 #include <cstring>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -398,9 +399,13 @@ std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
   std::vector<SymbolTableEntry> result;
   result.reserve(number_of_symbols);
 
+  // GElf uses int for indexes in symbol table, prevent int overflow.
+  Check(number_of_symbols <= std::numeric_limits<int>::max())
+      << "number of symbols exceeds INT_MAX";
   for (size_t i = 0; i < number_of_symbols; ++i) {
     GElf_Sym symbol;
-    Check(gelf_getsym(symbol_table_data, i, &symbol) != nullptr)
+    Check(gelf_getsym(symbol_table_data, static_cast<int>(i), &symbol) !=
+          nullptr)
         << "symbol (i = " << i << ") was not found";
 
     const auto name =
