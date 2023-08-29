@@ -71,6 +71,8 @@ std::ostream& operator<<(std::ostream& os, SymbolTableEntry::SymbolType type);
 
 std::ostream& operator<<(std::ostream& os, SymbolTableEntry::ValueType type);
 
+std::string_view UnwrapCFISymbolName(std::string_view cfi_name);
+
 class ElfLoader final {
  public:
   explicit ElfLoader(Elf* elf, bool verbose = false);

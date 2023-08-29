@@ -134,6 +134,19 @@ NamespacesMap GetNamespacesMap(const SymbolTable& symbols,
   return namespaces;
 }
 
+AddressMap GetCFIAddressMap(const SymbolTable& symbols, const ElfLoader& elf) {
+  AddressMap name_to_address;
+  for (const auto& symbol : symbols) {
+    const std::string_view name_prefix = UnwrapCFISymbolName(symbol.name);
+    const size_t address = elf.GetAbsoluteAddress(symbol);
+    if (!name_to_address.emplace(name_prefix, address).second) {
+      Die() << "Multiple CFI symbols referring to symbol '" << name_prefix
+            << '\'';
+    }
+  }
+  return name_to_address;
+}
+
 bool IsPublicFunctionOrVariable(const SymbolTableEntry& symbol) {
   const auto symbol_type = symbol.symbol_type;
   // Reject symbols that are not functions or variables.
@@ -399,11 +412,11 @@ Id Reader::Read() {
     namespaces = GetNamespacesMap(all_symbols, elf_);
   }
 
-  const auto cfi_symbols = elf_.GetCFISymbols();
-  if (options_.Test(ReadOptions::INFO) && !cfi_symbols.empty()) {
+  const auto cfi_address_map = GetCFIAddressMap(elf_.GetCFISymbols(), elf_);
+  if (options_.Test(ReadOptions::INFO) && !cfi_address_map.empty()) {
     std::cout << "CFI symbols:\n";
-    for (const auto& symbol : cfi_symbols) {
-      std::cout << "  " << symbol.name << " value=" << symbol.value << '\n';
+    for (const auto& [name, address] : cfi_address_map) {
+      std::cout << "  " << name << " -> " << Hex(address) << '\n';
     }
   }
 
@@ -415,9 +428,12 @@ Id Reader::Read() {
   for (const auto& symbol : all_symbols) {
     if (IsPublicFunctionOrVariable(symbol) &&
         (!is_linux_kernel || ksymtab_symbols.count(symbol.name))) {
+      const auto cfi_it = cfi_address_map.find(std::string(symbol.name));
+      const size_t address = cfi_it != cfi_address_map.end()
+                                 ? cfi_it->second
+                                 : elf_.GetAbsoluteAddress(symbol);
       symbols.emplace_back(
-          SymbolTableEntryToElfSymbol(crc_values, namespaces, symbol),
-          elf_.GetAbsoluteAddress(symbol));
+          SymbolTableEntryToElfSymbol(crc_values, namespaces, symbol), address);
 
       if (options_.Test(ReadOptions::INFO)) {
         std::cout << "  " << symbol.binding << ' ' << symbol.symbol_type << " '"
