@@ -20,17 +20,11 @@
 #ifndef STG_SYMBOL_FILTER_H_
 #define STG_SYMBOL_FILTER_H_
 
-#include <iostream>
 #include <memory>
 #include <ostream>
 #include <string>
-#include <unordered_set>
-
-#include "error.h"
 
 namespace stg {
-
-using SymbolSet = std::unordered_set<std::string>;
 
 // Abstract base class for filtering symbols.
 class SymbolFilter {

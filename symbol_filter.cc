@@ -32,12 +32,15 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 
 #include "error.h"
 
 namespace stg {
 namespace {
+
+using SymbolSet = std::unordered_set<std::string>;
 
 SymbolSet ReadAbigail(const std::string& filename) {
   static constexpr std::array<std::string_view, 2> section_suffices = {
@@ -153,7 +156,7 @@ class SetFilter : public SymbolFilter {
  public:
   SetFilter(SymbolSet&& symbols) : symbols_(std::move(symbols)) {}
   bool operator()(const std::string& symbol) const final {
-    return symbols_.count(symbol);
+    return symbols_.count(symbol) > 0;
   };
 
  private:
