@@ -31,13 +31,13 @@
 
 #include "deduplication.h"
 #include "error.h"
+#include "filter.h"
 #include "fingerprint.h"
 #include "graph.h"
 #include "input.h"
 #include "metrics.h"
 #include "proto_writer.h"
 #include "reader_options.h"
-#include "symbol_filter.h"
 #include "type_resolution.h"
 #include "unification.h"
 
@@ -81,7 +81,7 @@ Id Merge(Graph& graph, const std::vector<Id>& roots, Metrics& metrics) {
   return graph.Add<Interface>(symbols, types);
 }
 
-void Filter(Graph& graph, Id root, const SymbolFilter& filter) {
+void FilterSymbols(Graph& graph, Id root, const Filter& filter) {
   std::map<std::string, Id> symbols;
   GetInterface get;
   auto& interface = graph.Apply<Interface&>(get, root);
@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
   // Process arguments.
   bool opt_metrics = false;
   bool opt_keep_duplicates = false;
-  std::unique_ptr<stg::SymbolFilter> opt_symbols;
+  std::unique_ptr<stg::Filter> opt_symbol_filter;
   stg::ReadOptions opt_read_options;
   stg::InputFormat opt_input_format = stg::InputFormat::ABI;
   std::vector<const char*> inputs;
@@ -146,7 +146,7 @@ int main(int argc, char* argv[]) {
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...\n"
               << "  [{-o|--output} {filename|-}] ...\n"
               << "implicit defaults: --abi\n";
-    stg::SymbolFilterUsage(std::cerr);
+    stg::FilterUsage(std::cerr);
     return 1;
   };
   while (true) {
@@ -170,7 +170,7 @@ int main(int argc, char* argv[]) {
         opt_read_options.Set(stg::ReadOptions::TYPE_ROOTS);
         break;
       case 'S':
-        opt_symbols = stg::MakeSymbolFilter(argument);
+        opt_symbol_filter = stg::MakeFilter(argument);
         break;
       case 'a':
         opt_input_format = stg::InputFormat::ABI;
@@ -212,8 +212,8 @@ int main(int argc, char* argv[]) {
     }
     stg::Id root =
         roots.size() == 1 ? roots[0] : stg::Merge(graph, roots, metrics);
-    if (opt_symbols) {
-      stg::Filter(graph, root, *opt_symbols);
+    if (opt_symbol_filter) {
+      stg::FilterSymbols(graph, root, *opt_symbol_filter);
     }
     if (!opt_keep_duplicates) {
       {

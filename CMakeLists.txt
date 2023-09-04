@@ -72,6 +72,7 @@ add_library(libstg OBJECT
   elf_reader.cc
   fidelity.cc
   file_descriptor.cc
+  filter.cc
   fingerprint.cc
   graph.cc
   input.cc
@@ -82,7 +83,6 @@ add_library(libstg OBJECT
   proto_writer.cc
   reporting.cc
   stable_hash.cc
-  symbol_filter.cc
   type_normalisation.cc
   type_resolution.cc
   unification.cc

@@ -19,7 +19,7 @@ stg
   [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...
   [{-o|--output} {filename|-}] ...
 implicit defaults: --abi
-symbol filter syntax:
+filter syntax:
   <filter>   ::= <term>          |  <expression> '|' <term>
   <term>     ::= <factor>        |  <term> '&' <factor>
   <factor>   ::= <atom>          |  '!' <factor>
