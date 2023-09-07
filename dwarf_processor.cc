@@ -469,8 +469,7 @@ class Processor {
           }
           break;
         case DW_TAG_subprogram:
-          methods.push_back(GetIdForEntry(child));
-          ProcessMethod(child);
+          ProcessMethod(methods, child);
           break;
         case DW_TAG_inheritance:
           base_classes.push_back(GetIdForEntry(child));
@@ -530,7 +529,7 @@ class Processor {
         GetDataBitOffset(entry, bit_size, is_little_endian_binary_), bit_size);
   }
 
-  void ProcessMethod(Entry& entry) {
+  void ProcessMethod(std::vector<Id>& methods, Entry& entry) {
     Subprogram subprogram = GetSubprogram(entry);
     auto id = graph_.Add<Function>(std::move(subprogram.node));
     if (subprogram.external && subprogram.address) {
@@ -544,22 +543,24 @@ class Processor {
           .address = *subprogram.address,
           .id = id});
     }
-
-    // TODO: support kind
-    const Method::Kind kind = Method::Kind::NON_VIRTUAL;
-    // TODO: support vtable_offset
-    if (!subprogram.name_with_context.unscoped_name) {
-      Die() << "Method " << EntryToString(entry) << " should have name";
+    const auto virtuality = entry.MaybeGetUnsignedConstant(DW_AT_virtuality)
+                                 .value_or(DW_VIRTUALITY_none);
+    if (virtuality == DW_VIRTUALITY_virtual ||
+        virtuality == DW_VIRTUALITY_pure_virtual) {
+      if (!subprogram.name_with_context.unscoped_name) {
+        Die() << "Method " << EntryToString(entry) << " should have name";
+      }
+      if (subprogram.name_with_context.specification) {
+        Die() << "Method " << EntryToString(entry)
+              << " shouldn't have specification";
+      }
+      // TODO: support vtable_offset
+      // TODO: proper handling of missing linkage name
+      methods.push_back(AddProcessedNode<Method>(
+          entry, subprogram.linkage_name.value_or("{missing}"),
+          *subprogram.name_with_context.unscoped_name, Method::Kind::VIRTUAL,
+          /* vtable_offset = */ std::nullopt, id));
     }
-    if (subprogram.name_with_context.specification) {
-      Die() << "Method " << EntryToString(entry)
-            << " shouldn't have specification";
-    }
-    // TODO: proper handling of missing linkage name
-    AddProcessedNode<Method>(entry,
-                             subprogram.linkage_name.value_or("{missing}"),
-                             *subprogram.name_with_context.unscoped_name, kind,
-                             /* vtable_offset = */ std::nullopt, id);
   }
 
   void ProcessBaseClass(Entry& entry) {

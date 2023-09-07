@@ -1129,7 +1129,7 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
     } else if (child_name == "base-class") {
       base_classes.push_back(ProcessBaseClass(child));
     } else if (child_name == "member-function") {
-      methods.push_back(ProcessMemberFunction(child));
+      ProcessMemberFunction(methods, child);
     } else {
       Die() << "unrecognised " << kind << "-decl child element '" << child_name
             << "'";
@@ -1198,20 +1198,21 @@ std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
   return {graph_.Add<Member>(name, type, offset, 0)};
 }
 
-Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
+void Abigail::ProcessMemberFunction(std::vector<Id>& methods,
+                                    xmlNodePtr method) {
   xmlNodePtr decl = GetOnlyChild(method);
   CheckName("function-decl", decl);
-  static const std::string missing = "{missing}";
-  const auto mangled_name = ReadAttribute(decl, "mangled-name", missing);
-  const auto name = GetAttributeOrDie(decl, "name");
+  // ProcessDecl creates symbol references so must be called unconditionally.
   const auto type = ProcessDecl(false, decl);
   const auto vtable_offset = ReadAttribute<uint64_t>(method, "vtable-offset");
-  const auto kind = vtable_offset
-                    ? Method::Kind::VIRTUAL
-                    : ReadAttribute<bool>(method, "static", false)
-                       ? Method::Kind::STATIC
-                       : Method::Kind::NON_VIRTUAL;
-  return graph_.Add<Method>(mangled_name, name, kind, vtable_offset, type);
+  if (vtable_offset) {
+    static const std::string missing = "{missing}";
+    const auto mangled_name = ReadAttribute(decl, "mangled-name", missing);
+    const auto name = GetAttributeOrDie(decl, "name");
+    methods.push_back(
+        graph_.Add<Method>(mangled_name, name, Method::Kind::VIRTUAL,
+                           vtable_offset.value(), type));
+  }
 }
 
 void Abigail::ProcessMemberType(xmlNodePtr member_type) {
