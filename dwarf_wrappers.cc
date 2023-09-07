@@ -386,6 +386,26 @@ std::optional<uint64_t> Entry::MaybeGetMemberByteOffset() {
   Die() << "Unsupported member offset expression, " << Hex(GetOffset());
 }
 
+std::optional<uint64_t> Entry::MaybeGetVtableOffset() {
+  auto attribute = GetAttribute(&die, DW_AT_vtable_elem_location);
+  if (!attribute) {
+    return {};
+  }
+
+  // Parse location expression
+  const Expression expression = GetExpression(attribute.value());
+
+  // We expect compilers to produce expression with one constant operand
+  if (expression.length == 1) {
+    const auto offset = MaybeGetUnsignedOperand(expression[0]);
+    if (offset) {
+      return offset;
+    }
+  }
+
+  Die() << "Unsupported vtable offset expression, " << Hex(GetOffset());
+}
+
 std::optional<uint64_t> Entry::MaybeGetCount() {
   auto dwarf_attribute = GetAttribute(&die, DW_AT_count);
   if (!dwarf_attribute) {
