@@ -14,7 +14,7 @@ stg
   [-i|--info]
   [-d|--keep-duplicates]
   [-t|--types]
-  [-S|--symbols <filter>]
+  [-S|--symbols|--symbol-filter <filter>]
   [--skip-dwarf]
   [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...
   [{-o|--output} {filename|-}] ...

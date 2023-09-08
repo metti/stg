@@ -127,6 +127,7 @@ int main(int argc, char* argv[]) {
       {"keep-duplicates", no_argument,       nullptr, 'd'       },
       {"types",           no_argument,       nullptr, 't'       },
       {"symbols",         required_argument, nullptr, 'S'       },
+      {"symbol-filter",   required_argument, nullptr, 'S'       },
       {"abi",             no_argument,       nullptr, 'a'       },
       {"btf",             no_argument,       nullptr, 'b'       },
       {"elf",             no_argument,       nullptr, 'e'       },
@@ -141,7 +142,7 @@ int main(int argc, char* argv[]) {
               << "  [-i|--info]\n"
               << "  [-d|--keep-duplicates]\n"
               << "  [-t|--types]\n"
-              << "  [-S|--symbols <filter>]\n"
+              << "  [-S|--symbols|--symbol-filter <filter>]\n"
               << "  [--skip-dwarf]\n"
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...\n"
               << "  [{-o|--output} {filename|-}] ...\n"
