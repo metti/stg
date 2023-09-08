@@ -1210,8 +1210,7 @@ void Abigail::ProcessMemberFunction(std::vector<Id>& methods,
     const auto mangled_name = ReadAttribute(decl, "mangled-name", missing);
     const auto name = GetAttributeOrDie(decl, "name");
     methods.push_back(
-        graph_.Add<Method>(mangled_name, name, Method::Kind::VIRTUAL,
-                           vtable_offset.value(), type));
+        graph_.Add<Method>(mangled_name, name, vtable_offset.value(), type));
   }
 }
 

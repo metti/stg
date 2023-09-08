@@ -562,8 +562,7 @@ class Processor {
       // TODO: proper handling of missing linkage name
       methods.push_back(AddProcessedNode<Method>(
           entry, subprogram.linkage_name.value_or("{missing}"),
-          *subprogram.name_with_context.unscoped_name, Method::Kind::VIRTUAL,
-          *vtable_offset, id));
+          *subprogram.name_with_context.unscoped_name, *vtable_offset, id));
     }
   }
 

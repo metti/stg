@@ -44,17 +44,6 @@ std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance) {
   }
 }
 
-std::ostream& operator<<(std::ostream& os, Method::Kind kind) {
-  switch (kind) {
-    case Method::Kind::NON_VIRTUAL:
-      return os << "non-virtual";
-    case Method::Kind::STATIC:
-      return os << "static";
-    case Method::Kind::VIRTUAL:
-      return os << "virtual";
-  }
-}
-
 namespace {
 
 std::string_view ToString(StructUnion::Kind kind) {

@@ -452,7 +452,6 @@ Result Compare::operator()(const Member& x1, const Member& x2) {
 
 Result Compare::operator()(const Method& x1, const Method& x2) {
   Result result;
-  result.MaybeAddNodeDiff("kind", x1.kind, x2.kind);
   result.MaybeAddNodeDiff("vtable offset", x1.vtable_offset, x2.vtable_offset);
   result.MaybeAddEdgeDiff("", (*this)(x1.type_id, x2.type_id));
   return result;
