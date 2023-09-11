@@ -90,7 +90,11 @@ Symbols must be disjoint across all inputs.
 
 ### Types
 
-Merging is not yet supported with type roots.
+If duplicate type roots are found during merge, they are unified. If unification
+fails, the merge fails.
+
+Unification is a process which replaces references to forward declarations of
+types with references to full definitions, if that would result in equal types.
 
 ## Filter
 
