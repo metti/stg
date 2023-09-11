@@ -25,6 +25,7 @@
 #include <ios>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -35,6 +36,7 @@
 #include "dwarf_wrappers.h"
 #include "elf_loader.h"
 #include "error.h"
+#include "filter.h"
 #include "graph.h"
 #include "metrics.h"
 #include "reader_options.h"
@@ -193,19 +195,21 @@ namespace {
 class Reader {
  public:
   Reader(Graph& graph, const std::string& path, ReadOptions options,
-         Metrics& metrics)
+         const std::unique_ptr<Filter>& file_filter, Metrics& metrics)
       : graph_(graph),
         dwarf_(path),
         elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
         options_(options),
+        file_filter_(file_filter),
         metrics_(metrics) {}
 
   Reader(Graph& graph, char* data, size_t size, ReadOptions options,
-         Metrics& metrics)
+         const std::unique_ptr<Filter>& file_filter, Metrics& metrics)
       : graph_(graph),
         dwarf_(data, size),
         elf_(dwarf_.GetElf(), options.Test(ReadOptions::INFO)),
         options_(options),
+        file_filter_(file_filter),
         metrics_(metrics) {}
 
   Id Read();
@@ -226,7 +230,8 @@ class Reader {
 
     dwarf::Types types;
     if (!options_.Test(ReadOptions::SKIP_DWARF)) {
-      types = dwarf::Process(dwarf_, elf_.IsLittleEndianBinary(), graph_);
+      types = dwarf::Process(dwarf_, elf_.IsLittleEndianBinary(), file_filter_,
+                             graph_);
     }
 
     // A less important optimisation is avoiding copying the mapping array as it
@@ -392,6 +397,7 @@ class Reader {
   dwarf::Handler dwarf_;
   elf::ElfLoader elf_;
   ReadOptions options_;
+  const std::unique_ptr<Filter>& file_filter_;
   Metrics& metrics_;
 };
 
@@ -458,13 +464,14 @@ Id Reader::Read() {
 }  // namespace internal
 
 Id Read(Graph& graph, const std::string& path, ReadOptions options,
-        Metrics& metrics) {
-  return internal::Reader(graph, path, options, metrics).Read();
+        const std::unique_ptr<Filter>& file_filter, Metrics& metrics) {
+  return internal::Reader(graph, path, options, file_filter, metrics).Read();
 }
 
 Id Read(Graph& graph, char* data, size_t size, ReadOptions options,
-        Metrics& metrics) {
-  return internal::Reader(graph, data, size, options, metrics).Read();
+        const std::unique_ptr<Filter>& file_filter, Metrics& metrics) {
+  return internal::Reader(graph, data, size, options, file_filter, metrics)
+      .Read();
 }
 
 }  // namespace elf

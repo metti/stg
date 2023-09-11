@@ -19,9 +19,12 @@
 
 #include "input.h"
 
+#include <memory>
+
 #include "abigail_reader.h"
 #include "btf_reader.h"
 #include "elf_reader.h"
+#include "filter.h"
 #include "graph.h"
 #include "metrics.h"
 #include "proto_reader.h"
@@ -30,7 +33,8 @@
 namespace stg {
 
 Id Read(Graph& graph, InputFormat format, const char* input,
-        ReadOptions options, Metrics& metrics) {
+        ReadOptions options, const std::unique_ptr<Filter>& file_filter,
+        Metrics& metrics) {
   switch (format) {
     case InputFormat::ABI: {
       Time read(metrics, "read ABI");
@@ -42,7 +46,7 @@ Id Read(Graph& graph, InputFormat format, const char* input,
     }
     case InputFormat::ELF: {
       Time read(metrics, "read ELF");
-      return elf::Read(graph, input, options, metrics);
+      return elf::Read(graph, input, options, file_filter, metrics);
     }
     case InputFormat::STG: {
       Time read(metrics, "read STG");

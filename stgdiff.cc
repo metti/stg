@@ -54,7 +54,8 @@ std::vector<stg::Id> Read(const Inputs& inputs, stg::Graph& graph,
                           stg::ReadOptions options, stg::Metrics& metrics) {
   std::vector<stg::Id> roots;
   for (const auto& [format, filename] : inputs) {
-    roots.push_back(stg::Read(graph, format, filename, options, metrics));
+    roots.push_back(stg::Read(graph, format, filename, options, nullptr,
+                              metrics));
   }
   return roots;
 }

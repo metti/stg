@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -34,6 +35,7 @@
 
 #include "dwarf_wrappers.h"
 #include "error.h"
+#include "filter.h"
 #include "graph.h"
 #include "scope.h"
 
@@ -259,11 +261,13 @@ size_t GetDataBitOffset(Entry& entry, size_t bit_size,
 class Processor {
  public:
   Processor(Graph& graph, Id void_id, Id variadic_id,
-            bool is_little_endian_binary, Types& result)
+            bool is_little_endian_binary,
+            const std::unique_ptr<Filter>& file_filter, Types& result)
       : graph_(graph),
         void_id_(void_id),
         variadic_id_(variadic_id),
         is_little_endian_binary_(is_little_endian_binary),
+        file_filter_(file_filter),
         result_(result) {}
 
   void Process(Entry& entry) {
@@ -395,6 +399,9 @@ class Processor {
   }
 
   void ProcessCompileUnit(Entry& entry) {
+    if (file_filter_ != nullptr) {
+      files_ = dwarf::Files(entry);
+    }
     ProcessAllChildren(entry);
   }
 
@@ -443,6 +450,18 @@ class Processor {
     Check(type_name == "decltype(nullptr)")
         << "Unsupported DW_TAG_unspecified_type: " << type_name;
     AddProcessedNode<Special>(entry, Special::Kind::NULLPTR);
+  }
+
+  bool ShouldKeepDefinition(Entry& entry) const {
+    if (file_filter_ == nullptr) {
+      return true;
+    }
+    const auto file = files_.MaybeGetFile(entry, DW_AT_decl_file);
+    if (!file) {
+      Die() << "File filter is provided, but DWARF entry << "
+            << EntryToString(entry) << " << doesn't have DW_AT_decl_file";
+    }
+    return (*file_filter_)(*file);
   }
 
   void ProcessStructUnion(Entry& entry, StructUnion::Kind kind) {
@@ -496,7 +515,7 @@ class Processor {
       }
     }
 
-    if (entry.GetFlag(DW_AT_declaration)) {
+    if (entry.GetFlag(DW_AT_declaration) || !ShouldKeepDefinition(entry)) {
       // Declaration may have partial information about members or method.
       // We only need to parse children for information that will be needed in
       // complete definition, but don't need to store them in incomplete node.
@@ -641,6 +660,10 @@ class Processor {
       // signedness of underlying type.
       enumerators.emplace_back(enumerator_name,
                                static_cast<int64_t>(*value_optional));
+    }
+    if (!ShouldKeepDefinition(entry)) {
+      AddProcessedNode<Enumeration>(entry, name);
+      return;
     }
     const Id id = AddProcessedNode<Enumeration>(entry, name, underlying_type_id,
                                                 std::move(enumerators));
@@ -866,21 +889,23 @@ class Processor {
   Id void_id_;
   Id variadic_id_;
   bool is_little_endian_binary_;
+  const std::unique_ptr<Filter>& file_filter_;
   Types& result_;
   std::unordered_map<Dwarf_Off, Id> id_map_;
   // Current scope.
   Scope scope_;
   std::vector<std::pair<Dwarf_Off, std::string>> scoped_names_;
   std::vector<std::pair<Dwarf_Off, size_t>> unresolved_symbol_specifications_;
+  dwarf::Files files_;
 };
 
 Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
-                     Graph& graph) {
+                     const std::unique_ptr<Filter>& file_filter, Graph& graph) {
   Types result;
   const Id void_id = graph.Add<Special>(Special::Kind::VOID);
   const Id variadic_id = graph.Add<Special>(Special::Kind::VARIADIC);
   Processor processor(graph, void_id, variadic_id, is_little_endian_binary,
-                      result);
+                      file_filter, result);
   for (auto& entry : entries) {
     processor.Process(entry);
   }
@@ -890,9 +915,10 @@ Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
   return result;
 }
 
-Types Process(Handler& dwarf, bool is_little_endian_binary, Graph& graph) {
+Types Process(Handler& dwarf, bool is_little_endian_binary,
+              const std::unique_ptr<Filter>& file_filter, Graph& graph) {
   return ProcessEntries(dwarf.GetCompilationUnits(), is_little_endian_binary,
-                        graph);
+                        file_filter, graph);
 }
 
 }  // namespace dwarf

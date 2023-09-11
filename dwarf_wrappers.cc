@@ -424,5 +424,28 @@ std::optional<uint64_t> Entry::MaybeGetCount() {
   return value;
 }
 
+Files::Files(Entry& compilation_unit) {
+  if (dwarf_getsrcfiles(&compilation_unit.die, &files_, &files_count_) !=
+      kReturnOk) {
+    Die() << "No source file information in DWARF";
+  }
+}
+
+std::optional<std::string> Files::MaybeGetFile(Entry& entry,
+                                               uint32_t attribute) const {
+  auto file_index = entry.MaybeGetUnsignedConstant(attribute);
+  if (!file_index) {
+    return std::nullopt;
+  }
+  Check(files_ != nullptr) << "dwarf::Files was not initialised";
+  if (*file_index >= files_count_) {
+    Die() << "File index is greater than or equal files count (" << *file_index
+          << " >= " << files_count_ << ")";
+  }
+  const char* result = dwarf_filesrc(files_, *file_index, nullptr, nullptr);
+  Check(result != nullptr) << "dwarf_filesrc returned error";
+  return result;
+}
+
 }  // namespace dwarf
 }  // namespace stg

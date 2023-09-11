@@ -14,6 +14,7 @@ stg
   [-i|--info]
   [-d|--keep-duplicates]
   [-t|--types]
+  [-F|--file-filter <filter>]
   [-S|--symbols|--symbol-filter <filter>]
   [--skip-dwarf]
   [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...
@@ -93,12 +94,33 @@ Merging is not yet supported with type roots.
 
 ## Filter
 
-If a symbol filter is supplied, symbols not matching the filter are dropped.
+There are two types of filters that can be applied to STG output:
+
+1.  `-F|--file-filter <filter>`
+
+    Filter type definitions by source location.
+
+    DWARF information includes type declaration source locations. If a struct,
+    union, class or enum is defined in a file whose name does not match the
+    filter, then its definition (layout, members etc.) is dropped, leaving only
+    a declaration.
+
+    File filters are only applicable to ELF binary objects containing DWARF with
+    source location information; any other kind of input will be unaffected.
+
+2.  `-S|--symbols|--symbol-filter <filter>`
+
+    Filter ELF symbols by name (which may include a `@version` or `@@version`
+    suffix).
+
+    If a symbol filter is supplied, symbols not matching the filter are dropped.
+    Symbol filtering is universal across all input formats as it happens after
+    input processing.
 
 The basic syntactical elements are:
 
 *   `glob` - a glob pattern matching symbol names
-*   `:filename` - the name of a file containing a libabigail format symbol list
+*   `:filename` - the name of a file containing a libabigail format filter list
 
 Filter expressions can be combined with infix disjuction (`|`) and conjunction
 (`&`) operators and negated with the prefix (`!`) operator; these obey the usual
@@ -107,12 +129,19 @@ Whitespace is not significant, except as a string delimiter.
 
 ### Examples
 
+Symbol filters:
+
 *   `jiffies |panic` - keep just the symbols `jiffies` and `panic`
 *   `str*` - keep symbols beginning with `str` such as `strncpy_from_user`
 *   `!(*@* & ! *@@*`) - drop versioned symbols that are not the default versions
 *   ` !*@*|*@@*` - the same
 *   `:include & !:exclude ` - keep symbols that are in the symbol list file
     `include` but not in the symbol list file `exclude`
+
+File filters:
+
+*   `!*.cc` - exclude all type definitions found in source files named `*.cc`
+*   `*.h` - include only type definitions found in source files named `*.h`
 
 ## Deduplication
 

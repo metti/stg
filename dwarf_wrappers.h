@@ -114,6 +114,18 @@ class Handler {
   Dwarf* dwarf_ = nullptr;
 };
 
+class Files {
+ public:
+  Files() = default;
+  explicit Files(Entry& compilation_unit);
+  std::optional<std::string> MaybeGetFile(Entry& entry,
+                                          uint32_t attribute) const;
+
+ private:
+  Dwarf_Files* files_ = nullptr;
+  size_t files_count_ = 0;
+};
+
 }  // namespace dwarf
 }  // namespace stg
 

@@ -21,6 +21,7 @@
 #define STG_ELF_READER_H_
 
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -28,6 +29,7 @@
 #include <vector>
 
 #include "elf_loader.h"
+#include "filter.h"
 #include "graph.h"
 #include "metrics.h"
 #include "reader_options.h"
@@ -36,9 +38,9 @@ namespace stg {
 namespace elf {
 
 Id Read(Graph& graph, const std::string& path, ReadOptions options,
-        Metrics& metrics);
+        const std::unique_ptr<Filter>& file_filter, Metrics& metrics);
 Id Read(Graph& graph, char* data, size_t size, ReadOptions options,
-        Metrics& metrics);
+        const std::unique_ptr<Filter>& file_filter, Metrics& metrics);
 
 // For unit tests only
 namespace internal {

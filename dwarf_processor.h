@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "dwarf_wrappers.h"
+#include "filter.h"
 #include "graph.h"
 
 namespace stg {
@@ -47,11 +48,12 @@ struct Types {
 
 // Process every compilation unit from DWARF and returns processed STG along
 // with information needed for matching to ELF symbols.
-Types Process(Handler& dwarf, bool is_little_endian_binary, Graph& graph);
+Types Process(Handler& dwarf, bool is_little_endian_binary,
+              const std::unique_ptr<Filter>& file_filter, Graph& graph);
 
 // Process every entry passed there. It should be used only for testing.
 Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
-                     Graph& graph);
+                     const std::unique_ptr<Filter>& file_filter, Graph& graph);
 
 }  // namespace dwarf
 }  // namespace stg
