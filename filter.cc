@@ -43,10 +43,7 @@ namespace {
 using Items = std::unordered_set<std::string>;
 
 Items ReadAbigail(const std::string& filename) {
-  static constexpr std::array<std::string_view, 2> section_suffices = {
-    "symbol_list",
-    "whitelist",
-  };
+  static constexpr std::string_view kSectionSuffix = "list";
   Items items;
   std::ifstream file(filename);
   Check(file.good()) << "error opening filter file '" << filename << ": "
@@ -75,15 +72,11 @@ Items ReadAbigail(const std::string& filename) {
     // See if we are entering a filter list section.
     if (line[start] == '[' && line[limit - 1] == ']') {
       std::string_view section(&line[start + 1], limit - start - 2);
-      bool found = false;
-      for (const auto& suffix : section_suffices) {
-        if (section.size() >= suffix.size()
-            && section.substr(section.size() - suffix.size()) == suffix) {
-          found = true;
-          break;
-        }
-      }
-      in_filter_section = found;
+      // TODO: use std::string_view::ends_with
+      const auto section_size = section.size();
+      const auto suffix_size = kSectionSuffix.size();
+      in_filter_section = section_size >= suffix_size &&
+          section.substr(section_size - suffix_size) == kSectionSuffix;
       continue;
     }
     // Add item.
