@@ -474,7 +474,7 @@ void StripReachabilityAttributes(xmlNodePtr node) {
 void FixBadDwarfElfLinks(xmlNodePtr root) {
   std::unordered_map<std::string, size_t> elf_links;
 
-  // See which ELF symbol IDs might be affected by this issue.
+  // See which ELF symbol IDs have multiple declarations.
   const std::function<void(xmlNodePtr)> count = [&](xmlNodePtr node) {
     if (GetName(node) == "var-decl") {
       const auto symbol_id = GetAttribute(node, "elf-symbol-id");
@@ -495,11 +495,18 @@ void FixBadDwarfElfLinks(xmlNodePtr root) {
       const auto name = GetAttributeOrDie(node, "name");
       const auto mangled_name = GetAttribute(node, "mangled-name");
       const auto symbol_id = GetAttribute(node, "elf-symbol-id");
-      if (mangled_name && symbol_id && name == mangled_name.value()
-          && name != symbol_id.value() && elf_links[symbol_id.value()] > 1) {
-        Warn() << "fixing up ELF symbol for '" << name << "' (was '"
-               << symbol_id.value() << "')";
-        SetAttribute(node, "elf-symbol-id", name);
+      if (mangled_name && symbol_id && name != symbol_id.value()
+          && elf_links[symbol_id.value()] > 1) {
+        if (mangled_name.value() == name) {
+          Warn() << "fixing up ELF symbol for '" << name
+                 << "' (was '" << symbol_id.value() << "')";
+          SetAttribute(node, "elf-symbol-id", name);
+        } else if (mangled_name.value() == symbol_id.value()) {
+          Warn() << "fixing up mangled name and ELF symbol for '" << name
+                 << "' (was '" << symbol_id.value() << "')";
+          SetAttribute(node, "mangled-name", name);
+          SetAttribute(node, "elf-symbol-id", name);
+        }
       }
     }
 

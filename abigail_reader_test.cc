@@ -163,7 +163,8 @@ TEST_CASE("Tidy") {
       TidyTestCase(
           {"bad DWARF ELF link",
            {"abigail_bad_elf_dwarf_link_0.xml",
-            "abigail_bad_elf_dwarf_link_1.xml"}}),
+            "abigail_bad_elf_dwarf_link_1.xml",
+            "abigail_bad_elf_dwarf_link_2.xml"}}),
       TidyTestCase(
           {"anonymous type normalisation",
            {"abigail_anonymous_types_0.xml",
