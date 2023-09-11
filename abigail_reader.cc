@@ -560,8 +560,8 @@ void TidyAnonymousTypes(xmlNodePtr node) {
   }
 }
 
-// Remove duplicate data members.
-void RemoveDuplicateDataMembers(xmlNodePtr root) {
+// Remove duplicate members.
+void RemoveDuplicateMembers(xmlNodePtr root) {
   std::vector<xmlNodePtr> types;
 
   // find all structs and unions
@@ -578,28 +578,28 @@ void RemoveDuplicateDataMembers(xmlNodePtr root) {
   dfs(root);
 
   for (const auto& node : types) {
-    // filter data members
-    std::vector<xmlNodePtr> data_members;
+    // partition members by node name
+    std::map<std::string_view, std::vector<xmlNodePtr>> member_map;
     for (auto* child = Child(node); child; child = Next(child)) {
-      if (GetName(child) == "data-member") {
-        data_members.push_back(child);
-      }
+      member_map[GetName(child)].push_back(child);
     }
-    // remove identical duplicate data members - O(n^2)
-    for (size_t i = 0; i < data_members.size(); ++i) {
-      xmlNodePtr& i_node = data_members[i];
-      bool duplicate = false;
-      for (size_t j = 0; j < i; ++j) {
-        const xmlNodePtr& j_node = data_members[j];
-        if (j_node != nullptr && EqualTree(i_node, j_node)) {
-          duplicate = true;
-          break;
+    // for each kind of member...
+    for (auto& [name, members] : member_map) {
+      // ... remove identical duplicate members - O(n^2)
+      for (size_t i = 0; i < members.size(); ++i) {
+        xmlNodePtr& i_node = members[i];
+        bool duplicate = false;
+        for (size_t j = 0; j < i; ++j) {
+          const xmlNodePtr& j_node = members[j];
+          if (j_node != nullptr && EqualTree(i_node, j_node)) {
+            duplicate = true;
+            break;
+          }
         }
-      }
-      if (duplicate) {
-        Warn() << "found duplicate data-member";
-        RemoveNode(i_node);
-        i_node = nullptr;
+        if (duplicate) {
+          RemoveNode(i_node);
+          i_node = nullptr;
+        }
       }
     }
   }
@@ -764,8 +764,8 @@ void Tidy(xmlNodePtr root) {
   // Discard naming typedef backlinks.
   TidyAnonymousTypes(root);
 
-  // Remove duplicate data members.
-  RemoveDuplicateDataMembers(root);
+  // Remove duplicate members.
+  RemoveDuplicateMembers(root);
 
   // Eliminate complete duplicates and extra fragments of types.
   // Report conflicting duplicate defintions.
