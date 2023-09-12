@@ -2,17 +2,17 @@
 #
 # Copyright 2023 Google LLC
 #
-# Licensed under the Apache License v2.0 with LLVM Exceptions (the "License");
-# you may not use this file except in compliance with the License.  You may
-# obtain a copy of the License at
+# Licensed under the Apache License v2.0 with LLVM Exceptions (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
 #
-# https://llvm.org/LICENSE.txt
+#     https://llvm.org/LICENSE.txt
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-# License for the specific language governing permissions and limitations under
-# the License.
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Author: Aleksei Vetrov
 
@@ -43,7 +43,11 @@ find_package(LibDw REQUIRED)
 find_package(LibXml2 REQUIRED)
 find_package(Protobuf REQUIRED)
 
-set(COMMON_LIBRARIES LibElf::LibElf LibDw::LibDw LibXml2::LibXml2)
+set(COMMON_LIBRARIES
+    LibElf::LibElf
+    LibDw::LibDw
+    LibXml2::LibXml2
+    protobuf::libprotobuf)
 
 if(NOT Jemalloc_DISABLE)
   find_package(Jemalloc)
@@ -68,6 +72,7 @@ add_library(libstg OBJECT
   elf_reader.cc
   fidelity.cc
   file_descriptor.cc
+  filter.cc
   fingerprint.cc
   graph.cc
   input.cc
@@ -78,7 +83,6 @@ add_library(libstg OBJECT
   proto_writer.cc
   reporting.cc
   stable_hash.cc
-  symbol_filter.cc
   type_normalisation.cc
   type_resolution.cc
   unification.cc
@@ -86,13 +90,13 @@ add_library(libstg OBJECT
   ${PROTO_HDRS})
 # Needed for generated .pb.h files
 target_include_directories(libstg PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(libstg PRIVATE ${COMMON_LIBRARIES} protobuf::libprotobuf)
+target_link_libraries(libstg PRIVATE ${COMMON_LIBRARIES})
 
 set(STG_EXECUTABLE_TARGETS stg stgdiff stginfo)
 
 foreach(TARGET IN LISTS STG_EXECUTABLE_TARGETS)
   add_executable("${TARGET}" "${TARGET}.cc")
-  target_link_libraries("${TARGET}" PRIVATE ${COMMON_LIBRARIES} libstg)
+  target_link_libraries("${TARGET}" PRIVATE libstg)
 endforeach()
 
 # Installation and packaging

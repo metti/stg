@@ -23,10 +23,12 @@ Instructions are included for local and Docker builds.
 
 ### Local Build
 
-You can build as follows:
+STG can be built with CMake as follows:
 
 ```bash
-$ make
+$ mkdir build && cd build
+$ cmake ..
+$ cmake --build . --parallel
 ```
 
 ### Docker Build

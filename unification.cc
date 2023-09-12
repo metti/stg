@@ -157,7 +157,6 @@ struct Unifier {
   Winner operator()(const Method& x1, const Method& x2) {
     return x1.mangled_name == x2.mangled_name
         && x1.name == x2.name
-        && x1.kind == x2.kind
         && x1.vtable_offset == x2.vtable_offset
         && (*this)(x1.type_id, x2.type_id)
         ? Right : Neither;

@@ -82,7 +82,6 @@ struct Transform {
   Qualified::Qualifier operator()(stg::Qualifier);
   Primitive::Encoding operator()(stg::Primitive::Encoding);
   BaseClass::Inheritance operator()(stg::BaseClass::Inheritance);
-  Method::Kind operator()(stg::Method::Kind);
   StructUnion::Kind operator()(stg::StructUnion::Kind);
   ElfSymbol::SymbolType operator()(stg::ElfSymbol::SymbolType);
   ElfSymbol::Binding operator()(stg::ElfSymbol::Binding);
@@ -188,10 +187,7 @@ void Transform<MapId>::operator()(const stg::Method& x, uint32_t id) {
   method.set_id(id);
   method.set_mangled_name(x.mangled_name);
   method.set_name(x.name);
-  method.set_kind((*this)(x.kind));
-  if (x.vtable_offset) {
-    method.set_vtable_offset(*x.vtable_offset);
-  }
+  method.set_vtable_offset(x.vtable_offset);
   method.set_type_id((*this)(x.type_id));
 }
 
@@ -363,18 +359,6 @@ BaseClass::Inheritance Transform<MapId>::operator()(
       return BaseClass::NON_VIRTUAL;
     case stg::BaseClass::Inheritance::VIRTUAL:
       return BaseClass::VIRTUAL;
-  }
-}
-
-template <typename MapId>
-Method::Kind Transform<MapId>::operator()(stg::Method::Kind x) {
-  switch (x) {
-    case stg::Method::Kind::NON_VIRTUAL:
-      return Method::NON_VIRTUAL;
-    case stg::Method::Kind::STATIC:
-      return Method::STATIC;
-    case stg::Method::Kind::VIRTUAL:
-      return Method::VIRTUAL;
   }
 }
 

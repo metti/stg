@@ -83,7 +83,6 @@ struct Transformer {
   stg::Qualifier Transform(Qualified::Qualifier);
   stg::Primitive::Encoding Transform(Primitive::Encoding);
   stg::BaseClass::Inheritance Transform(BaseClass::Inheritance);
-  stg::Method::Kind Transform(Method::Kind);
   stg::StructUnion::Kind Transform(StructUnion::Kind);
   stg::ElfSymbol::SymbolType Transform(ElfSymbol::SymbolType);
   stg::ElfSymbol::Binding Transform(ElfSymbol::Binding);
@@ -184,10 +183,8 @@ void Transformer::AddNode(const BaseClass& x) {
 }
 
 void Transformer::AddNode(const Method& x) {
-  const auto& vtable_offset =
-      Transform<uint64_t>(x.has_vtable_offset(), x.vtable_offset());
-  AddNode<stg::Method>(GetId(x.id()), x.mangled_name(), x.name(), x.kind(),
-                       vtable_offset, GetId(x.type_id()));
+  AddNode<stg::Method>(GetId(x.id()), x.mangled_name(), x.name(),
+                       x.vtable_offset(), GetId(x.type_id()));
 }
 
 void Transformer::AddNode(const Member& x) {
@@ -358,19 +355,6 @@ stg::BaseClass::Inheritance Transformer::Transform(BaseClass::Inheritance x) {
       return stg::BaseClass::Inheritance::VIRTUAL;
     default:
       Die() << "unknown BaseClass::Inheritance " << x;
-  }
-}
-
-stg::Method::Kind Transformer::Transform(Method::Kind x) {
-  switch (x) {
-    case Method::NON_VIRTUAL:
-      return stg::Method::Kind::NON_VIRTUAL;
-    case Method::STATIC:
-      return stg::Method::Kind::STATIC;
-    case Method::VIRTUAL:
-      return stg::Method::Kind::VIRTUAL;
-    default:
-      Die() << "unknown Method::Kind " << x;
   }
 }
 

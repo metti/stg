@@ -9,7 +9,7 @@ one
   # next is with leading and trailing spaces
   two  
   # indented comment
-[not_a_list]
+[other_section]
 bad
 [symbol_list)
 bad

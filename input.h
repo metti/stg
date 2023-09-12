@@ -20,6 +20,9 @@
 #ifndef STG_INPUT_H_
 #define STG_INPUT_H_
 
+#include <memory>
+
+#include "filter.h"
 #include "graph.h"
 #include "metrics.h"
 #include "reader_options.h"
@@ -29,7 +32,8 @@ namespace stg {
 enum class InputFormat { ABI, BTF, ELF, STG };
 
 Id Read(Graph& graph, InputFormat format, const char* input,
-        ReadOptions options, Metrics& metrics);
+        ReadOptions options, const std::unique_ptr<Filter>& file_filter,
+        Metrics& metrics);
 
 }  // namespace stg
 
