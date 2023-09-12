@@ -17,17 +17,37 @@
 //
 // Author: Aleksei Vetrov
 
-#include "elf_reader.h"
+#include <string_view>
 
 #include <catch2/catch.hpp>
+#include "elf_loader.h"
+#include "elf_reader.h"
+#include "graph.h"
 
 namespace Test {
 
+using SymbolTable = stg::elf::internal::SymbolTable;
+using SymbolTableEntry = stg::elf::SymbolTableEntry;
+
+SymbolTableEntry MakeSymbol(std::string_view name) {
+  return {
+    .name = name,
+    .value = 0,
+    .size = 0,
+    .symbol_type = SymbolTableEntry::SymbolType::OBJECT,
+    .binding = SymbolTableEntry::Binding::GLOBAL,
+    .visibility = SymbolTableEntry::Visibility::DEFAULT,
+    .section_index = 0,
+    .value_type = SymbolTableEntry::ValueType::RELATIVE_TO_SECTION,
+  };
+}
+
+
 TEST_CASE("GetKsymtabSymbols") {
-  const stg::elf::internal::SymbolTable all_symbols = {
-      {.name = "foo"},
-      {.name = "__ksymtab_foo"},
-      {.name = "bar"},
+  const SymbolTable all_symbols = {
+    MakeSymbol("foo"),
+    MakeSymbol("__ksymtab_foo"),
+    MakeSymbol("bar"),
   };
   const auto ksymtab = stg::elf::internal::GetKsymtabSymbols(all_symbols);
   REQUIRE(ksymtab.size() == 1);
