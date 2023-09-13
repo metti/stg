@@ -83,7 +83,8 @@ int main(int argc, char* const argv[]) {
   try {
     stg::Graph graph;
     stg::Metrics metrics;
-    (void)stg::Read(graph, format, filename, opt_read_options, metrics);
+    (void)stg::Read(graph, format, filename, opt_read_options, nullptr,
+                    metrics);
   } catch (const stg::Exception& e) {
     std::cerr << e.what() << '\n';
     return 1;

@@ -24,8 +24,8 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <ios>
-#include <iostream>
+#include <cstdint>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -35,6 +35,7 @@
 
 #include "dwarf_wrappers.h"
 #include "error.h"
+#include "filter.h"
 #include "graph.h"
 #include "scope.h"
 
@@ -260,11 +261,13 @@ size_t GetDataBitOffset(Entry& entry, size_t bit_size,
 class Processor {
  public:
   Processor(Graph& graph, Id void_id, Id variadic_id,
-            bool is_little_endian_binary, Types& result)
+            bool is_little_endian_binary,
+            const std::unique_ptr<Filter>& file_filter, Types& result)
       : graph_(graph),
         void_id_(void_id),
         variadic_id_(variadic_id),
         is_little_endian_binary_(is_little_endian_binary),
+        file_filter_(file_filter),
         result_(result) {}
 
   void Process(Entry& entry) {
@@ -396,6 +399,9 @@ class Processor {
   }
 
   void ProcessCompileUnit(Entry& entry) {
+    if (file_filter_ != nullptr) {
+      files_ = dwarf::Files(entry);
+    }
     ProcessAllChildren(entry);
   }
 
@@ -446,11 +452,24 @@ class Processor {
     AddProcessedNode<Special>(entry, Special::Kind::NULLPTR);
   }
 
+  bool ShouldKeepDefinition(Entry& entry) const {
+    if (file_filter_ == nullptr) {
+      return true;
+    }
+    const auto file = files_.MaybeGetFile(entry, DW_AT_decl_file);
+    if (!file) {
+      Die() << "File filter is provided, but DWARF entry << "
+            << EntryToString(entry) << " << doesn't have DW_AT_decl_file";
+    }
+    return (*file_filter_)(*file);
+  }
+
   void ProcessStructUnion(Entry& entry, StructUnion::Kind kind) {
     std::string name = GetNameOrEmpty(entry);
     const std::string full_name = name.empty() ? std::string() : scope_ + name;
     const PushScopeName push_scope_name(scope_, kind, name);
 
+    std::vector<Id> base_classes;
     std::vector<Id> members;
     std::vector<Id> methods;
 
@@ -469,11 +488,11 @@ class Processor {
           }
           break;
         case DW_TAG_subprogram:
-          methods.push_back(GetIdForEntry(child));
-          ProcessMethod(child);
+          ProcessMethod(methods, child);
           break;
         case DW_TAG_inheritance:
-          // TODO: process base classes
+          base_classes.push_back(GetIdForEntry(child));
+          ProcessBaseClass(child);
           break;
         case DW_TAG_structure_type:
         case DW_TAG_class_type:
@@ -496,7 +515,7 @@ class Processor {
       }
     }
 
-    if (entry.GetFlag(DW_AT_declaration)) {
+    if (entry.GetFlag(DW_AT_declaration) || !ShouldKeepDefinition(entry)) {
       // Declaration may have partial information about members or method.
       // We only need to parse children for information that will be needed in
       // complete definition, but don't need to store them in incomplete node.
@@ -506,10 +525,8 @@ class Processor {
 
     const auto byte_size = GetByteSize(entry);
 
-    // TODO: support base classes
     const Id id = AddProcessedNode<StructUnion>(
-        entry, kind, full_name, byte_size,
-        /* base_classes = */ std::vector<Id>{},
+        entry, kind, full_name, byte_size, std::move(base_classes),
         std::move(methods), std::move(members));
     if (!full_name.empty()) {
       AddNamedTypeNode(id);
@@ -531,7 +548,7 @@ class Processor {
         GetDataBitOffset(entry, bit_size, is_little_endian_binary_), bit_size);
   }
 
-  void ProcessMethod(Entry& entry) {
+  void ProcessMethod(std::vector<Id>& methods, Entry& entry) {
     Subprogram subprogram = GetSubprogram(entry);
     auto id = graph_.Add<Function>(std::move(subprogram.node));
     if (subprogram.external && subprogram.address) {
@@ -545,22 +562,47 @@ class Processor {
           .address = *subprogram.address,
           .id = id});
     }
+    const auto virtuality = entry.MaybeGetUnsignedConstant(DW_AT_virtuality)
+                                 .value_or(DW_VIRTUALITY_none);
+    if (virtuality == DW_VIRTUALITY_virtual ||
+        virtuality == DW_VIRTUALITY_pure_virtual) {
+      if (!subprogram.name_with_context.unscoped_name) {
+        Die() << "Method " << EntryToString(entry) << " should have name";
+      }
+      if (subprogram.name_with_context.specification) {
+        Die() << "Method " << EntryToString(entry)
+              << " shouldn't have specification";
+      }
+      const auto vtable_offset = entry.MaybeGetVtableOffset();
+      if (!vtable_offset) {
+        Die() << "Virtual method " << EntryToString(entry)
+              << " should have offset";
+      }
+      // TODO: proper handling of missing linkage name
+      methods.push_back(AddProcessedNode<Method>(
+          entry, subprogram.linkage_name.value_or("{missing}"),
+          *subprogram.name_with_context.unscoped_name, *vtable_offset, id));
+    }
+  }
 
-    // TODO: support kind
-    const Method::Kind kind = Method::Kind::NON_VIRTUAL;
-    // TODO: support vtable_offset
-    if (!subprogram.name_with_context.unscoped_name) {
-      Die() << "Method " << EntryToString(entry) << " should have name";
+  void ProcessBaseClass(Entry& entry) {
+    const auto type_id = GetIdForReferredType(GetReferredType(entry));
+    const auto byte_offset = entry.MaybeGetMemberByteOffset();
+    if (!byte_offset) {
+      Die() << "No offset found for base class " << EntryToString(entry);
     }
-    if (subprogram.name_with_context.specification) {
-      Die() << "Method " << EntryToString(entry)
-            << " shouldn't have specification";
+    const auto bit_offset = *byte_offset * 8;
+    const auto virtuality = entry.MaybeGetUnsignedConstant(DW_AT_virtuality)
+                                 .value_or(DW_VIRTUALITY_none);
+    BaseClass::Inheritance inheritance;
+    if (virtuality == DW_VIRTUALITY_none) {
+      inheritance = BaseClass::Inheritance::NON_VIRTUAL;
+    } else if (virtuality == DW_VIRTUALITY_virtual) {
+      inheritance = BaseClass::Inheritance::VIRTUAL;
+    } else {
+      Die() << "Unexpected base class virtuality: " << virtuality;
     }
-    // TODO: proper handling of missing linkage name
-    AddProcessedNode<Method>(entry,
-                             subprogram.linkage_name.value_or("{missing}"),
-                             *subprogram.name_with_context.unscoped_name, kind,
-                             /* vtable_offset = */ std::nullopt, id);
+    AddProcessedNode<BaseClass>(entry, type_id, bit_offset, inheritance);
   }
 
   void ProcessArray(Entry& entry) {
@@ -618,6 +660,10 @@ class Processor {
       // signedness of underlying type.
       enumerators.emplace_back(enumerator_name,
                                static_cast<int64_t>(*value_optional));
+    }
+    if (!ShouldKeepDefinition(entry)) {
+      AddProcessedNode<Enumeration>(entry, name);
+      return;
     }
     const Id id = AddProcessedNode<Enumeration>(entry, name, underlying_type_id,
                                                 std::move(enumerators));
@@ -741,7 +787,7 @@ class Processor {
     Function node;
     NameWithContext name_with_context;
     std::optional<std::string> linkage_name;
-    std::optional<size_t> address;
+    std::optional<Address> address;
     bool external;
   };
 
@@ -843,21 +889,23 @@ class Processor {
   Id void_id_;
   Id variadic_id_;
   bool is_little_endian_binary_;
+  const std::unique_ptr<Filter>& file_filter_;
   Types& result_;
   std::unordered_map<Dwarf_Off, Id> id_map_;
   // Current scope.
   Scope scope_;
   std::vector<std::pair<Dwarf_Off, std::string>> scoped_names_;
   std::vector<std::pair<Dwarf_Off, size_t>> unresolved_symbol_specifications_;
+  dwarf::Files files_;
 };
 
 Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
-                     Graph& graph) {
+                     const std::unique_ptr<Filter>& file_filter, Graph& graph) {
   Types result;
   const Id void_id = graph.Add<Special>(Special::Kind::VOID);
   const Id variadic_id = graph.Add<Special>(Special::Kind::VARIADIC);
   Processor processor(graph, void_id, variadic_id, is_little_endian_binary,
-                      result);
+                      file_filter, result);
   for (auto& entry : entries) {
     processor.Process(entry);
   }
@@ -867,9 +915,10 @@ Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
   return result;
 }
 
-Types Process(Handler& dwarf, bool is_little_endian_binary, Graph& graph) {
+Types Process(Handler& dwarf, bool is_little_endian_binary,
+              const std::unique_ptr<Filter>& file_filter, Graph& graph) {
   return ProcessEntries(dwarf.GetCompilationUnits(), is_little_endian_binary,
-                        graph);
+                        file_filter, graph);
 }
 
 }  // namespace dwarf

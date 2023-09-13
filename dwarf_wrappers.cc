@@ -30,6 +30,7 @@
 #include <ios>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -38,6 +39,10 @@
 
 namespace stg {
 namespace dwarf {
+
+std::ostream& operator<<(std::ostream& os, const Address& address) {
+  return os << Hex(address.value) << (address.is_tls ? " (TLS)" : "");
+}
 
 namespace {
 
@@ -87,6 +92,51 @@ void CheckOrDwflError(bool condition, const char* caller) {
     }
     Die() << caller << " returned error: " << errmsg;
   }
+}
+
+std::optional<uint64_t> MaybeGetUnsignedOperand(const Dwarf_Op& operand) {
+  switch (operand.atom) {
+    case DW_OP_addr:
+    case DW_OP_const1u:
+    case DW_OP_const2u:
+    case DW_OP_const4u:
+    case DW_OP_const8u:
+    case DW_OP_constu:
+      return operand.number;
+    case DW_OP_const1s:
+    case DW_OP_const2s:
+    case DW_OP_const4s:
+    case DW_OP_const8s:
+    case DW_OP_consts:
+      if (static_cast<int64_t>(operand.number) < 0) {
+        // Atom is not an unsigned constant
+        return std::nullopt;
+      }
+      return operand.number;
+    case DW_OP_lit0...DW_OP_lit31:
+      return operand.atom - DW_OP_lit0;
+    default:
+      return std::nullopt;
+  }
+}
+
+struct Expression {
+  const Dwarf_Op& operator[](size_t i) const {
+    return atoms[i];
+  }
+
+  Dwarf_Op* atoms = nullptr;
+  size_t length = 0;
+};
+
+Expression GetExpression(Dwarf_Attribute& attribute) {
+  Expression result;
+
+  Check(dwarf_getlocation(&attribute, &result.atoms, &result.length) ==
+        kReturnOk) << "dwarf_getlocation returned error";
+  Check(result.atoms != nullptr && result.length > 0)
+      << "dwarf_getlocation returned empty expression";
+  return result;
 }
 
 }  // namespace
@@ -246,32 +296,33 @@ std::optional<Entry> Entry::MaybeGetReference(uint32_t attribute) {
 
 namespace {
 
-std::optional<uint64_t> GetAddressFromLocation(Dwarf_Attribute& attribute) {
-  Dwarf_Op* expr = nullptr;
-  size_t expr_len = 0;
-
-  Check(dwarf_getlocation(&attribute, &expr, &expr_len) == kReturnOk)
-      << "dwarf_getlocation returned error";
-  Check(expr != nullptr && expr_len > 0)
-      << "dwarf_getlocation returned empty expression";
+std::optional<Address> GetAddressFromLocation(Dwarf_Attribute& attribute) {
+  const auto expression = GetExpression(attribute);
 
   Dwarf_Attribute result_attribute;
-  if (dwarf_getlocation_attr(&attribute, expr, &result_attribute) ==
+  if (dwarf_getlocation_attr(&attribute, expression.atoms, &result_attribute) ==
       kReturnOk) {
-    uint64_t addr;
-    Check(dwarf_formaddr(&result_attribute, &addr) == kReturnOk)
+    uint64_t address;
+    Check(dwarf_formaddr(&result_attribute, &address) == kReturnOk)
         << "dwarf_formaddr returned error";
-    return addr;
+    return Address{.value = address, .is_tls = false};
   }
-  if (expr_len == 1 && expr->atom == DW_OP_addr) {
+  if (expression.length == 1 && expression[0].atom == DW_OP_addr) {
     // DW_OP_addr is unsupported by dwarf_getlocation_attr, so we need to
     // manually extract the address from expression.
-    return expr->number;
+    return Address{.value = expression[0].number, .is_tls = false};
   }
-  if (expr_len == 2 && (expr[1].atom == DW_OP_GNU_push_tls_address ||
-                        expr[1].atom == DW_OP_form_tls_address)) {
-    // We don't handle TLS location expressions.
-    return {};
+  // TLS operation has different encodings in Clang and GCC:
+  // * Clang 14 uses DW_OP_GNU_push_tls_address
+  // * GCC 12 uses DW_OP_form_tls_address
+  if (expression.length == 2 &&
+      (expression[1].atom == DW_OP_GNU_push_tls_address ||
+       expression[1].atom == DW_OP_form_tls_address)) {
+    // TLS symbols address may be incorrect because of unsupported
+    // relocations. Resetting it to zero the same way as it is done in
+    // elf::Reader::MaybeAddTypeInfo.
+    // TODO: match TLS variables by address
+    return Address{.value = 0, .is_tls = true};
   }
 
   Die() << "Unsupported data location expression";
@@ -279,7 +330,7 @@ std::optional<uint64_t> GetAddressFromLocation(Dwarf_Attribute& attribute) {
 
 }  // namespace
 
-std::optional<uint64_t> Entry::MaybeGetAddress(uint32_t attribute) {
+std::optional<Address> Entry::MaybeGetAddress(uint32_t attribute) {
   auto dwarf_attribute = GetAttribute(&die, attribute);
   if (!dwarf_attribute) {
     return {};
@@ -288,10 +339,11 @@ std::optional<uint64_t> Entry::MaybeGetAddress(uint32_t attribute) {
     return GetAddressFromLocation(*dwarf_attribute);
   }
 
-  uint64_t addr;
-  Check(dwarf_formaddr(&dwarf_attribute.value(), &addr) == kReturnOk)
+  Address address;
+  Check(dwarf_formaddr(&dwarf_attribute.value(), &address.value) == kReturnOk)
       << "dwarf_formaddr returned error";
-  return addr;
+  address.is_tls = false;
+  return address;
 }
 
 std::optional<uint64_t> Entry::MaybeGetMemberByteOffset() {
@@ -306,8 +358,52 @@ std::optional<uint64_t> Entry::MaybeGetMemberByteOffset() {
     return offset;
   }
 
-  // TODO: support location expressions
-  Die() << "dwarf_formudata returned error, " << std::hex << GetOffset();
+  // Parse location expression
+  const auto expression = GetExpression(attribute.value());
+
+  // Parse virtual base classes offset, which looks like this:
+  //   [0] = DW_OP_dup
+  //   [1] = DW_OP_deref
+  //   [2] = constant operand
+  //   [3] = DW_OP_minus
+  //   [4] = DW_OP_deref
+  //   [5] = DW_OP_plus
+  // This form is not in the standard, but hardcoded in compilers:
+  //   * https://github.com/llvm/llvm-project/blob/release/17.x/llvm/lib/CodeGen/AsmPrinter/DwarfUnit.cpp#L1611
+  //   * https://github.com/gcc-mirror/gcc/blob/releases/gcc-13/gcc/dwarf2out.cc#L20029
+  if (expression.length == 6 &&
+      expression[0].atom == DW_OP_dup &&
+      expression[1].atom == DW_OP_deref &&
+      expression[3].atom == DW_OP_minus &&
+      expression[4].atom == DW_OP_deref &&
+      expression[5].atom == DW_OP_plus) {
+    const auto byte_offset = MaybeGetUnsignedOperand(expression[2]);
+    if (byte_offset) {
+      return byte_offset;
+    }
+  }
+
+  Die() << "Unsupported member offset expression, " << Hex(GetOffset());
+}
+
+std::optional<uint64_t> Entry::MaybeGetVtableOffset() {
+  auto attribute = GetAttribute(&die, DW_AT_vtable_elem_location);
+  if (!attribute) {
+    return {};
+  }
+
+  // Parse location expression
+  const Expression expression = GetExpression(attribute.value());
+
+  // We expect compilers to produce expression with one constant operand
+  if (expression.length == 1) {
+    const auto offset = MaybeGetUnsignedOperand(expression[0]);
+    if (offset) {
+      return offset;
+    }
+  }
+
+  Die() << "Unsupported vtable offset expression, " << Hex(GetOffset());
 }
 
 std::optional<uint64_t> Entry::MaybeGetCount() {
@@ -326,6 +422,29 @@ std::optional<uint64_t> Entry::MaybeGetCount() {
     return {};
   }
   return value;
+}
+
+Files::Files(Entry& compilation_unit) {
+  if (dwarf_getsrcfiles(&compilation_unit.die, &files_, &files_count_) !=
+      kReturnOk) {
+    Die() << "No source file information in DWARF";
+  }
+}
+
+std::optional<std::string> Files::MaybeGetFile(Entry& entry,
+                                               uint32_t attribute) const {
+  auto file_index = entry.MaybeGetUnsignedConstant(attribute);
+  if (!file_index) {
+    return std::nullopt;
+  }
+  Check(files_ != nullptr) << "dwarf::Files was not initialised";
+  if (*file_index >= files_count_) {
+    Die() << "File index is greater than or equal files count (" << *file_index
+          << " >= " << files_count_ << ")";
+  }
+  const char* result = dwarf_filesrc(files_, *file_index, nullptr, nullptr);
+  Check(result != nullptr) << "dwarf_filesrc returned error";
+  return result;
 }
 
 }  // namespace dwarf

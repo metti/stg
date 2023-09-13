@@ -43,6 +43,7 @@
 #include <vector>
 
 #include <libxml/parser.h>
+#include <libxml/tree.h>
 #include "error.h"
 #include "file_descriptor.h"
 #include "graph.h"
@@ -118,8 +119,8 @@ std::string GetAttributeOrDie(xmlNodePtr node, const char* name) {
 }
 
 // Set an attribute value.
-void SetAttribute(xmlNodePtr node, const char* name, const char* value) {
-  xmlSetProp(node, ToLibxml(name), ToLibxml(value));
+void SetAttribute(xmlNodePtr node, const char* name, const std::string &value) {
+  xmlSetProp(node, ToLibxml(name), ToLibxml(value.c_str()));
 }
 
 // Unset an attribute value.
@@ -463,6 +464,59 @@ void StripReachabilityAttributes(xmlNodePtr node) {
   }
 }
 
+// Fix bad DWARF -> ELF links caused by size zero symbol confusion.
+//
+// libabigail used to be confused by these sorts of symbols, resulting in
+// declarations pointing at the wrong ELF symbols:
+//
+// 573623: ffffffc0122383c0   256 OBJECT  GLOBAL DEFAULT   33 vm_node_stat
+// 573960: ffffffc0122383c0     0 OBJECT  GLOBAL DEFAULT   33 vm_numa_stat
+void FixBadDwarfElfLinks(xmlNodePtr root) {
+  std::unordered_map<std::string, size_t> elf_links;
+
+  // See which ELF symbol IDs have multiple declarations.
+  const std::function<void(xmlNodePtr)> count = [&](xmlNodePtr node) {
+    if (GetName(node) == "var-decl") {
+      const auto symbol_id = GetAttribute(node, "elf-symbol-id");
+      if (symbol_id) {
+        ++elf_links[symbol_id.value()];
+      }
+    }
+
+    for (auto* child = Child(node); child; child = Next(child)) {
+      count(child);
+    }
+  };
+  count(root);
+
+  // Fix up likely bad links from DWARF declaration to ELF symbol.
+  const std::function<void(xmlNodePtr)> fix = [&](xmlNodePtr node) {
+    if (GetName(node) == "var-decl") {
+      const auto name = GetAttributeOrDie(node, "name");
+      const auto mangled_name = GetAttribute(node, "mangled-name");
+      const auto symbol_id = GetAttribute(node, "elf-symbol-id");
+      if (mangled_name && symbol_id && name != symbol_id.value()
+          && elf_links[symbol_id.value()] > 1) {
+        if (mangled_name.value() == name) {
+          Warn() << "fixing up ELF symbol for '" << name
+                 << "' (was '" << symbol_id.value() << "')";
+          SetAttribute(node, "elf-symbol-id", name);
+        } else if (mangled_name.value() == symbol_id.value()) {
+          Warn() << "fixing up mangled name and ELF symbol for '" << name
+                 << "' (was '" << symbol_id.value() << "')";
+          SetAttribute(node, "mangled-name", name);
+          SetAttribute(node, "elf-symbol-id", name);
+        }
+      }
+    }
+
+    for (auto* child = Child(node); child; child = Next(child)) {
+      fix(child);
+    }
+  };
+  fix(root);
+}
+
 // Tidy anonymous types in various ways.
 //
 // 1. Normalise anonymous type names by dropping the name attribute.
@@ -506,8 +560,8 @@ void TidyAnonymousTypes(xmlNodePtr node) {
   }
 }
 
-// Remove duplicate data members.
-void RemoveDuplicateDataMembers(xmlNodePtr root) {
+// Remove duplicate members.
+void RemoveDuplicateMembers(xmlNodePtr root) {
   std::vector<xmlNodePtr> types;
 
   // find all structs and unions
@@ -524,28 +578,28 @@ void RemoveDuplicateDataMembers(xmlNodePtr root) {
   dfs(root);
 
   for (const auto& node : types) {
-    // filter data members
-    std::vector<xmlNodePtr> data_members;
+    // partition members by node name
+    std::map<std::string_view, std::vector<xmlNodePtr>> member_map;
     for (auto* child = Child(node); child; child = Next(child)) {
-      if (GetName(child) == "data-member") {
-        data_members.push_back(child);
-      }
+      member_map[GetName(child)].push_back(child);
     }
-    // remove identical duplicate data members - O(n^2)
-    for (size_t i = 0; i < data_members.size(); ++i) {
-      xmlNodePtr& i_node = data_members[i];
-      bool duplicate = false;
-      for (size_t j = 0; j < i; ++j) {
-        const xmlNodePtr& j_node = data_members[j];
-        if (j_node != nullptr && EqualTree(i_node, j_node)) {
-          duplicate = true;
-          break;
+    // for each kind of member...
+    for (auto& [name, members] : member_map) {
+      // ... remove identical duplicate members - O(n^2)
+      for (size_t i = 0; i < members.size(); ++i) {
+        xmlNodePtr& i_node = members[i];
+        bool duplicate = false;
+        for (size_t j = 0; j < i; ++j) {
+          const xmlNodePtr& j_node = members[j];
+          if (j_node != nullptr && EqualTree(i_node, j_node)) {
+            duplicate = true;
+            break;
+          }
         }
-      }
-      if (duplicate) {
-        Warn() << "found duplicate data-member";
-        RemoveNode(i_node);
-        i_node = nullptr;
+        if (duplicate) {
+          RemoveNode(i_node);
+          i_node = nullptr;
+        }
       }
     }
   }
@@ -702,13 +756,16 @@ namespace {
 
 // Transform XML elements to improve their semantics.
 void Tidy(xmlNodePtr root) {
+  // Fix bad ELF symbol links
+  FixBadDwarfElfLinks(root);
+
   // Normalise anonymous type names.
   // Reanonymise anonymous types.
   // Discard naming typedef backlinks.
   TidyAnonymousTypes(root);
 
-  // Remove duplicate data members.
-  RemoveDuplicateDataMembers(root);
+  // Remove duplicate members.
+  RemoveDuplicateMembers(root);
 
   // Eliminate complete duplicates and extra fragments of types.
   // Report conflicting duplicate defintions.
@@ -1079,7 +1136,7 @@ void Abigail::ProcessStructUnion(Id id, bool is_struct,
     } else if (child_name == "base-class") {
       base_classes.push_back(ProcessBaseClass(child));
     } else if (child_name == "member-function") {
-      methods.push_back(ProcessMemberFunction(child));
+      ProcessMemberFunction(methods, child);
     } else {
       Die() << "unrecognised " << kind << "-decl child element '" << child_name
             << "'";
@@ -1148,20 +1205,20 @@ std::optional<Id> Abigail::ProcessDataMember(bool is_struct,
   return {graph_.Add<Member>(name, type, offset, 0)};
 }
 
-Id Abigail::ProcessMemberFunction(xmlNodePtr method) {
+void Abigail::ProcessMemberFunction(std::vector<Id>& methods,
+                                    xmlNodePtr method) {
   xmlNodePtr decl = GetOnlyChild(method);
   CheckName("function-decl", decl);
-  static const std::string missing = "{missing}";
-  const auto mangled_name = ReadAttribute(decl, "mangled-name", missing);
-  const auto name = GetAttributeOrDie(decl, "name");
+  // ProcessDecl creates symbol references so must be called unconditionally.
   const auto type = ProcessDecl(false, decl);
   const auto vtable_offset = ReadAttribute<uint64_t>(method, "vtable-offset");
-  const auto kind = vtable_offset
-                    ? Method::Kind::VIRTUAL
-                    : ReadAttribute<bool>(method, "static", false)
-                       ? Method::Kind::STATIC
-                       : Method::Kind::NON_VIRTUAL;
-  return graph_.Add<Method>(mangled_name, name, kind, vtable_offset, type);
+  if (vtable_offset) {
+    static const std::string missing = "{missing}";
+    const auto mangled_name = ReadAttribute(decl, "mangled-name", missing);
+    const auto name = GetAttributeOrDie(decl, "name");
+    methods.push_back(
+        graph_.Add<Method>(mangled_name, name, vtable_offset.value(), type));
+  }
 }
 
 void Abigail::ProcessMemberType(xmlNodePtr member_type) {

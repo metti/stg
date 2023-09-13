@@ -29,6 +29,7 @@
 #include <cstring>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -282,6 +283,68 @@ Elf_Scn* GetSymbolTableSection(Elf* elf, bool is_linux_kernel_binary,
         << "'";
 }
 
+
+constexpr std::string_view kCFISuffix = ".cfi";
+
+bool IsCFISymbolName(std::string_view name) {
+  // Check if symbol name ends with ".cfi"
+  // TODO: use std::string_view::ends_with
+  return (name.size() >= kCFISuffix.size() &&
+          name.substr(name.size() - kCFISuffix.size()) == kCFISuffix);
+}
+
+}  // namespace
+
+std::string_view UnwrapCFISymbolName(std::string_view cfi_name) {
+  Check(IsCFISymbolName(cfi_name))
+      << "CFI symbol " << cfi_name << " doesn't end with .cfi";
+  return cfi_name.substr(0, cfi_name.size() - kCFISuffix.size());
+}
+
+namespace {
+
+std::vector<SymbolTableEntry> GetSymbols(
+    Elf* elf, Elf_Scn* symbol_table_section, bool cfi) {
+  const auto machine = GetMachine(elf);
+  const auto [symbol_table_header, symbol_table_data] =
+      GetSectionInfo(symbol_table_section);
+  const size_t number_of_symbols = GetNumberOfEntries(symbol_table_header);
+
+  std::vector<SymbolTableEntry> result;
+  result.reserve(number_of_symbols);
+
+  // GElf uses int for indexes in symbol table, prevent int overflow.
+  Check(number_of_symbols <= std::numeric_limits<int>::max())
+      << "number of symbols exceeds INT_MAX";
+  for (size_t i = 0; i < number_of_symbols; ++i) {
+    GElf_Sym symbol;
+    Check(gelf_getsym(symbol_table_data, static_cast<int>(i), &symbol) !=
+          nullptr)
+        << "symbol (i = " << i << ") was not found";
+
+    const auto name =
+        GetString(elf, symbol_table_header.sh_link, symbol.st_name);
+    if (cfi != IsCFISymbolName(name)) {
+      continue;
+    }
+    SymbolTableEntry entry{
+        .name = name,
+        .value = symbol.st_value,
+        .size = symbol.st_size,
+        .symbol_type = ParseSymbolType(GELF_ST_TYPE(symbol.st_info)),
+        .binding = ParseSymbolBinding(GELF_ST_BIND(symbol.st_info)),
+        .visibility =
+            ParseSymbolVisibility(GELF_ST_VISIBILITY(symbol.st_other)),
+        .section_index = symbol.st_shndx,
+        .value_type = ParseSymbolValueType(symbol.st_shndx),
+    };
+    AdjustAddress(machine, entry);
+    result.push_back(entry);
+  }
+
+  return result;
+}
+
 bool IsLinuxKernelBinary(Elf* elf) {
   // The Linux kernel itself has many specific sections that are sufficient to
   // classify a binary as kernel binary if present, `__ksymtab_strings` is one
@@ -384,43 +447,25 @@ std::string_view ElfLoader::GetBtfRawData() const {
 }
 
 std::vector<SymbolTableEntry> ElfLoader::GetElfSymbols() const {
-  const auto machine = GetMachine(elf_);
-
   Elf_Scn* symbol_table_section =
       GetSymbolTableSection(elf_, is_linux_kernel_binary_, verbose_);
   Check(symbol_table_section != nullptr)
       << "failed to find symbol table section";
 
-  const auto [symbol_table_header, symbol_table_data] =
-      GetSectionInfo(symbol_table_section);
-  const size_t number_of_symbols = GetNumberOfEntries(symbol_table_header);
+  return GetSymbols(elf_, symbol_table_section, /* cfi = */ false);
+}
 
-  std::vector<SymbolTableEntry> result;
-  result.reserve(number_of_symbols);
-
-  for (size_t i = 0; i < number_of_symbols; ++i) {
-    GElf_Sym symbol;
-    Check(gelf_getsym(symbol_table_data, i, &symbol) != nullptr)
-        << "symbol (i = " << i << ") was not found";
-
-    const auto name =
-        GetString(elf_, symbol_table_header.sh_link, symbol.st_name);
-    SymbolTableEntry entry{
-        .name = name,
-        .value = symbol.st_value,
-        .size = symbol.st_size,
-        .symbol_type = ParseSymbolType(GELF_ST_TYPE(symbol.st_info)),
-        .binding = ParseSymbolBinding(GELF_ST_BIND(symbol.st_info)),
-        .visibility =
-            ParseSymbolVisibility(GELF_ST_VISIBILITY(symbol.st_other)),
-        .section_index = symbol.st_shndx,
-        .value_type = ParseSymbolValueType(symbol.st_shndx),
-    };
-    AdjustAddress(machine, entry);
-    result.push_back(entry);
+std::vector<SymbolTableEntry> ElfLoader::GetCFISymbols() const {
+  // CFI symbols may be only in .symtab
+  Elf_Scn* symbol_table_section = MaybeGetSectionByType(elf_, SHT_SYMTAB);
+  if (symbol_table_section == nullptr) {
+    // It is possible for ET_DYN and ET_EXEC ELF binaries to not have .symtab,
+    // because it was trimmed away. We can't determine whether there were CFI
+    // symbols in the first place, so the best we can do is returning an empty
+    // list.
+    return {};
   }
-
-  return result;
+  return GetSymbols(elf_, symbol_table_section, /* cfi = */ true);
 }
 
 ElfSymbol::CRC ElfLoader::GetElfSymbolCRC(

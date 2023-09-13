@@ -15,6 +15,9 @@
       <data-member access='public' layout-offset-in-bits='32'>
         <var-decl name='' type-id='e7f43f72' visibility='default'/>
       </data-member>
+      <data-member access='public' layout-offset-in-bits='32'>
+        <var-decl name='' type-id='e7f43f72' visibility='default'/>
+      </data-member>
     </class-decl>
     <class-decl name='__anonymous_struct__' size-in-bits='32' is-struct='yes' is-anonymous='yes' visibility='default' id='e7f43f72'>
       <data-member access='public' layout-offset-in-bits='0'>

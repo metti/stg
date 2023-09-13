@@ -143,19 +143,11 @@ message BaseClass {
 }
 
 message Method {
-  enum Kind {
-    KIND_UNSPECIFIED = 0;
-    NON_VIRTUAL = 1;
-    STATIC = 2;
-    VIRTUAL = 3;
-  }
-
   fixed32 id = 1;
   string mangled_name = 2;
   string name = 3;
-  Kind kind = 4;
-  optional uint64 vtable_offset = 5;
-  fixed32 type_id = 6;
+  uint64 vtable_offset = 4;
+  fixed32 type_id = 5;
 }
 
 message Member {

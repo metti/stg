@@ -113,7 +113,7 @@ HashValue StableHash::operator()(const BaseClass& x) {
 }
 
 HashValue StableHash::operator()(const Method& x) {
-  return hash_(x.mangled_name, static_cast<uint32_t>(x.kind));
+  return hash_(x.mangled_name);
 }
 
 HashValue StableHash::operator()(const Member& x) {

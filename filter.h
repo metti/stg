@@ -17,34 +17,28 @@
 //
 // Author: Giuliano Procida
 
-#ifndef STG_SYMBOL_FILTER_H_
-#define STG_SYMBOL_FILTER_H_
+#ifndef STG_FILTER_H_
+#define STG_FILTER_H_
 
-#include <iostream>
 #include <memory>
 #include <ostream>
 #include <string>
-#include <unordered_set>
-
-#include "error.h"
 
 namespace stg {
 
-using SymbolSet = std::unordered_set<std::string>;
-
-// Abstract base class for filtering symbols.
-class SymbolFilter {
+// Abstract base class for filtering.
+class Filter {
  public:
-  virtual ~SymbolFilter() = default;
+  virtual ~Filter() = default;
   // Filter predicate evaluation.
-  virtual bool operator()(const std::string& symbol) const = 0;
+  virtual bool operator()(const std::string& item) const = 0;
 };
 
-// Tokenise and parse a symbol filter expression.
-std::unique_ptr<SymbolFilter> MakeSymbolFilter(const std::string& filter);
+// Tokenise and parse a filter expression.
+std::unique_ptr<Filter> MakeFilter(const std::string& filter);
 
-void SymbolFilterUsage(std::ostream& os);
+void FilterUsage(std::ostream& os);
 
 }  // namespace stg
 
-#endif  // STG_SYMBOL_FILTER_H_
+#endif  // STG_FILTER_H_

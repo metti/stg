@@ -17,7 +17,7 @@
 //
 // Author: Giuliano Procida
 
-#include "symbol_filter.h"
+#include "filter.h"
 
 #include <fnmatch.h>
 
@@ -32,6 +32,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 
 #include "error.h"
@@ -39,16 +40,15 @@
 namespace stg {
 namespace {
 
-SymbolSet ReadAbigail(const std::string& filename) {
-  static constexpr std::array<std::string_view, 2> section_suffices = {
-    "symbol_list",
-    "whitelist",
-  };
-  SymbolSet symbols;
+using Items = std::unordered_set<std::string>;
+
+Items ReadAbigail(const std::string& filename) {
+  static constexpr std::string_view kSectionSuffix = "list";
+  Items items;
   std::ifstream file(filename);
-  Check(file.good()) << "error opening symbol file '" << filename << ": "
+  Check(file.good()) << "error opening filter file '" << filename << ": "
                      << Error(errno);
-  bool in_symbol_section = false;
+  bool in_filter_section = false;
   std::string line;
   while (std::getline(file, line)) {
     size_t start = 0;
@@ -69,100 +69,97 @@ SymbolSet ReadAbigail(const std::string& filename) {
     if (start == limit) {
       continue;
     }
-    // See if we are entering a symbol list section.
+    // See if we are entering a filter list section.
     if (line[start] == '[' && line[limit - 1] == ']') {
       std::string_view section(&line[start + 1], limit - start - 2);
-      bool found = false;
-      for (const auto& suffix : section_suffices) {
-        if (section.size() >= suffix.size()
-            && section.substr(section.size() - suffix.size()) == suffix) {
-          found = true;
-          break;
-        }
-      }
-      in_symbol_section = found;
+      // TODO: use std::string_view::ends_with
+      const auto section_size = section.size();
+      const auto suffix_size = kSectionSuffix.size();
+      in_filter_section = section_size >= suffix_size &&
+          section.substr(section_size - suffix_size) == kSectionSuffix;
       continue;
     }
-    // Add symbol.
-    if (in_symbol_section) {
-      symbols.insert(std::string(&line[start], limit - start));
+    // Add item.
+    if (in_filter_section) {
+      items.insert(std::string(&line[start], limit - start));
     }
   }
-  Check(file.eof()) << "error reading symbol file '" << filename << ": "
+  Check(file.eof()) << "error reading filter file '" << filename << ": "
                     << Error(errno);
-  return symbols;
+  return items;
 }
 
-// Inverted symbol filter.
-class NotFilter : public SymbolFilter {
+// Inverted filter.
+class NotFilter : public Filter {
  public:
-  NotFilter(std::unique_ptr<SymbolFilter> filter)
+  explicit NotFilter(std::unique_ptr<Filter> filter)
       : filter_(std::move(filter)) {}
-  bool operator()(const std::string& symbol) const final {
-    return !(*filter_)(symbol);
+  bool operator()(const std::string& item) const final {
+    return !(*filter_)(item);
   };
 
  private:
-  const std::unique_ptr<SymbolFilter> filter_;
+  const std::unique_ptr<Filter> filter_;
 };
 
-// Conjunction of symbol filters.
-class AndFilter : public SymbolFilter {
+// Conjunction of filters.
+class AndFilter : public Filter {
  public:
-  AndFilter(std::unique_ptr<SymbolFilter> filter1,
-            std::unique_ptr<SymbolFilter> filter2)
+  AndFilter(std::unique_ptr<Filter> filter1,
+            std::unique_ptr<Filter> filter2)
       : filter1_(std::move(filter1)), filter2_(std::move(filter2)) {}
-  bool operator()(const std::string& symbol) const final {
-    return (*filter1_)(symbol) && (*filter2_)(symbol);
+  bool operator()(const std::string& item) const final {
+    return (*filter1_)(item) && (*filter2_)(item);
   };
 
  private:
-  const std::unique_ptr<SymbolFilter> filter1_;
-  const std::unique_ptr<SymbolFilter> filter2_;
+  const std::unique_ptr<Filter> filter1_;
+  const std::unique_ptr<Filter> filter2_;
 };
 
-// Disjunction of symbol filters.
-class OrFilter : public SymbolFilter {
+// Disjunction of filters.
+class OrFilter : public Filter {
  public:
-  OrFilter(std::unique_ptr<SymbolFilter> filter1,
-           std::unique_ptr<SymbolFilter> filter2)
+  OrFilter(std::unique_ptr<Filter> filter1,
+           std::unique_ptr<Filter> filter2)
       : filter1_(std::move(filter1)), filter2_(std::move(filter2)) {}
-  bool operator()(const std::string& symbol) const final {
-    return (*filter1_)(symbol) || (*filter2_)(symbol);
+  bool operator()(const std::string& item) const final {
+    return (*filter1_)(item) || (*filter2_)(item);
   };
 
  private:
-  const std::unique_ptr<SymbolFilter> filter1_;
-  const std::unique_ptr<SymbolFilter> filter2_;
+  const std::unique_ptr<Filter> filter1_;
+  const std::unique_ptr<Filter> filter2_;
 };
 
-// Glob symbol filter.
-class GlobFilter : public SymbolFilter {
+// Glob filter.
+class GlobFilter : public Filter {
  public:
-  GlobFilter(const std::string& pattern) : pattern_(pattern) {}
-  bool operator()(const std::string& symbol) const final {
-    return fnmatch(pattern_.c_str(), symbol.c_str(), 0) == 0;
+  explicit GlobFilter(const std::string& pattern) : pattern_(pattern) {}
+  bool operator()(const std::string& item) const final {
+    return fnmatch(pattern_.c_str(), item.c_str(), 0) == 0;
   }
 
  private:
   const std::string pattern_;
 };
 
-// Literal symbol list symbol filter.
-class SetFilter : public SymbolFilter {
+// Literal list filter.
+class SetFilter : public Filter {
  public:
-  SetFilter(SymbolSet&& symbols) : symbols_(std::move(symbols)) {}
-  bool operator()(const std::string& symbol) const final {
-    return symbols_.count(symbol);
+  explicit SetFilter(Items&& items)
+      : items_(std::move(items)) {}
+  bool operator()(const std::string& item) const final {
+    return items_.count(item) > 0;
   };
 
  private:
-  const SymbolSet symbols_;
+  const Items items_;
 };
 
 static const char* kTokenCharacters = ":!()&|";
 
-// Split a symbol filter expression into tokens.
+// Split a filter expression into tokens.
 //
 // All tokens are just strings, but single characters from kTokenCharacters are
 // recognised as special syntax. Whitespace can be used between tokens and will
@@ -186,7 +183,7 @@ std::queue<std::string> Tokenise(const std::string& filter) {
       }
       result.emplace(&*name, it - name);
     } else {
-      Die() << "unexpected character in symbol filter: '" << *it;
+      Die() << "unexpected character in filter: '" << *it;
     }
   }
 
@@ -194,10 +191,10 @@ std::queue<std::string> Tokenise(const std::string& filter) {
 }
 
 // The failing parser.
-std::unique_ptr<SymbolFilter> Fail(
+std::unique_ptr<Filter> Fail(
     const std::string& message, std::queue<std::string>& tokens) {
   std::ostringstream os;
-  os << "syntax error in symbol expression: '" << message << "'; context:";
+  os << "syntax error in filter expression: '" << message << "'; context:";
   for (size_t i = 0; i < 3; ++i) {
     os << ' ';
     if (tokens.empty()) {
@@ -210,12 +207,12 @@ std::unique_ptr<SymbolFilter> Fail(
   Die() << os.str();
 }
 
-std::unique_ptr<SymbolFilter> Expression(std::queue<std::string>& tokens);
+std::unique_ptr<Filter> Expression(std::queue<std::string>& tokens);
 
-// Parse a symbol filter atom.
-std::unique_ptr<SymbolFilter> Atom(std::queue<std::string>& tokens) {
+// Parse a filter atom.
+std::unique_ptr<Filter> Atom(std::queue<std::string>& tokens) {
   if (tokens.empty()) {
-    return Fail("expected a symbol expression", tokens);
+    return Fail("expected a filter expression", tokens);
   }
   auto token = tokens.front();
   tokens.pop();
@@ -235,14 +232,14 @@ std::unique_ptr<SymbolFilter> Atom(std::queue<std::string>& tokens) {
     return std::make_unique<SetFilter>(ReadAbigail(token));
   } else {
     if (std::strchr(kTokenCharacters, token[0])) {
-      return Fail("expected a symbol glob", tokens);
+      return Fail("expected a glob token", tokens);
     }
     return std::make_unique<GlobFilter>(token);
   }
 }
 
-// Parse a symbol filter factor.
-std::unique_ptr<SymbolFilter> Factor(std::queue<std::string>& tokens) {
+// Parse a filter factor.
+std::unique_ptr<Filter> Factor(std::queue<std::string>& tokens) {
   bool invert = false;
   while (!tokens.empty() && tokens.front() == "!") {
     tokens.pop();
@@ -255,8 +252,8 @@ std::unique_ptr<SymbolFilter> Factor(std::queue<std::string>& tokens) {
   return atom;
 }
 
-// Parse a symbol filter term.
-std::unique_ptr<SymbolFilter> Term(std::queue<std::string>& tokens) {
+// Parse a filter term.
+std::unique_ptr<Filter> Term(std::queue<std::string>& tokens) {
   auto factor = Factor(tokens);
   while (!tokens.empty() && tokens.front() == "&") {
     tokens.pop();
@@ -265,8 +262,8 @@ std::unique_ptr<SymbolFilter> Term(std::queue<std::string>& tokens) {
   return factor;
 }
 
-// Parse a symbol filter expression.
-std::unique_ptr<SymbolFilter> Expression(std::queue<std::string>& tokens) {
+// Parse a filter expression.
+std::unique_ptr<Filter> Expression(std::queue<std::string>& tokens) {
   auto term = Term(tokens);
   while (!tokens.empty() && tokens.front() == "|") {
     tokens.pop();
@@ -277,19 +274,19 @@ std::unique_ptr<SymbolFilter> Expression(std::queue<std::string>& tokens) {
 
 }  // namespace
 
-// Tokenise and parse a symbol filter expression.
-std::unique_ptr<SymbolFilter> MakeSymbolFilter(const std::string& filter)
+// Tokenise and parse a filter expression.
+std::unique_ptr<Filter> MakeFilter(const std::string& filter)
 {
   auto tokens = Tokenise(filter);
   auto result = Expression(tokens);
   if (!tokens.empty()) {
-    return Fail("unexpected junk at end of symbol filter", tokens);
+    return Fail("unexpected junk at end of filter", tokens);
   }
   return result;
 }
 
-void SymbolFilterUsage(std::ostream& os) {
-  os << "symbol filter syntax:\n"
+void FilterUsage(std::ostream& os) {
+  os << "filter syntax:\n"
      << "  <filter>   ::= <term>          |  <expression> '|' <term>\n"
      << "  <term>     ::= <factor>        |  <term> '&' <factor>\n"
      << "  <factor>   ::= <atom>          |  '!' <factor>\n"

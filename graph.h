@@ -181,20 +181,16 @@ struct BaseClass {
 std::ostream& operator<<(std::ostream& os, BaseClass::Inheritance inheritance);
 
 struct Method {
-  enum class Kind { NON_VIRTUAL, STATIC, VIRTUAL };
-  Method(const std::string& mangled_name, const std::string& name, Kind kind,
-         const std::optional<uint64_t> vtable_offset, Id type_id)
-      : mangled_name(mangled_name), name(name), kind(kind),
+  Method(const std::string& mangled_name, const std::string& name,
+         uint64_t vtable_offset, Id type_id)
+      : mangled_name(mangled_name), name(name),
         vtable_offset(vtable_offset), type_id(type_id) {}
 
   std::string mangled_name;
   std::string name;
-  Kind kind;
-  std::optional<uint64_t> vtable_offset;
+  uint64_t vtable_offset;
   Id type_id;
 };
-
-std::ostream& operator<<(std::ostream& os, Method::Kind kind);
 
 struct Member {
   Member(const std::string& name, Id type_id, uint64_t offset, uint64_t bitsize)

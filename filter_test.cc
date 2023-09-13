@@ -17,7 +17,7 @@
 //
 // Author: Giuliano Procida
 
-#include "symbol_filter.h"
+#include "filter.h"
 
 #include <sstream>
 #include <string>
@@ -54,7 +54,7 @@ TEST_CASE("bad syntax cases") {
   for (const auto& expression : cases) {
     std::ostringstream os;
     GIVEN("filter: " + expression) {
-      CHECK_THROWS(stg::MakeSymbolFilter(expression));
+      CHECK_THROWS(stg::MakeFilter(expression));
     }
   }
 }
@@ -106,7 +106,7 @@ TEST_CASE("hand-curated cases") {
   for (const auto& [expression, ins, outs] : cases) {
     std::ostringstream os;
     GIVEN("filter: " + expression) {
-      auto filter = stg::MakeSymbolFilter(expression);
+      auto filter = stg::MakeFilter(expression);
       for (const auto& in : ins) {
         GIVEN("in: " + in) {
           CHECK((*filter)(in));
