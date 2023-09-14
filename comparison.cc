@@ -353,13 +353,11 @@ MatchedPairs PairUp(const KeyIndexPairs& keys1, const KeyIndexPairs& keys2) {
 }
 
 void CompareNodes(Result& result, Compare& compare, const std::vector<Id>& ids1,
-                  const std::vector<Id>& ids2, const bool reorder) {
+                  const std::vector<Id>& ids2) {
   const auto keys1 = MatchingKeys(compare.graph, ids1);
   const auto keys2 = MatchingKeys(compare.graph, ids2);
   auto pairs = PairUp(keys1, keys2);
-  if (reorder) {
-    Reorder(pairs);
-  }
+  Reorder(pairs);
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
       // removed
@@ -477,10 +475,9 @@ Result Compare::operator()(const StructUnion& x1, const StructUnion& x2) {
   result.MaybeAddNodeDiff(
       "byte size", definition1->bytesize, definition2->bytesize);
   CompareNodes(
-     result, *this, definition1->base_classes, definition2->base_classes, true);
-  CompareNodes(
-     result, *this, definition1->methods, definition2->methods, false);
-  CompareNodes(result, *this, definition1->members, definition2->members, true);
+      result, *this, definition1->base_classes, definition2->base_classes);
+  CompareNodes(result, *this, definition1->methods, definition2->methods);
+  CompareNodes(result, *this, definition1->members, definition2->members);
 
   return result;
 }
