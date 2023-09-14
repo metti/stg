@@ -29,6 +29,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -452,12 +453,18 @@ class Processor {
     AddProcessedNode<Special>(entry, Special::Kind::NULLPTR);
   }
 
-  bool ShouldKeepDefinition(Entry& entry) const {
+  bool ShouldKeepDefinition(Entry& entry, const std::string& name) const {
     if (file_filter_ == nullptr) {
       return true;
     }
     const auto file = files_.MaybeGetFile(entry, DW_AT_decl_file);
     if (!file) {
+      // Built in types that do not have DW_AT_decl_file should be preserved.
+      static constexpr std::string_view kBuiltinPrefix = "__";
+      // TODO: use std::string_view::starts_with
+      if (name.substr(0, kBuiltinPrefix.size()) == kBuiltinPrefix) {
+        return true;
+      }
       Die() << "File filter is provided, but DWARF entry << "
             << EntryToString(entry) << " << doesn't have DW_AT_decl_file";
     }
@@ -515,7 +522,8 @@ class Processor {
       }
     }
 
-    if (entry.GetFlag(DW_AT_declaration) || !ShouldKeepDefinition(entry)) {
+    if (entry.GetFlag(DW_AT_declaration) ||
+        !ShouldKeepDefinition(entry, name)) {
       // Declaration may have partial information about members or method.
       // We only need to parse children for information that will be needed in
       // complete definition, but don't need to store them in incomplete node.
@@ -661,7 +669,7 @@ class Processor {
       enumerators.emplace_back(enumerator_name,
                                static_cast<int64_t>(*value_optional));
     }
-    if (!ShouldKeepDefinition(entry)) {
+    if (!ShouldKeepDefinition(entry, name)) {
       AddProcessedNode<Enumeration>(entry, name);
       return;
     }
