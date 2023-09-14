@@ -271,7 +271,7 @@ struct Compare {
 
   Comparison Removed(Id id);
   Comparison Added(Id id);
-  bool CompareDefined(bool defined1, bool defined2, Result& result);
+  void CompareDefined(bool defined1, bool defined2, Result& result);
 
   Result Mismatch();
   Result operator()(const Special&, const Special&);
