@@ -364,11 +364,13 @@ void CompareNodes(Result& result, Compare& compare, const std::vector<Id>& ids1,
       // added
       const auto& x2 = ids2[*index2];
       result.AddEdgeDiff("", compare.Added(x2));
-    } else {
+    } else if (index1 && index2) {
       // in both
       const auto& x1 = ids1[*index1];
       const auto& x2 = ids2[*index2];
       result.MaybeAddEdgeDiff("", compare(x1, x2));
+    } else {
+      Die() << "CompareNodes: impossible pair";
     }
   }
 }
@@ -532,7 +534,7 @@ Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
         os << "enumerator '" << enum2.first
            << "' (" << enum2.second << ") was added";
         result.AddNodeDiff(os.str());
-      } else {
+      } else if (index1 && index2) {
         // in both
         const auto& enum1 = enums1[*index1];
         const auto& enum2 = enums2[*index2];
@@ -541,6 +543,8 @@ Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
               os << "enumerator '" << enum1.first << "' value";
             },
             enum1.second, enum2.second);
+      } else {
+        Die() << "Compare(Enumeration): impossible pair";
       }
     }
   }
