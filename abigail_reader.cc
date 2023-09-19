@@ -996,8 +996,8 @@ Id Abigail::ProcessDecl(bool is_variable, xmlNodePtr decl) {
     // There's a link to an ELF symbol.
     const auto [it, inserted] = symbol_id_and_full_name_.emplace(
         *symbol_id, std::make_pair(type, name));
-    if (!inserted && it->second.first != type) {
-      Die() << "conflicting types for '" << *symbol_id << "'";
+    if (!inserted) {
+      Die() << "duplicate type for '" << *symbol_id << "'";
     }
   }
   return type;
