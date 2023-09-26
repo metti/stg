@@ -45,12 +45,12 @@ namespace stg {
 namespace {
 
 struct GetInterface {
-  Interface& operator()(Interface& x) {
+  Interface& operator()(Interface& x) const {
     return x;
   }
 
   template <typename Node>
-  Interface& operator()(Node&) {
+  Interface& operator()(Node&) const {
     Die() << "expected an Interface root node";
   }
 };
@@ -62,7 +62,7 @@ Id Merge(Graph& graph, const std::vector<Id>& roots, Metrics& metrics) {
   unification.Reserve(graph.Limit());
   std::map<std::string, Id> symbols;
   std::map<std::string, Id> types;
-  GetInterface get;
+  const GetInterface get;
   for (auto root : roots) {
     const auto& interface = graph.Apply<Interface&>(get, root);
     for (const auto& x : interface.symbols) {
