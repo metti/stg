@@ -56,6 +56,7 @@ struct GetInterface {
 };
 
 Id Merge(Graph& graph, const std::vector<Id>& roots, Metrics& metrics) {
+  bool failed = false;
   // this rewrites the graph on destruction
   Unification unification(graph, Id(0), metrics);
   unification.Reserve(graph.Limit());
@@ -66,17 +67,22 @@ Id Merge(Graph& graph, const std::vector<Id>& roots, Metrics& metrics) {
     const auto& interface = graph.Apply<Interface&>(get, root);
     for (const auto& x : interface.symbols) {
       if (!symbols.insert(x).second) {
-        Die() << "merge failed with duplicate symbol: " << x.first;
+        Warn() << "duplicate symbol during merge: " << x.first;
+        failed = true;
       }
     }
     // TODO: test type roots merge
     for (const auto& x : interface.types) {
       const auto [it, inserted] = types.insert(x);
       if (!inserted && !unification.Unify(x.second, it->second)) {
-        Die() << "merge failed with type conflict: " << x.first;
+        Warn() << "type conflict during merge: " << x.first;
+        failed = true;
       }
     }
     graph.Remove(root);
+  }
+  if (failed) {
+    Die() << "merge failed";
   }
   return graph.Add<Interface>(symbols, types);
 }
