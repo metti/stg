@@ -38,6 +38,7 @@
 #include <utility>
 #include <vector>
 
+#include <linux/btf.h>
 #include "elf_loader.h"
 #include "error.h"
 #include "graph.h"
