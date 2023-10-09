@@ -344,6 +344,17 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       graph_.Set<Primitive>(id(), name, encoding, t->size);
       break;
     }
+    case BTF_KIND_FLOAT: {
+      const auto name = GetName(t->name_off);
+      if (verbose_) {
+        std::cout << "FLOAT '" << name << "'"
+                  << " size=" << t->size
+                  << '\n';
+      }
+      const auto encoding = Primitive::Encoding::REAL_NUMBER;
+      graph_.Set<Primitive>(id(), name, encoding, t->size);
+      break;
+    }
     case BTF_KIND_PTR: {
       if (verbose_) {
         std::cout << "PTR '" << ANON << "' type_id=" << t->type << '\n';
