@@ -848,8 +848,8 @@ class Processor {
           // properly (resulting in no references to such DIEs).
           break;
         default:
-          Die() << "Unexpected tag for child of function: " << child_tag << ", "
-                << EntryToString(child);
+          Die() << "Unexpected tag for child of function: " << Hex(child_tag)
+                << ", " << EntryToString(child);
       }
     }
 
