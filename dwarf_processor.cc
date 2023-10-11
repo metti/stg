@@ -518,7 +518,7 @@ class Processor {
           break;
         default:
           Die() << "Unexpected tag for child of struct/class/union: "
-                << Hex(child_tag);
+                << Hex(child_tag) << ", " << EntryToString(child);
       }
     }
 
