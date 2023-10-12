@@ -350,6 +350,9 @@ class Processor {
       case DW_TAG_namespace:
         ProcessNamespace(entry);
         break;
+      case DW_TAG_lexical_block:
+        ProcessAllChildren(entry);
+        break;
 
       default:
         // TODO: die on unexpected tag, when this switch contains
