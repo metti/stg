@@ -821,6 +821,7 @@ class Processor {
         case DW_TAG_union_type:
         case DW_TAG_typedef:
         case DW_TAG_inlined_subroutine:
+        case DW_TAG_subprogram:
         case DW_TAG_variable:
         case DW_TAG_call_site:
         case DW_TAG_GNU_call_site:
