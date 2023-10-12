@@ -512,6 +512,12 @@ class Processor {
         case DW_TAG_variable:
           Process(child);
           break;
+        case DW_TAG_imported_declaration:
+        case DW_TAG_imported_module:
+          // For now information there is useless for ABI monitoring, but we
+          // need to check that there is no missing information in descendants.
+          CheckNoChildren(child);
+          break;
         case DW_TAG_template_type_parameter:
         case DW_TAG_template_value_parameter:
         case DW_TAG_GNU_template_template_param:
