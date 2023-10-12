@@ -581,15 +581,11 @@ class Processor {
         Die() << "Method " << EntryToString(entry)
               << " shouldn't have specification";
       }
-      const auto vtable_offset = entry.MaybeGetVtableOffset();
-      if (!vtable_offset) {
-        Die() << "Virtual method " << EntryToString(entry)
-              << " should have offset";
-      }
+      const auto vtable_offset = entry.MaybeGetVtableOffset().value_or(0);
       // TODO: proper handling of missing linkage name
       methods.push_back(AddProcessedNode<Method>(
           entry, subprogram.linkage_name.value_or("{missing}"),
-          *subprogram.name_with_context.unscoped_name, *vtable_offset, id));
+          *subprogram.name_with_context.unscoped_name, vtable_offset, id));
     }
   }
 
