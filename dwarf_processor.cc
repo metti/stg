@@ -509,6 +509,16 @@ class Processor {
         case DW_TAG_union_type:
         case DW_TAG_enumeration_type:
         case DW_TAG_typedef:
+        case DW_TAG_const_type:
+        case DW_TAG_volatile_type:
+        case DW_TAG_restrict_type:
+        case DW_TAG_atomic_type:
+        case DW_TAG_array_type:
+        case DW_TAG_pointer_type:
+        case DW_TAG_reference_type:
+        case DW_TAG_rvalue_reference_type:
+        case DW_TAG_ptr_to_member_type:
+        case DW_TAG_unspecified_type:
         case DW_TAG_variable:
           Process(child);
           break;
@@ -829,6 +839,16 @@ class Processor {
         case DW_TAG_class_type:
         case DW_TAG_union_type:
         case DW_TAG_typedef:
+        case DW_TAG_const_type:
+        case DW_TAG_volatile_type:
+        case DW_TAG_restrict_type:
+        case DW_TAG_atomic_type:
+        case DW_TAG_array_type:
+        case DW_TAG_pointer_type:
+        case DW_TAG_reference_type:
+        case DW_TAG_rvalue_reference_type:
+        case DW_TAG_ptr_to_member_type:
+        case DW_TAG_unspecified_type:
         case DW_TAG_inlined_subroutine:
         case DW_TAG_subprogram:
         case DW_TAG_variable:
