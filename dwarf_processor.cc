@@ -870,6 +870,7 @@ class Processor {
         case DW_TAG_template_value_parameter:
         case DW_TAG_GNU_template_template_param:
         case DW_TAG_GNU_template_parameter_pack:
+        case DW_TAG_GNU_formal_parameter_pack:
           // We just skip these as neither GCC nor Clang seem to use them
           // properly (resulting in no references to such DIEs).
           break;
