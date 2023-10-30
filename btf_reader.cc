@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -130,6 +131,8 @@ Id Structs::Process(std::string_view btf_data) {
       << "BTF section too small for header";
   const btf_header* header =
       reinterpret_cast<const btf_header*>(btf_data.data());
+  Check(reinterpret_cast<uintptr_t>(header) % alignof(btf_header) == 0)
+      << "misaligned BTF data";
   if (verbose_) {
     PrintHeader(header);
   }
@@ -145,7 +148,7 @@ Id Structs::Process(std::string_view btf_data) {
       << "header exceeds length";
   Check(header_limit <= type_start) << "type section overlaps header";
   Check(type_start <= type_limit) << "type section ill-formed";
-  Check(!(header->type_off & (sizeof(uint32_t) - 1)))
+  Check(reinterpret_cast<uintptr_t>(type_start) % alignof(btf_type) == 0)
       << "misaligned type section";
   Check(type_limit <= string_start)
       << "string section does not follow type section";
