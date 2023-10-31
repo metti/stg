@@ -43,6 +43,11 @@ find_package(LibDw REQUIRED)
 find_package(LibXml2 REQUIRED)
 find_package(Protobuf REQUIRED)
 
+if(NOT Protobuf_PROTOC_EXECUTABLE)
+  message(FATAL_ERROR "Could NOT find protobuf::protoc.
+Please install protobuf-compiler or set Protobuf_PROTOC_EXECUTABLE to the location of the \"protoc\" binary.")
+endif()
+
 set(COMMON_LIBRARIES
     LibElf::LibElf
     LibDw::LibDw

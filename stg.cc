@@ -45,38 +45,44 @@ namespace stg {
 namespace {
 
 struct GetInterface {
-  Interface& operator()(Interface& x) {
+  Interface& operator()(Interface& x) const {
     return x;
   }
 
   template <typename Node>
-  Interface& operator()(Node&) {
+  Interface& operator()(Node&) const {
     Die() << "expected an Interface root node";
   }
 };
 
 Id Merge(Graph& graph, const std::vector<Id>& roots, Metrics& metrics) {
+  bool failed = false;
   // this rewrites the graph on destruction
   Unification unification(graph, Id(0), metrics);
   unification.Reserve(graph.Limit());
   std::map<std::string, Id> symbols;
   std::map<std::string, Id> types;
-  GetInterface get;
+  const GetInterface get;
   for (auto root : roots) {
     const auto& interface = graph.Apply<Interface&>(get, root);
     for (const auto& x : interface.symbols) {
       if (!symbols.insert(x).second) {
-        Die() << "merge failed with duplicate symbol: " << x.first;
+        Warn() << "duplicate symbol during merge: " << x.first;
+        failed = true;
       }
     }
     // TODO: test type roots merge
     for (const auto& x : interface.types) {
       const auto [it, inserted] = types.insert(x);
       if (!inserted && !unification.Unify(x.second, it->second)) {
-        Die() << "merge failed with type conflict: " << x.first;
+        Warn() << "type conflict during merge: " << x.first;
+        failed = true;
       }
     }
     graph.Remove(root);
+  }
+  if (failed) {
+    Die() << "merge failed";
   }
   return graph.Add<Interface>(symbols, types);
 }
@@ -127,6 +133,7 @@ int main(int argc, char* argv[]) {
       {"info",            no_argument,       nullptr, 'i'       },
       {"keep-duplicates", no_argument,       nullptr, 'd'       },
       {"types",           no_argument,       nullptr, 't'       },
+      {"files",           required_argument, nullptr, 'F'       },
       {"file-filter",     required_argument, nullptr, 'F'       },
       {"symbols",         required_argument, nullptr, 'S'       },
       {"symbol-filter",   required_argument, nullptr, 'S'       },
@@ -144,7 +151,7 @@ int main(int argc, char* argv[]) {
               << "  [-i|--info]\n"
               << "  [-d|--keep-duplicates]\n"
               << "  [-t|--types]\n"
-              << "  [-F|--file-filter <filter>]\n"
+              << "  [-F|--files|--file-filter <filter>]\n"
               << "  [-S|--symbols|--symbol-filter <filter>]\n"
               << "  [--skip-dwarf]\n"
               << "  [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...\n"

@@ -350,6 +350,9 @@ class Processor {
       case DW_TAG_namespace:
         ProcessNamespace(entry);
         break;
+      case DW_TAG_lexical_block:
+        ProcessAllChildren(entry);
+        break;
 
       default:
         // TODO: die on unexpected tag, when this switch contains
@@ -506,8 +509,24 @@ class Processor {
         case DW_TAG_union_type:
         case DW_TAG_enumeration_type:
         case DW_TAG_typedef:
+        case DW_TAG_const_type:
+        case DW_TAG_volatile_type:
+        case DW_TAG_restrict_type:
+        case DW_TAG_atomic_type:
+        case DW_TAG_array_type:
+        case DW_TAG_pointer_type:
+        case DW_TAG_reference_type:
+        case DW_TAG_rvalue_reference_type:
+        case DW_TAG_ptr_to_member_type:
+        case DW_TAG_unspecified_type:
         case DW_TAG_variable:
           Process(child);
+          break;
+        case DW_TAG_imported_declaration:
+        case DW_TAG_imported_module:
+          // For now information there is useless for ABI monitoring, but we
+          // need to check that there is no missing information in descendants.
+          CheckNoChildren(child);
           break;
         case DW_TAG_template_type_parameter:
         case DW_TAG_template_value_parameter:
@@ -518,7 +537,7 @@ class Processor {
           break;
         default:
           Die() << "Unexpected tag for child of struct/class/union: "
-                << Hex(child_tag);
+                << Hex(child_tag) << ", " << EntryToString(child);
       }
     }
 
@@ -581,15 +600,11 @@ class Processor {
         Die() << "Method " << EntryToString(entry)
               << " shouldn't have specification";
       }
-      const auto vtable_offset = entry.MaybeGetVtableOffset();
-      if (!vtable_offset) {
-        Die() << "Virtual method " << EntryToString(entry)
-              << " should have offset";
-      }
+      const auto vtable_offset = entry.MaybeGetVtableOffset().value_or(0);
       // TODO: proper handling of missing linkage name
       methods.push_back(AddProcessedNode<Method>(
           entry, subprogram.linkage_name.value_or("{missing}"),
-          *subprogram.name_with_context.unscoped_name, *vtable_offset, id));
+          *subprogram.name_with_context.unscoped_name, vtable_offset, id));
     }
   }
 
@@ -824,7 +839,18 @@ class Processor {
         case DW_TAG_class_type:
         case DW_TAG_union_type:
         case DW_TAG_typedef:
+        case DW_TAG_const_type:
+        case DW_TAG_volatile_type:
+        case DW_TAG_restrict_type:
+        case DW_TAG_atomic_type:
+        case DW_TAG_array_type:
+        case DW_TAG_pointer_type:
+        case DW_TAG_reference_type:
+        case DW_TAG_rvalue_reference_type:
+        case DW_TAG_ptr_to_member_type:
+        case DW_TAG_unspecified_type:
         case DW_TAG_inlined_subroutine:
+        case DW_TAG_subprogram:
         case DW_TAG_variable:
         case DW_TAG_call_site:
         case DW_TAG_GNU_call_site:
@@ -844,12 +870,13 @@ class Processor {
         case DW_TAG_template_value_parameter:
         case DW_TAG_GNU_template_template_param:
         case DW_TAG_GNU_template_parameter_pack:
+        case DW_TAG_GNU_formal_parameter_pack:
           // We just skip these as neither GCC nor Clang seem to use them
           // properly (resulting in no references to such DIEs).
           break;
         default:
-          Die() << "Unexpected tag for child of function: " << child_tag << ", "
-                << EntryToString(child);
+          Die() << "Unexpected tag for child of function: " << Hex(child_tag)
+                << ", " << EntryToString(child);
       }
     }
 

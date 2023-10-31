@@ -290,19 +290,16 @@ Result Compare::operator()(const Array& x1, const Array& x2) {
   return result;
 }
 
-// return whether to continue comparing both definitions
-bool Compare::CompareDefined(bool defined1, bool defined2, Result& result) {
-  if (defined1 == defined2) {
-    return defined1;
+void Compare::CompareDefined(bool defined1, bool defined2, Result& result) {
+  if (defined1 != defined2) {
+    if (!ignore.Test(Ignore::TYPE_DECLARATION_STATUS)
+        && !(ignore.Test(Ignore::TYPE_DEFINITION_ADDITION) && defined2)) {
+      std::ostringstream os;
+      os << "was " << (defined1 ? "fully defined" : "only declared")
+         << ", is now " << (defined2 ? "fully defined" : "only declared");
+      result.AddNodeDiff(os.str());
+    }
   }
-  if (!ignore.Test(Ignore::TYPE_DECLARATION_STATUS)
-      && !(ignore.Test(Ignore::TYPE_DEFINITION_ADDITION) && defined2)) {
-    std::ostringstream os;
-    os << "was " << (defined1 ? "fully defined" : "only declared")
-       << ", is now " << (defined2 ? "fully defined" : "only declared");
-    result.AddNodeDiff(os.str());
-  }
-  return false;
 }
 
 namespace {
@@ -353,13 +350,11 @@ MatchedPairs PairUp(const KeyIndexPairs& keys1, const KeyIndexPairs& keys2) {
 }
 
 void CompareNodes(Result& result, Compare& compare, const std::vector<Id>& ids1,
-                  const std::vector<Id>& ids2, const bool reorder) {
+                  const std::vector<Id>& ids2) {
   const auto keys1 = MatchingKeys(compare.graph, ids1);
   const auto keys2 = MatchingKeys(compare.graph, ids2);
   auto pairs = PairUp(keys1, keys2);
-  if (reorder) {
-    Reorder(pairs);
-  }
+  Reorder(pairs);
   for (const auto& [index1, index2] : pairs) {
     if (index1 && !index2) {
       // removed
@@ -369,11 +364,13 @@ void CompareNodes(Result& result, Compare& compare, const std::vector<Id>& ids1,
       // added
       const auto& x2 = ids2[*index2];
       result.AddEdgeDiff("", compare.Added(x2));
-    } else {
+    } else if (index1 && index2) {
       // in both
       const auto& x1 = ids1[*index1];
       const auto& x2 = ids2[*index2];
       result.MaybeAddEdgeDiff("", compare(x1, x2));
+    } else {
+      Die() << "CompareNodes: impossible pair";
     }
   }
 }
@@ -469,18 +466,16 @@ Result Compare::operator()(const StructUnion& x1, const StructUnion& x2) {
 
   const auto& definition1 = x1.definition;
   const auto& definition2 = x2.definition;
-  if (!CompareDefined(definition1.has_value(), definition2.has_value(),
-                      result)) {
-    return result;
-  }
+  CompareDefined(definition1.has_value(), definition2.has_value(), result);
 
-  result.MaybeAddNodeDiff(
-      "byte size", definition1->bytesize, definition2->bytesize);
-  CompareNodes(
-     result, *this, definition1->base_classes, definition2->base_classes, true);
-  CompareNodes(
-     result, *this, definition1->methods, definition2->methods, false);
-  CompareNodes(result, *this, definition1->members, definition2->members, true);
+  if (definition1.has_value() && definition2.has_value()) {
+    result.MaybeAddNodeDiff(
+        "byte size", definition1->bytesize, definition2->bytesize);
+    CompareNodes(
+        result, *this, definition1->base_classes, definition2->base_classes);
+    CompareNodes(result, *this, definition1->methods, definition2->methods);
+    CompareNodes(result, *this, definition1->members, definition2->members);
+  }
 
   return result;
 }
@@ -509,46 +504,48 @@ Result Compare::operator()(const Enumeration& x1, const Enumeration& x2) {
 
   const auto& definition1 = x1.definition;
   const auto& definition2 = x2.definition;
-  if (!CompareDefined(definition1.has_value(), definition2.has_value(),
-                      result)) {
-    return result;
-  }
-  if (!ignore.Test(Ignore::ENUM_UNDERLYING_TYPE)) {
-    const auto type_diff = (*this)(definition1->underlying_type_id,
-                                   definition2->underlying_type_id);
-    result.MaybeAddEdgeDiff("underlying", type_diff);
-  }
+  CompareDefined(definition1.has_value(), definition2.has_value(), result);
 
-  const auto enums1 = definition1->enumerators;
-  const auto enums2 = definition2->enumerators;
-  const auto keys1 = MatchingKeys(enums1);
-  const auto keys2 = MatchingKeys(enums2);
-  auto pairs = PairUp(keys1, keys2);
-  Reorder(pairs);
-  for (const auto& [index1, index2] : pairs) {
-    if (index1 && !index2) {
-      // removed
-      const auto& enum1 = enums1[*index1];
-      std::ostringstream os;
-      os << "enumerator '" << enum1.first
-         << "' (" << enum1.second << ") was removed";
-      result.AddNodeDiff(os.str());
-    } else if (!index1 && index2) {
-      // added
-      const auto& enum2 = enums2[*index2];
-      std::ostringstream os;
-      os << "enumerator '" << enum2.first
-         << "' (" << enum2.second << ") was added";
-      result.AddNodeDiff(os.str());
-    } else {
-      // in both
-      const auto& enum1 = enums1[*index1];
-      const auto& enum2 = enums2[*index2];
-      result.MaybeAddNodeDiff(
-          [&](std::ostream& os) {
-            os << "enumerator '" << enum1.first << "' value";
-          },
-          enum1.second, enum2.second);
+  if (definition1.has_value() && definition2.has_value()) {
+    if (!ignore.Test(Ignore::ENUM_UNDERLYING_TYPE)) {
+      const auto type_diff = (*this)(definition1->underlying_type_id,
+                                     definition2->underlying_type_id);
+      result.MaybeAddEdgeDiff("underlying", type_diff);
+    }
+
+    const auto enums1 = definition1->enumerators;
+    const auto enums2 = definition2->enumerators;
+    const auto keys1 = MatchingKeys(enums1);
+    const auto keys2 = MatchingKeys(enums2);
+    auto pairs = PairUp(keys1, keys2);
+    Reorder(pairs);
+    for (const auto& [index1, index2] : pairs) {
+      if (index1 && !index2) {
+        // removed
+        const auto& enum1 = enums1[*index1];
+        std::ostringstream os;
+        os << "enumerator '" << enum1.first
+           << "' (" << enum1.second << ") was removed";
+        result.AddNodeDiff(os.str());
+      } else if (!index1 && index2) {
+        // added
+        const auto& enum2 = enums2[*index2];
+        std::ostringstream os;
+        os << "enumerator '" << enum2.first
+           << "' (" << enum2.second << ") was added";
+        result.AddNodeDiff(os.str());
+      } else if (index1 && index2) {
+        // in both
+        const auto& enum1 = enums1[*index1];
+        const auto& enum2 = enums2[*index2];
+        result.MaybeAddNodeDiff(
+            [&](std::ostream& os) {
+              os << "enumerator '" << enum1.first << "' value";
+            },
+            enum1.second, enum2.second);
+      } else {
+        Die() << "Compare(Enumeration): impossible pair";
+      }
     }
   }
 

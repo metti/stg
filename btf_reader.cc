@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -38,6 +39,7 @@
 #include <utility>
 #include <vector>
 
+#include <linux/btf.h>
 #include "elf_loader.h"
 #include "error.h"
 #include "graph.h"
@@ -129,6 +131,8 @@ Id Structs::Process(std::string_view btf_data) {
       << "BTF section too small for header";
   const btf_header* header =
       reinterpret_cast<const btf_header*>(btf_data.data());
+  Check(reinterpret_cast<uintptr_t>(header) % alignof(btf_header) == 0)
+      << "misaligned BTF data";
   if (verbose_) {
     PrintHeader(header);
   }
@@ -144,7 +148,7 @@ Id Structs::Process(std::string_view btf_data) {
       << "header exceeds length";
   Check(header_limit <= type_start) << "type section overlaps header";
   Check(type_start <= type_limit) << "type section ill-formed";
-  Check(!(header->type_off & (sizeof(uint32_t) - 1)))
+  Check(reinterpret_cast<uintptr_t>(type_start) % alignof(btf_type) == 0)
       << "misaligned type section";
   Check(type_limit <= string_start)
       << "string section does not follow type section";
@@ -315,6 +319,17 @@ void Structs::BuildOneType(const btf_type* t, uint32_t btf_index,
       if (bits != 8 * t->size) {
         Die() << "BTF INT bits != 8 * size";
       }
+      graph_.Set<Primitive>(id(), name, encoding, t->size);
+      break;
+    }
+    case BTF_KIND_FLOAT: {
+      const auto name = GetName(t->name_off);
+      if (verbose_) {
+        std::cout << "FLOAT '" << name << "'"
+                  << " size=" << t->size
+                  << '\n';
+      }
+      const auto encoding = Primitive::Encoding::REAL_NUMBER;
       graph_.Set<Primitive>(id(), name, encoding, t->size);
       break;
     }

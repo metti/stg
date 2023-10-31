@@ -14,7 +14,7 @@ stg
   [-i|--info]
   [-d|--keep-duplicates]
   [-t|--types]
-  [-F|--file-filter <filter>]
+  [-F|--files|--file-filter <filter>]
   [-S|--symbols|--symbol-filter <filter>]
   [--skip-dwarf]
   [-a|--abi|-b|--btf|-e|--elf|-s|--stg] [file] ...
@@ -100,7 +100,7 @@ types with references to full definitions, if that would result in equal types.
 
 There are two types of filters that can be applied to STG output:
 
-1.  `-F|--file-filter <filter>`
+1.  `-F|--files|--file-filter <filter>`
 
     Filter type definitions by source location.
 
