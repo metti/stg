@@ -407,21 +407,38 @@ std::optional<uint64_t> Entry::MaybeGetVtableOffset() {
 }
 
 std::optional<uint64_t> Entry::MaybeGetCount() {
-  auto dwarf_attribute = GetAttribute(&die, DW_AT_count);
-  if (!dwarf_attribute) {
+  auto lower_bound_attribute = MaybeGetUnsignedConstant(DW_AT_lower_bound);
+  if (lower_bound_attribute && *lower_bound_attribute != 0) {
+    Die() << "Non-zero DW_AT_lower_bound is not supported";
+  }
+  auto upper_bound_attribute = GetAttribute(&die, DW_AT_upper_bound);
+  auto count_attribute = GetAttribute(&die, DW_AT_count);
+  if (!upper_bound_attribute && !count_attribute) {
     return {};
+  }
+  if (upper_bound_attribute && count_attribute) {
+    Die() << "Both DW_AT_upper_bound and DW_AT_count given";
+  }
+  Dwarf_Attribute dwarf_attribute;
+  uint64_t addend;
+  if (upper_bound_attribute) {
+    dwarf_attribute = *upper_bound_attribute;
+    addend = 1;
+  } else {
+    dwarf_attribute = *count_attribute;
+    addend = 0;
   }
 
   uint64_t value;
-  if (dwarf_formudata(&dwarf_attribute.value(), &value) != kReturnOk) {
-    // All errors are interpreted as "value of DW_AT_count is not a constant"
-    // and ignored. There is no stable API in libdw for checking the exact error
-    // reason.
-    // TODO: implement clean solution for separating "not a
-    // constant" errors from other errors.
-    return {};
+  if (dwarf_formudata(&dwarf_attribute, &value) == kReturnOk) {
+    return value + addend;
   }
-  return value;
+
+  // Don't fail if attribute is not a constant and treat this as no count
+  // provided. This can happen if array has variable length.
+  // TODO: implement clean solution for separating "not a
+  // constant" errors from other errors.
+  return {};
 }
 
 Files::Files(Entry& compilation_unit) {

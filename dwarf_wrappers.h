@@ -82,8 +82,8 @@ struct Entry {
   std::optional<Address> MaybeGetAddress(uint32_t attribute);
   std::optional<uint64_t> MaybeGetMemberByteOffset();
   std::optional<uint64_t> MaybeGetVtableOffset();
-  // Returns value of DW_AT_count if it is constant or nullptr if it is not
-  // defined or cannot be represented as constant.
+  // Returns value of subrange element count if it is constant or nullopt if it
+  // is not defined or cannot be represented as constant.
   std::optional<uint64_t> MaybeGetCount();
 };
 

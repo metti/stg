@@ -136,26 +136,13 @@ size_t GetNumberOfElements(Entry& entry) {
   // code supports only the DW_TAG_subrange_type.
   Check(entry.GetTag() == DW_TAG_subrange_type)
       << "Array's dimensions should be an entry of DW_TAG_subrange_type";
-  std::optional<size_t> lower_bound_optional =
-      entry.MaybeGetUnsignedConstant(DW_AT_lower_bound);
-  Check(!lower_bound_optional.has_value() || *lower_bound_optional == 0)
-      << "Non-zero DW_AT_lower_bound is not supported";
-  std::optional<size_t> upper_bound_optional =
-      entry.MaybeGetUnsignedConstant(DW_AT_upper_bound);
-  // Don't fail if DW_AT_count is not a constant and treat this as no count
-  // provided. This can happen if array has variable length.
-  std::optional<size_t> number_of_elements_optional = entry.MaybeGetCount();
-  if (upper_bound_optional && number_of_elements_optional) {
-    Die() << "Both DW_AT_upper_bound and DW_AT_count given";
-  } else if (upper_bound_optional) {
-    return *upper_bound_optional + 1;
-  } else if (number_of_elements_optional) {
-    return *number_of_elements_optional;
-  } else {
-    // If a subrange has no DW_AT_count and no DW_AT_upper_bound attribue, its
-    // size is unknown.
-    return 0;
+  std::optional<size_t> number_of_elements = entry.MaybeGetCount();
+  if (number_of_elements) {
+    return *number_of_elements;
   }
+  // If a subrange has no DW_AT_count and no DW_AT_upper_bound attribute, its
+  // size is unknown.
+  return 0;
 }
 
 // Calculate number of bits from the "beginning" of the containing entity to
