@@ -182,22 +182,23 @@ Elf* Handler::GetElf() {
   return elf;
 }
 
-std::vector<Entry> Handler::GetCompilationUnits() {
-  std::vector<Entry> result;
+std::vector<CompilationUnit> Handler::GetCompilationUnits() {
+  std::vector<CompilationUnit> result;
   Dwarf_Off offset = 0;
   while (true) {
     Dwarf_Off next_offset;
     size_t header_size = 0;
+    Dwarf_Half version = 0;
     int return_code =
-        dwarf_next_unit(dwarf_, offset, &next_offset, &header_size, nullptr,
+        dwarf_next_unit(dwarf_, offset, &next_offset, &header_size, &version,
                         nullptr, nullptr, nullptr, nullptr, nullptr);
     Check(return_code == kReturnOk || return_code == kReturnNoEntry)
         << "dwarf_next_unit returned error";
     if (return_code == kReturnNoEntry) {
       break;
     }
-    result.push_back({});
-    Check(dwarf_offdie(dwarf_, offset + header_size, &result.back().die))
+    result.push_back({version, {}});
+    Check(dwarf_offdie(dwarf_, offset + header_size, &result.back().entry.die))
         << "dwarf_offdie returned error";
 
     offset = next_offset;

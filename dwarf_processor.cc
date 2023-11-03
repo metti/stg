@@ -928,8 +928,8 @@ Types Process(Handler& dwarf, bool is_little_endian_binary,
   const Id variadic_id = graph.Add<Special>(Special::Kind::VARIADIC);
   Processor processor(graph, void_id, variadic_id, is_little_endian_binary,
                       file_filter, result);
-  for (auto& entry : dwarf.GetCompilationUnits()) {
-    processor.Process(entry);
+  for (auto& compilation_unit : dwarf.GetCompilationUnits()) {
+    processor.Process(compilation_unit.entry);
   }
   processor.CheckUnresolvedIds();
   processor.ResolveSymbolSpecifications();

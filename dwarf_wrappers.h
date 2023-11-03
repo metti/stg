@@ -87,6 +87,12 @@ struct Entry {
   std::optional<uint64_t> MaybeGetCount();
 };
 
+// Metadata and top-level entry of a compilation unit.
+struct CompilationUnit {
+  int version;
+  Entry entry;
+};
+
 // C++ wrapper over libdw (DWARF library).
 //
 // Creates a "Dwarf" object from an ELF file or a memory and controls the life
@@ -97,7 +103,7 @@ class Handler {
   Handler(char* data, size_t size);
 
   Elf* GetElf();
-  std::vector<Entry> GetCompilationUnits();
+  std::vector<CompilationUnit> GetCompilationUnits();
 
  private:
   struct DwflDeleter {
