@@ -258,6 +258,43 @@ class Processor {
         file_filter_(file_filter),
         result_(result) {}
 
+  void ProcessCompilationUnit(CompilationUnit& compilation_unit) {
+    version_ = compilation_unit.version;
+    if (file_filter_ != nullptr) {
+      files_ = dwarf::Files(compilation_unit.entry);
+    }
+    Process(compilation_unit.entry);
+  }
+
+  void CheckUnresolvedIds() const {
+    for (const auto& [offset, id] : id_map_) {
+      if (!graph_.Is(id)) {
+        Die() << "unresolved id " << id << ", DWARF offset " << Hex(offset);
+      }
+    }
+  }
+
+  void ResolveSymbolSpecifications() {
+    std::sort(unresolved_symbol_specifications_.begin(),
+              unresolved_symbol_specifications_.end());
+    std::sort(scoped_names_.begin(), scoped_names_.end());
+    auto symbols_it = unresolved_symbol_specifications_.begin();
+    auto names_it = scoped_names_.begin();
+    while (symbols_it != unresolved_symbol_specifications_.end()) {
+      while (names_it != scoped_names_.end() &&
+             names_it->first < symbols_it->first) {
+        ++names_it;
+      }
+      if (names_it == scoped_names_.end() ||
+          names_it->first != symbols_it->first) {
+        Die() << "Scoped name not found for entry " << Hex(symbols_it->first);
+      }
+      result_.symbols[symbols_it->second].name = names_it->second;
+      ++symbols_it;
+    }
+  }
+
+ private:
   void Process(Entry& entry) {
     ++result_.processed_entries;
     auto tag = entry.GetTag();
@@ -299,7 +336,7 @@ class Processor {
         ProcessUnspecifiedType(entry);
         break;
       case DW_TAG_compile_unit:
-        ProcessCompileUnit(entry);
+        ProcessAllChildren(entry);
         break;
       case DW_TAG_typedef:
         ProcessTypedef(entry);
@@ -348,35 +385,6 @@ class Processor {
     }
   }
 
-  void CheckUnresolvedIds() const {
-    for (const auto& [offset, id] : id_map_) {
-      if (!graph_.Is(id)) {
-        Die() << "unresolved id " << id << ", DWARF offset " << Hex(offset);
-      }
-    }
-  }
-
-  void ResolveSymbolSpecifications() {
-    std::sort(unresolved_symbol_specifications_.begin(),
-              unresolved_symbol_specifications_.end());
-    std::sort(scoped_names_.begin(), scoped_names_.end());
-    auto symbols_it = unresolved_symbol_specifications_.begin();
-    auto names_it = scoped_names_.begin();
-    while (symbols_it != unresolved_symbol_specifications_.end()) {
-      while (names_it != scoped_names_.end() &&
-             names_it->first < symbols_it->first) {
-        ++names_it;
-      }
-      if (names_it == scoped_names_.end() ||
-          names_it->first != symbols_it->first) {
-        Die() << "Scoped name not found for entry " << Hex(symbols_it->first);
-      }
-      result_.symbols[symbols_it->second].name = names_it->second;
-      ++symbols_it;
-    }
-  }
-
- private:
   void ProcessAllChildren(Entry& entry) {
     for (auto& child : entry.GetChildren()) {
       Process(child);
@@ -387,13 +395,6 @@ class Processor {
     if (!entry.GetChildren().empty()) {
       Die() << "Entry expected to have no children";
     }
-  }
-
-  void ProcessCompileUnit(Entry& entry) {
-    if (file_filter_ != nullptr) {
-      files_ = dwarf::Files(entry);
-    }
-    ProcessAllChildren(entry);
   }
 
   void ProcessNamespace(Entry& entry) {
@@ -914,10 +915,12 @@ class Processor {
   const std::unique_ptr<Filter>& file_filter_;
   Types& result_;
   std::unordered_map<Dwarf_Off, Id> id_map_;
-  // Current scope.
-  Scope scope_;
   std::vector<std::pair<Dwarf_Off, std::string>> scoped_names_;
   std::vector<std::pair<Dwarf_Off, size_t>> unresolved_symbol_specifications_;
+
+  // Current scope.
+  Scope scope_;
+  int version_;
   dwarf::Files files_;
 };
 
@@ -926,10 +929,12 @@ Types Process(Handler& dwarf, bool is_little_endian_binary,
   Types result;
   const Id void_id = graph.Add<Special>(Special::Kind::VOID);
   const Id variadic_id = graph.Add<Special>(Special::Kind::VARIADIC);
+  // TODO: Scope Processor to compilation units?
   Processor processor(graph, void_id, variadic_id, is_little_endian_binary,
                       file_filter, result);
   for (auto& compilation_unit : dwarf.GetCompilationUnits()) {
-    processor.Process(compilation_unit.entry);
+    // Could fetch top-level attributes like compiler here.
+    processor.ProcessCompilationUnit(compilation_unit);
   }
   processor.CheckUnresolvedIds();
   processor.ResolveSymbolSpecifications();
