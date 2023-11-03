@@ -71,6 +71,11 @@ std::string GetNameOrEmpty(Entry& entry) {
   return std::move(*result);
 }
 
+std::optional<std::string> MaybeGetLinkageName(int version, Entry& entry) {
+  return entry.MaybeGetString(
+      version < 4 ? DW_AT_MIPS_linkage_name : DW_AT_linkage_name);
+}
+
 size_t GetBitSize(Entry& entry) {
   if (auto byte_size = entry.MaybeGetUnsignedConstant(DW_AT_byte_size)) {
     return *byte_size * 8;
@@ -773,7 +778,7 @@ class Processor {
       const auto new_symbol_idx = result_.symbols.size();
       result_.symbols.push_back(Types::Symbol{
           .name = GetScopedNameForSymbol(new_symbol_idx, name_with_context),
-          .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
+          .linkage_name = MaybeGetLinkageName(version_, entry),
           .address = *address,
           .id = referred_type_id});
     }
@@ -870,7 +875,7 @@ class Processor {
 
     return Subprogram{.node = Function(return_type_id, parameters),
                       .name_with_context = GetNameWithContext(entry),
-                      .linkage_name = entry.MaybeGetString(DW_AT_linkage_name),
+                      .linkage_name = MaybeGetLinkageName(version_, entry),
                       .address = entry.MaybeGetAddress(DW_AT_low_pc),
                       .external = entry.GetFlag(DW_AT_external)};
   }
