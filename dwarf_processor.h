@@ -51,10 +51,6 @@ struct Types {
 Types Process(Handler& dwarf, bool is_little_endian_binary,
               const std::unique_ptr<Filter>& file_filter, Graph& graph);
 
-// Process every entry passed there. It should be used only for testing.
-Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
-                     const std::unique_ptr<Filter>& file_filter, Graph& graph);
-
 }  // namespace dwarf
 }  // namespace stg
 

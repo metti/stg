@@ -921,26 +921,20 @@ class Processor {
   dwarf::Files files_;
 };
 
-Types ProcessEntries(std::vector<Entry> entries, bool is_little_endian_binary,
-                     const std::unique_ptr<Filter>& file_filter, Graph& graph) {
+Types Process(Handler& dwarf, bool is_little_endian_binary,
+              const std::unique_ptr<Filter>& file_filter, Graph& graph) {
   Types result;
   const Id void_id = graph.Add<Special>(Special::Kind::VOID);
   const Id variadic_id = graph.Add<Special>(Special::Kind::VARIADIC);
   Processor processor(graph, void_id, variadic_id, is_little_endian_binary,
                       file_filter, result);
-  for (auto& entry : entries) {
+  for (auto& entry : dwarf.GetCompilationUnits()) {
     processor.Process(entry);
   }
   processor.CheckUnresolvedIds();
   processor.ResolveSymbolSpecifications();
 
   return result;
-}
-
-Types Process(Handler& dwarf, bool is_little_endian_binary,
-              const std::unique_ptr<Filter>& file_filter, Graph& graph) {
-  return ProcessEntries(dwarf.GetCompilationUnits(), is_little_endian_binary,
-                        file_filter, graph);
 }
 
 }  // namespace dwarf
