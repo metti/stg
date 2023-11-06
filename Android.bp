@@ -37,6 +37,7 @@ cc_defaults {
     visibility: [
         "//visibility:private",
     ],
+    cpp_std: "c++20",
     cflags: [
         "-DUSE_ANDROID_BUILD_NUMBER",
         "-fexceptions",
