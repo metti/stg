@@ -31,14 +31,7 @@ namespace stg {
 
 struct HashValue {
   constexpr explicit HashValue(uint32_t value) : value(value) {}
-  // TODO: bool operator==(const HashValue&) const = default;
-  bool operator==(const HashValue& other) const {
-    return value == other.value;
-  }
-  bool operator!=(const HashValue& other) const {
-    return value != other.value;
-  }
-
+  auto operator<=>(const HashValue&) const = default;
   uint32_t value;
 };
 
