@@ -1,0 +1,30 @@
+function symbol 'void func(struct boo)' {_Z4func3boo} changed
+  type 'void(struct boo)' changed
+    parameter 1 type 'struct boo' changed
+
+type 'struct boo' changed
+  member 'struct foo* ptr1' changed
+    type 'struct foo*' changed
+      pointed-to type 'struct foo' changed
+  member 'struct foo& lref1' changed
+    type 'struct foo&' changed
+      referred-to type 'struct foo' changed
+  member 'struct foo&& rref1' changed
+    type 'struct foo&&' changed
+      referred-to type 'struct foo' changed
+  member changed from 'int* ptr2' to 'char* ptr2'
+    type changed from 'int*' to 'char*'
+      pointed-to type changed from 'int' to 'char'
+  member changed from 'int& lref2' to 'char& lref2'
+    type changed from 'int&' to 'char&'
+      referred-to type changed from 'int' to 'char'
+  member changed from 'int&& rref2' to 'char&& rref2'
+    type changed from 'int&&' to 'char&&'
+      referred-to type changed from 'int' to 'char'
+
+type 'struct foo' changed
+  byte size changed from 4 to 8
+  member changed from 'int x' to 'long x'
+    type changed from 'int' to 'long'
+
+exit code 4
