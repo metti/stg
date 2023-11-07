@@ -21,7 +21,6 @@
 #ifndef STG_HASHING_H_
 #define STG_HASHING_H_
 
-#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
