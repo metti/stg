@@ -24,6 +24,7 @@
 #include <elfutils/libdw.h>
 #include <elfutils/libdwfl.h>
 
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -37,14 +38,7 @@ namespace stg {
 namespace dwarf {
 
 struct Address {
-  // TODO: use auto operator<=>
-  bool operator<(const Address& other) const {
-    return std::tie(value, is_tls) < std::tie(other.value, other.is_tls);
-  }
-
-  bool operator==(const Address& other) const {
-    return value == other.value && is_tls == other.is_tls;
-  }
+  auto operator<=>(const Address&) const = default;
 
   uint64_t value;
   bool is_tls;
@@ -82,9 +76,15 @@ struct Entry {
   std::optional<Address> MaybeGetAddress(uint32_t attribute);
   std::optional<uint64_t> MaybeGetMemberByteOffset();
   std::optional<uint64_t> MaybeGetVtableOffset();
-  // Returns value of DW_AT_count if it is constant or nullptr if it is not
-  // defined or cannot be represented as constant.
+  // Returns value of subrange element count if it is constant or nullopt if it
+  // is not defined or cannot be represented as constant.
   std::optional<uint64_t> MaybeGetCount();
+};
+
+// Metadata and top-level entry of a compilation unit.
+struct CompilationUnit {
+  int version;
+  Entry entry;
 };
 
 // C++ wrapper over libdw (DWARF library).
@@ -97,7 +97,7 @@ class Handler {
   Handler(char* data, size_t size);
 
   Elf* GetElf();
-  std::vector<Entry> GetCompilationUnits();
+  std::vector<CompilationUnit> GetCompilationUnits();
 
  private:
   struct DwflDeleter {

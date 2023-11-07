@@ -1,0 +1,49 @@
+variable symbol 'int removed_n::var' {_ZN9removed_n3varE} was removed
+
+variable symbol 'int added_n::var' {_ZN7added_n3varE} was added
+
+variable symbol changed from 'int foo::array_decl[5]' {_ZN3foo10array_declE} to 'long foo::array_decl[5]' {_ZN3foo10array_declE}
+  type changed from 'int[5]' to 'long[5]'
+    element type changed from 'int' to 'long'
+
+variable symbol 'union foo::UnionDecl foo::union_decl' {_ZN3foo10union_declE} changed
+  type 'union foo::UnionDecl' changed
+    byte size changed from 4 to 8
+    member changed from 'int x' to 'long x'
+      type changed from 'int' to 'long'
+
+variable symbol changed from 'const int foo::qualif_decl' {_ZN3foo11qualif_declE} to 'const long foo::qualif_decl' {_ZN3foo11qualif_declE}
+  type changed from 'const int' to 'const long'
+    underlying type changed from 'int' to 'long'
+
+variable symbol 'struct foo::StructDecl foo::struct_decl' {_ZN3foo11struct_declE} changed
+  type 'struct foo::StructDecl' changed
+    byte size changed from 4 to 8
+    member changed from 'int x' to 'long x'
+      type changed from 'int' to 'long'
+
+variable symbol changed from 'int foo::var_decl' {_ZN3foo8var_declE} to 'long foo::var_decl' {_ZN3foo8var_declE}
+  type changed from 'int' to 'long'
+
+variable symbol 'enum foo::EnumDecl foo::enum_decl' {_ZN3foo9enum_declE} changed
+  type 'enum foo::EnumDecl' changed
+    enumerator 'Z' (2) was added
+
+function symbol changed from 'int foo::func_decl(struct foo::help)' {_ZN3foo9func_declENS_4helpE} to 'long foo::func_decl(struct foo::help)' {_ZN3foo9func_declENS_4helpE}
+  type changed from 'int(struct foo::help)' to 'long(struct foo::help)'
+    return type changed from 'int' to 'long'
+    parameter 1 type 'struct foo::help' changed
+      member changed from 'int* ptr_decl' to 'long* ptr_decl'
+        type changed from 'int*' to 'long*'
+          pointed-to type changed from 'int' to 'long'
+      member changed from 'int& lref_decl' to 'long& lref_decl'
+        type changed from 'int&' to 'long&'
+          referred-to type changed from 'int' to 'long'
+      member changed from 'int&& rref_decl' to 'long&& rref_decl'
+        type changed from 'int&&' to 'long&&'
+          referred-to type changed from 'int' to 'long'
+      member 'foo::typedef_decl t' changed
+        type changed from 'foo::typedef_decl' = 'int' to 'foo::typedef_decl' = 'long'
+          resolved type changed from 'int' to 'long'
+
+exit code 4

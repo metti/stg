@@ -23,7 +23,7 @@ project(
   VERSION 0.0.1
   LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 add_compile_options(-fstrict-enums -Wall -Wextra)
 

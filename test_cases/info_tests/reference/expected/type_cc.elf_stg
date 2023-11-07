@@ -1,0 +1,128 @@
+version: 0x00000002
+root_id: 0x84ea5130
+special {
+  id: 0x48b5725f
+  kind: VOID
+}
+pointer_reference {
+  id: 0x0483e6f8
+  kind: POINTER
+  pointee_type_id: 0x384f7d7c
+}
+pointer_reference {
+  id: 0x24b3ee1b
+  kind: POINTER
+  pointee_type_id: 0xb88f5ef1
+}
+pointer_reference {
+  id: 0x547353fb
+  kind: RVALUE_REFERENCE
+  pointee_type_id: 0xb88f5ef1
+}
+pointer_reference {
+  id: 0x74435b18
+  kind: RVALUE_REFERENCE
+  pointee_type_id: 0x384f7d7c
+}
+pointer_reference {
+  id: 0xc983f02f
+  kind: LVALUE_REFERENCE
+  pointee_type_id: 0x384f7d7c
+}
+pointer_reference {
+  id: 0xe9b3f8cc
+  kind: LVALUE_REFERENCE
+  pointee_type_id: 0xb88f5ef1
+}
+primitive {
+  id: 0x384f7d7c
+  name: "char"
+  encoding: UNSIGNED_CHARACTER
+  bytesize: 0x00000001
+}
+primitive {
+  id: 0xfc0e1dbd
+  name: "long"
+  encoding: SIGNED_INTEGER
+  bytesize: 0x00000008
+}
+member {
+  id: 0x356c9a41
+  name: "lref1"
+  type_id: 0xe9b3f8cc
+  offset: 64
+}
+member {
+  id: 0xf58c07c5
+  name: "lref2"
+  type_id: 0xc983f02f
+  offset: 256
+}
+member {
+  id: 0xfceed921
+  name: "ptr1"
+  type_id: 0x24b3ee1b
+}
+member {
+  id: 0xbc0ffbf4
+  name: "ptr2"
+  type_id: 0x0483e6f8
+  offset: 192
+}
+member {
+  id: 0x28142580
+  name: "rref1"
+  type_id: 0x547353fb
+  offset: 128
+}
+member {
+  id: 0x6f76291d
+  name: "rref2"
+  type_id: 0x74435b18
+  offset: 320
+}
+member {
+  id: 0xa04e65cb
+  name: "x"
+  type_id: 0xfc0e1dbd
+}
+struct_union {
+  id: 0xe507e03d
+  kind: STRUCT
+  name: "boo"
+  definition {
+    bytesize: 48
+    member_id: 0xfceed921
+    member_id: 0x356c9a41
+    member_id: 0x28142580
+    member_id: 0xbc0ffbf4
+    member_id: 0xf58c07c5
+    member_id: 0x6f76291d
+  }
+}
+struct_union {
+  id: 0xb88f5ef1
+  kind: STRUCT
+  name: "foo"
+  definition {
+    bytesize: 8
+    member_id: 0xa04e65cb
+  }
+}
+function {
+  id: 0x29d9a99c
+  return_type_id: 0x48b5725f
+  parameter_id: 0xe507e03d
+}
+elf_symbol {
+  id: 0x1f6f1cb8
+  name: "_Z4func3boo"
+  is_defined: true
+  symbol_type: FUNCTION
+  type_id: 0x29d9a99c
+  full_name: "func"
+}
+interface {
+  id: 0x84ea5130
+  symbol_id: 0x1f6f1cb8
+}
