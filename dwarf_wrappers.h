@@ -24,6 +24,7 @@
 #include <elfutils/libdw.h>
 #include <elfutils/libdwfl.h>
 
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
