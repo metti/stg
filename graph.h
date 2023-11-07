@@ -43,7 +43,13 @@ struct Id {
   // defined in graph.cc as maximum value for index type
   static const Id kInvalid;
   explicit Id(size_t ix) : ix_(ix) {}
-  auto operator<=>(const Id&) const = default;
+  // TODO: auto operator<=>(const Id&) const = default;
+  bool operator==(const Id& other) const {
+    return ix_ == other.ix_;
+  }
+  bool operator!=(const Id& other) const {
+    return ix_ != other.ix_;
+  }
   size_t ix_;
 };
 
@@ -247,13 +253,22 @@ struct ElfSymbol {
   enum class Binding { GLOBAL, LOCAL, WEAK, GNU_UNIQUE };
   enum class Visibility { DEFAULT, PROTECTED, HIDDEN, INTERNAL };
   struct VersionInfo {
-    auto operator<=>(const VersionInfo&) const = default;
+    // TODO: auto operator<=>(const VersionInfo&) const = default;
+    bool operator==(const VersionInfo& other) const {
+      return is_default == other.is_default && name == other.name;
+    }
     bool is_default;
     std::string name;
   };
   struct CRC {
     explicit CRC(uint32_t number) : number(number) {}
-    auto operator<=>(const CRC&) const = default;
+    // TODO: auto operator<=>(const bool&) const = default;
+    bool operator==(const CRC& other) const {
+      return number == other.number;
+    }
+    bool operator!=(const CRC& other) const {
+      return number != other.number;
+    }
     uint32_t number;
   };
   ElfSymbol(const std::string& symbol_name,

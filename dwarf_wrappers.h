@@ -37,7 +37,14 @@ namespace stg {
 namespace dwarf {
 
 struct Address {
-  auto operator<=>(const Address&) const = default;
+  // TODO: use auto operator<=>
+  bool operator<(const Address& other) const {
+    return std::tie(value, is_tls) < std::tie(other.value, other.is_tls);
+  }
+
+  bool operator==(const Address& other) const {
+    return value == other.value && is_tls == other.is_tls;
+  }
 
   uint64_t value;
   bool is_tls;
